@@ -1,0 +1,1 @@
+- [Evidence gates](soy-money-os.md) — keep hypotheses, simulations, and verified demand distinct; only REAL_VERIFIED can unlock later gates.

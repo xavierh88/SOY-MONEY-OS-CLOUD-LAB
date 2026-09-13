@@ -1,6 +1,6 @@
-# [Project name]
+# SOY MONEY OS
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Consola en español para descubrir, investigar, verificar y priorizar oportunidades con evidencia trazable y aprobación humana.
 
 ## Run & Operate
 
@@ -22,15 +22,22 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/soy-money-os/src/` — frontend responsive y navegación de la consola.
+- `artifacts/api-server/src/routes/soy-money.ts` — endpoints del flujo end-to-end.
+- `lib/api-spec/openapi.yaml` — contrato único de API.
+- `lib/db/src/schema/soy-money.ts` — tablas persistentes del dominio.
+- `artifacts/soy-money-os/src/index.css` — tokens y tema visual.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- El primer ciclo ejecuta DISCOVER → RESEARCH → EVIDENCE → VERIFY → SCORE → DEMAND_PROOF y se detiene antes de construir automáticamente.
+- La evidencia de la V1 se etiqueta `TEST_SIMULATION` y no desbloquea gates; `REAL_VERIFIED` queda reservado para integraciones futuras.
+- Las acciones sensibles pasan por `approvals`; una aprobación explícita crea un proyecto exploratorio, pero no ejecuta dinero real ni operaciones financieras.
+- El modelo conserva executions, activity, evidence, demand proof, results y learning para que un orquestador futuro pueda continuar desde checkpoints.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Dashboard ejecutivo, Opportunity Engine, Research/Evidence Ledger, Verifier, Scoring, Demand Proof, Projects, Results, Learning, approval checkpoints y activity log.
 
 ## User preferences
 
@@ -38,7 +45,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Las fuentes externas no están configuradas; el pipeline local lo muestra como `NOT_CONFIGURED` y no lo presenta como demanda real.
+- Después de cambiar `lib/api-spec/openapi.yaml`, ejecutar codegen antes de usar nuevos hooks o schemas.
 
 ## Pointers
 

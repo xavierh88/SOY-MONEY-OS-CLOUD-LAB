@@ -3,13 +3,22 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: SOY MONEY OS API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: dashboard
+  - name: opportunities
+  - name: pipeline
+  - name: approvals
+  - name: projects
+  - name: activity
+  - name: demand-proof
+  - name: results
+  - name: learning
 paths:
   /healthz:
     get:
@@ -24,7 +33,202 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Get executive dashboard
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+  /opportunities:
+    get:
+      operationId: listOpportunities
+      tags: [opportunities]
+      summary: List opportunities
+      responses:
+        "200":
+          description: Opportunity list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Opportunity"
+    post:
+      operationId: createOpportunity
+      tags: [opportunities]
+      summary: Create an opportunity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpportunityInput"
+      responses:
+        "201":
+          description: Created opportunity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Opportunity"
+  /opportunities/{id}:
+    get:
+      operationId: getOpportunity
+      tags: [opportunities]
+      summary: Get an opportunity with its evidence
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Opportunity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpportunityDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /pipeline/start:
+    post:
+      operationId: startPipeline
+      tags: [pipeline]
+      summary: Start a research pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PipelineInput"
+      responses:
+        "201":
+          description: Pipeline execution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineRun"
+  /approvals:
+    get:
+      operationId: listApprovals
+      tags: [approvals]
+      summary: List pending human approvals
+      responses:
+        "200":
+          description: Approval list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Approval"
+  /approvals/{id}/decision:
+    post:
+      operationId: decideApproval
+      tags: [approvals]
+      summary: Approve or reject a checkpoint
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecisionInput"
+      responses:
+        "200":
+          description: Updated approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List projects
+      responses:
+        "200":
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+  /activity:
+    get:
+      operationId: listActivity
+      tags: [activity]
+      summary: List execution activity
+      responses:
+        "200":
+          description: Activity list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
+  /demand-proof:
+    get:
+      operationId: listDemandProof
+      tags: [demand-proof]
+      summary: List demand proof records
+      responses:
+        "200":
+          description: Demand proof list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DemandProof"
+  /results:
+    get:
+      operationId: listResults
+      tags: [results]
+      summary: List results
+      responses:
+        "200":
+          description: Results list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Result"
+  /learning:
+    get:
+      operationId: listLearning
+      tags: [learning]
+      summary: List learning insights
+      responses:
+        "200":
+          description: Learning insights
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LearningInsight"
 components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +237,164 @@ components:
           type: string
       required:
         - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    Opportunity:
+      type: object
+      required: [id, name, description, sector, problem, targetCustomer, proposedSolution, monetizationMethod, score, estimatedCost, difficulty, risk, timeToRevenue, status, proofStatus, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        sector: { type: string }
+        problem: { type: string }
+        targetCustomer: { type: string }
+        proposedSolution: { type: string }
+        monetizationMethod: { type: string }
+        score: { type: integer }
+        estimatedCost: { type: number }
+        difficulty: { type: string }
+        risk: { type: string }
+        timeToRevenue: { type: string }
+        status: { type: string }
+        proofStatus: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    OpportunityInput:
+      type: object
+      required: [name, description, sector, problem, targetCustomer, proposedSolution, monetizationMethod]
+      properties:
+        name: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+        sector: { type: string, minLength: 1 }
+        problem: { type: string, minLength: 1 }
+        targetCustomer: { type: string, minLength: 1 }
+        proposedSolution: { type: string, minLength: 1 }
+        monetizationMethod: { type: string, minLength: 1 }
+    Evidence:
+      type: object
+      required: [id, opportunityId, source, url, collectedAt, claim, verificationStatus, contradictions, gaps, proofType]
+      properties:
+        id: { type: integer }
+        opportunityId: { type: integer }
+        source: { type: string }
+        url: { type: string }
+        collectedAt: { type: string, format: date-time }
+        claim: { type: string }
+        verificationStatus: { type: string }
+        contradictions: { type: array, items: { type: string } }
+        gaps: { type: array, items: { type: string } }
+        proofType: { type: string }
+    OpportunityDetail:
+      allOf:
+        - $ref: "#/components/schemas/Opportunity"
+        - type: object
+          required: [evidence]
+          properties:
+            evidence:
+              type: array
+              items:
+                $ref: "#/components/schemas/Evidence"
+    PipelineInput:
+      type: object
+      required: [query]
+      properties:
+        query: { type: string, minLength: 2 }
+    PipelineRun:
+      type: object
+      required: [executionId, opportunity, steps, status]
+      properties:
+        executionId: { type: integer }
+        opportunity:
+          $ref: "#/components/schemas/Opportunity"
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/Activity"
+        status: { type: string }
+    Activity:
+      type: object
+      required: [id, executionId, stage, status, message, createdAt]
+      properties:
+        id: { type: integer }
+        executionId: { type: integer }
+        stage: { type: string }
+        status: { type: string }
+        message: { type: string }
+        createdAt: { type: string, format: date-time }
+    Approval:
+      type: object
+      required: [id, opportunityId, type, status, reason, createdAt]
+      properties:
+        id: { type: integer }
+        opportunityId: { type: integer }
+        type: { type: string }
+        status: { type: string }
+        reason: { type: string }
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: ["string", "null"], format: date-time }
+    ApprovalDecisionInput:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approved, rejected]
+    Project:
+      type: object
+      required: [id, opportunityId, name, status, createdAt]
+      properties:
+        id: { type: integer }
+        opportunityId: { type: integer }
+        name: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+    DemandProof:
+      type: object
+      required: [id, opportunityId, proofType, status, summary, createdAt]
+      properties:
+        id: { type: integer }
+        opportunityId: { type: integer }
+        proofType: { type: string }
+        status: { type: string }
+        summary: { type: string }
+        createdAt: { type: string, format: date-time }
+    Result:
+      type: object
+      required: [id, projectId, outcome, status, createdAt]
+      properties:
+        id: { type: integer }
+        projectId: { type: integer }
+        outcome: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+    LearningInsight:
+      type: object
+      required: [id, title, summary, status, createdAt]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        summary: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+    Dashboard:
+      type: object
+      required: [opportunitiesFound, opportunitiesVerified, projects, activeProcesses, failedProcesses, pendingApprovals, results, systemStatus, recentActivity]
+      properties:
+        opportunitiesFound: { type: integer }
+        opportunitiesVerified: { type: integer }
+        projects: { type: integer }
+        activeProcesses: { type: integer }
+        failedProcesses: { type: integer }
+        pendingApprovals: { type: integer }
+        results: { type: integer }
+        systemStatus: { type: string }
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/Activity"
 

@@ -1,0 +1,194 @@
+Quiero construir SOY MONEY OS.
+
+Es un ecosistema autónomo de IA cuyo objetivo final es detectar oportunidades reales y legales para generar ingresos, investigarlas, verificar evidencia y demanda, priorizarlas, convertir las mejores en proyectos, ejecutarlas/construirlas cuando corresponda, medir resultados y aprender continuamente.
+
+IMPORTANTE:
+No intentes construir todo el ecosistema final en una sola ejecución.
+Primero quiero una V1 END-TO-END REAL, ejecutable y demostrable.
+No quiero mockups, botones ficticios ni datos presentados como reales cuando sean simulados.
+
+PRINCIPIOS OBLIGATORIOS:
+- NO BUILD WITHOUT PROOF.
+- NO SCALE WITHOUT REVENUE.
+- Search Evidence != Demand Proof.
+- Solo REAL + VERIFIED puede considerarse prueba real.
+- TEST/SIMULATION debe identificarse claramente.
+- No inventar evidencia, fuentes, ingresos, progreso ni capacidades.
+- Dinero real, trading, apuestas, pagos y operaciones financieras quedan DESACTIVADOS.
+- Las acciones sensibles requieren aprobación humana.
+- No crear loops infinitos.
+- Todo proceso debe tener timeout, máximo de reintentos, estados y registro de errores.
+
+OBJETIVO DE ESTA PRIMERA VERSIÓN:
+
+Construir una aplicación web responsive en español llamada SOY MONEY OS con:
+
+1. Dashboard ejecutivo.
+2. Opportunity Engine.
+3. Research Engine.
+4. Evidence Ledger.
+5. Verifier.
+6. Scoring Engine.
+7. Demand Proof.
+8. Projects.
+9. Results.
+10. Learning básico.
+11. Human Approval checkpoints.
+12. Activity/Execution log.
+
+FLUJO PRINCIPAL:
+
+DISCOVER
+→ RESEARCH
+→ EVIDENCE
+→ VERIFY
+→ SCORE
+→ DEMAND PROOF
+→ HUMAN APPROVAL cuando corresponda
+→ CREATE PROJECT
+→ RESULT
+→ LEARN.
+
+El usuario debe poder iniciar una búsqueda de oportunidades desde el Dashboard.
+
+El sistema debe almacenar cada ejecución y mostrar visualmente cómo una oportunidad avanza por las etapas.
+
+Cada oportunidad debe guardar como mínimo:
+
+- nombre
+- descripción
+- sector
+- problema detectado
+- cliente objetivo
+- solución propuesta
+- posible método de monetización
+- fuentes
+- evidencia
+- score
+- costo estimado
+- dificultad
+- riesgo
+- tiempo estimado hasta posible ingreso
+- estado
+- timestamps
+
+EVIDENCE LEDGER:
+
+Cada afirmación importante debe poder relacionarse con:
+- fuente
+- URL
+- fecha
+- claim
+- estado de verificación
+- contradicciones
+- gaps
+
+DEMAND PROOF:
+
+Debe distinguir explícitamente:
+
+SEARCH_EVIDENCE
+TEST_SIMULATION
+REAL_UNVERIFIED
+REAL_VERIFIED
+
+Solo REAL_VERIFIED puede desbloquear automáticamente el siguiente gate permitido.
+
+DASHBOARD:
+
+Crear navegación:
+
+Inicio
+Oportunidades
+Demand Proof
+Proyectos
+Ejecución IA
+Resultados
+Aprendizaje
+Configuración
+
+Inicio debe mostrar:
+- oportunidades encontradas
+- oportunidades verificadas
+- proyectos
+- procesos activos
+- procesos fallidos
+- acciones humanas pendientes
+- resultados
+- estado general del sistema
+
+ARQUITECTURA:
+
+Usa una arquitectura modular y mantenible.
+
+Frontend, backend y base de datos deben estar claramente separados.
+
+Usa la base de datos disponible/integrada en Replit si resulta apropiada.
+
+Diseña APIs y módulos para que posteriormente podamos conectar WINDMILL como orquestador externo 24/7 sin tener que reconstruir la aplicación.
+
+No integres Windmill todavía.
+
+AUTONOMÍA:
+
+Diseña desde ahora estados persistentes para que posteriormente Windmill pueda:
+- ejecutar procesos programados
+- ejecutar trabajos en paralelo
+- reintentar
+- continuar desde checkpoints
+- llamar agentes
+- ejecutar research
+- registrar resultados.
+
+AUTOMEJORA FUTURA:
+
+Prepara el modelo de datos para:
+
+OBSERVE
+→ MEASURE
+→ DETECT
+→ PROPOSE
+→ TEST
+→ COMPARE
+→ PROMOTE/REJECT
+→ LEARN.
+
+Pero NO construyas todavía un agente que modifique producción autónomamente.
+
+Champion y Challenger deberán poder compararse posteriormente mediante métricas.
+
+REGLA DE DESARROLLO:
+
+Antes de agregar funcionalidades adicionales:
+
+1. Construye la arquitectura.
+2. Construye la base de datos.
+3. Construye el backend.
+4. Construye el Dashboard.
+5. Implementa UN flujo end-to-end.
+6. Ejecuta pruebas reales.
+7. Corrige errores.
+8. Confirma que el flujo completo funciona.
+9. Solo entonces continúa ampliándolo.
+
+Quiero poder abrir la aplicación y comprobar visualmente:
+
+START
+→ oportunidad
+→ investigación
+→ evidencia
+→ verificación
+→ scoring
+→ demand proof
+→ proyecto
+→ resultado/aprendizaje.
+
+Si una integración externa todavía no está configurada, NO inventes resultados.
+Muéstrala claramente como NOT_CONFIGURED y permite configurarla posteriormente.
+
+Prioridad absoluta:
+FUNCTIONAL > COMPLEX.
+Primero conseguir un ciclo completo funcionando.
+Después expandiremos SOY MONEY OS.
+
+Empieza construyendo esta V1.

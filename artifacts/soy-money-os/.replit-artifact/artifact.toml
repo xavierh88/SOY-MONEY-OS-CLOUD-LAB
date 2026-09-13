@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "SOY MONEY OS"
+description = "Ecosistema de IA para descubrir, investigar, verificar y priorizar oportunidades reales de negocio con trazabilidad, aprobación humana y aprendizaje continuo."
+version = "1.0.0"
+id = "artifacts/soy-money-os"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21173
+
+[services.development]
+run = "pnpm --filter @workspace/soy-money-os run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/soy-money-os", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/soy-money-os/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21173"
+BASE_PATH = "/"
