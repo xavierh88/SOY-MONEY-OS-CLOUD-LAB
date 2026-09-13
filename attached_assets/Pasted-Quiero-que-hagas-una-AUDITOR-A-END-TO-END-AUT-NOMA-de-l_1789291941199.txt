@@ -1,0 +1,72 @@
+Quiero que hagas una AUDITORÍA END-TO-END AUTÓNOMA de la V1 actual de SOY MONEY OS.
+
+OBJETIVO:
+Comprobar que la aplicación no sea solo una interfaz, sino que el flujo principal funcione realmente de principio a fin.
+
+PRUEBA AUTOMÁTICAMENTE:
+
+1. Dashboard carga correctamente.
+2. Oportunidades:
+   - crear una oportunidad de prueba;
+   - guardarla en backend/base de datos;
+   - recuperarla correctamente;
+   - abrir detalle.
+3. Research/Evidence:
+   - registrar investigación/evidencia de prueba;
+   - relacionarla con la oportunidad;
+   - comprobar persistencia.
+4. Verification/Scoring:
+   - verificar la evidencia;
+   - calcular/actualizar score;
+   - comprobar cambios de estado.
+5. Demand Proof:
+   - crear una prueba marcada claramente TEST_SIMULATION;
+   - comprobar que NO se trate como REAL_VERIFIED.
+6. Human Approval:
+   - comprobar que el sistema pueda generar un checkpoint humano cuando corresponda.
+7. Projects:
+   - convertir una oportunidad permitida en proyecto;
+   - verificar que el proyecto aparezca correctamente.
+8. Results:
+   - registrar un resultado de prueba;
+   - vincularlo con el proyecto.
+9. Learning:
+   - crear al menos un registro de aprendizaje derivado del resultado.
+10. Navigation:
+   - comprobar que todas las secciones del menú carguen sin errores.
+11. API:
+   - probar los endpoints usados por frontend.
+12. Database:
+   - comprobar persistencia real después de recargar/reiniciar la app si es posible.
+13. Error handling:
+   - probar entradas inválidas;
+   - verificar que no existan crashes.
+14. Security/basic integrity:
+   - no exponer secretos;
+   - no activar dinero real;
+   - no inventar evidencia externa.
+
+IMPORTANTE:
+- Corrige automáticamente los errores que encuentres.
+- NO agregues funciones nuevas fuera del alcance.
+- NO rediseñes la interfaz salvo que sea necesario para corregir un fallo.
+- NO simules como si algo externo estuviera realmente conectado.
+- Usa datos de prueba claramente etiquetados TEST_SIMULATION.
+- No marques nada como REAL_VERIFIED sin evidencia real.
+- No dejes botones que aparenten funcionar si no funcionan.
+- No entres en loops infinitos.
+- Máximo 3 intentos por fallo; si no se resuelve, documenta la causa.
+
+AL FINAL QUIERO UN REPORTE CLARO CON:
+
+A. PASS/FAIL del flujo completo.
+B. Qué módulos funcionan realmente.
+C. Qué módulos fallaron.
+D. Qué errores corregiste.
+E. Qué queda pendiente.
+F. Lista de endpoints probados.
+G. Confirmación de persistencia.
+H. Resultado de una prueba completa:
+Opportunity -> Evidence -> Verification -> Score -> Demand Proof -> Approval -> Project -> Result -> Learning.
+
+No declares la V1 terminada hasta que ese flujo haya sido probado de forma reproducible.
