@@ -25,6 +25,8 @@ import type {
   ApprovalDecisionInput,
   BuildStageResponse,
   CompleteStageResponse,
+  Cycle,
+  CycleInput,
   Dashboard,
   DemandProof,
   Error,
@@ -1897,4 +1899,335 @@ export function useListLearning<TData = Awaited<ReturnType<typeof listLearning>>
 
 
 
+
+export const getGetCurrentCycleUrl = () => {
+
+
+
+
+  return `/api/cycles/current`
+}
+
+/**
+ * @summary Get the latest persistent orchestration cycle
+ */
+export const getCurrentCycle = async ( options?: Parameters<typeof customFetch>[1]): Promise<Cycle | null> => {
+
+  return customFetch<Cycle | null>(getGetCurrentCycleUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCurrentCycleQueryKey = () => {
+    return [
+    `/api/cycles/current`
+    ] as const;
+    }
+
+
+export const getGetCurrentCycleQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentCycle>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCurrentCycleQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentCycle>>> = ({ signal }) => getCurrentCycle({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCurrentCycle>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCurrentCycleQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentCycle>>>
+export type GetCurrentCycleQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the latest persistent orchestration cycle
+ */
+
+export function useGetCurrentCycle<TData = Awaited<ReturnType<typeof getCurrentCycle>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCurrentCycleQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartCycleUrl = () => {
+
+
+
+
+  return `/api/cycles`
+}
+
+/**
+ * @summary Start the Windmill discovery flow
+ */
+export const startCycle = async (cycleInput: CycleInput, options?: Parameters<typeof customFetch>[1]): Promise<Cycle> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Cycle>(getStartCycleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(cycleInput)
+  }
+);}
+
+
+
+
+
+export const getStartCycleMutationKey = () => ['startCycle'] as const;
+
+export const getStartCycleMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startCycle>>, TError,StartCycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startCycle>>, TError,StartCycleMutationVariables, TContext> => {
+
+const mutationKey = getStartCycleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startCycle>>, StartCycleMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  startCycle(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartCycleMutationResult = NonNullable<Awaited<ReturnType<typeof startCycle>>>
+    export type StartCycleMutationBody = BodyType<CycleInput>
+    export type StartCycleMutationError = ErrorType<Error>
+    export type StartCycleMutationVariables = {data: BodyType<CycleInput>}
+
+    /**
+ * @summary Start the Windmill discovery flow
+ */
+export const useStartCycle = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startCycle>>, TError,StartCycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startCycle>>,
+        TError,
+        StartCycleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStartCycleMutationOptions(options));
+    }
+
+export const getGetCycleUrl = (id: number,) => {
+
+
+
+
+  return `/api/cycles/${id}`
+}
+
+/**
+ * @summary Synchronize and get a cycle
+ */
+export const getCycle = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Cycle> => {
+
+  return customFetch<Cycle>(getGetCycleUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCycleQueryKey = (id: number,) => {
+    return [
+    `/api/cycles/${id}`
+    ] as const;
+    }
+
+
+export const getGetCycleQueryOptions = <TData = Awaited<ReturnType<typeof getCycle>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCycleQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCycle>>> = ({ signal }) => getCycle(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCycle>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCycleQueryResult = NonNullable<Awaited<ReturnType<typeof getCycle>>>
+export type GetCycleQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Synchronize and get a cycle
+ */
+
+export function useGetCycle<TData = Awaited<ReturnType<typeof getCycle>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCycleQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDecideCycleUrl = (id: number,) => {
+
+
+
+
+  return `/api/cycles/${id}/decision`
+}
+
+/**
+ * @summary Apply a human decision and start continuation only after approval
+ */
+export const decideCycle = async (id: number,
+    approvalDecisionInput: ApprovalDecisionInput, options?: Parameters<typeof customFetch>[1]): Promise<Cycle> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Cycle>(getDecideCycleUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(approvalDecisionInput)
+  }
+);}
+
+
+
+
+
+export const getDecideCycleMutationKey = () => ['decideCycle'] as const;
+
+export const getDecideCycleMutationOptions = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideCycle>>, TError,DecideCycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideCycle>>, TError,DecideCycleMutationVariables, TContext> => {
+
+const mutationKey = getDecideCycleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideCycle>>, DecideCycleMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  decideCycle(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideCycleMutationResult = NonNullable<Awaited<ReturnType<typeof decideCycle>>>
+    export type DecideCycleMutationBody = BodyType<ApprovalDecisionInput>
+    export type DecideCycleMutationError = ErrorType<NotFoundResponse | Error>
+    export type DecideCycleMutationVariables = {id: number;data: BodyType<ApprovalDecisionInput>}
+
+    /**
+ * @summary Apply a human decision and start continuation only after approval
+ */
+export const useDecideCycle = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideCycle>>, TError,DecideCycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof decideCycle>>,
+        TError,
+        DecideCycleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDecideCycleMutationOptions(options));
+    }
 

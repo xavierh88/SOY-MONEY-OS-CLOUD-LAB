@@ -20,6 +20,7 @@ tags:
   - name: demand-proof
   - name: results
   - name: learning
+  - name: cycles
 paths:
   /healthz:
     get:
@@ -450,6 +451,94 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LearningInsight"
+  /cycles/current:
+    get:
+      operationId: getCurrentCycle
+      tags: [cycles]
+      summary: Get the latest persistent orchestration cycle
+      responses:
+        "200":
+          description: Current cycle, or null when none exists
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Cycle"
+                  - type: "null"
+  /cycles:
+    post:
+      operationId: startCycle
+      tags: [cycles]
+      summary: Start the Windmill discovery flow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CycleInput"
+      responses:
+        "201":
+          description: Cycle started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cycle"
+        "200":
+          description: Existing idempotent cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cycle"
+        "409":
+          description: Another cycle is active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /cycles/{id}:
+    get:
+      operationId: getCycle
+      tags: [cycles]
+      summary: Synchronize and get a cycle
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Synchronized cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cycle"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /cycles/{id}/decision:
+    post:
+      operationId: decideCycle
+      tags: [cycles]
+      summary: Apply a human decision and start continuation only after approval
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecisionInput"
+      responses:
+        "200":
+          description: Updated cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cycle"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid cycle state or conflicting decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   parameters:
     Id:
@@ -776,4 +865,31 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Activity"
+    CycleInput:
+      type: object
+      required: [query, idempotencyKey]
+      properties:
+        query: { type: string, minLength: 2 }
+        idempotencyKey: { type: string, minLength: 8, maxLength: 120 }
+    Cycle:
+      type: object
+      required: [id, idempotencyKey, state, stage, message, startedAt, updatedAt, createdAt]
+      properties:
+        id: { type: integer }
+        idempotencyKey: { type: string }
+        discoveryJobId: { type: ["string", "null"] }
+        continuationJobId: { type: ["string", "null"] }
+        opportunityId: { type: ["integer", "null"] }
+        approvalId: { type: ["integer", "null"] }
+        projectId: { type: ["integer", "null"] }
+        state: { type: string }
+        stage: { type: string }
+        message: { type: string }
+        error: { type: ["string", "null"] }
+        errorService: { type: ["string", "null"] }
+        errorStatusCode: { type: ["integer", "null"] }
+        startedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        completedAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
 

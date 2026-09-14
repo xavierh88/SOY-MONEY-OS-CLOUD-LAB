@@ -162,6 +162,32 @@ export const learningTable = pgTable(
   }),
 );
 
+export const cyclesTable = pgTable(
+  "soy_cycles",
+  {
+    id: serial("id").primaryKey(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    discoveryJobId: text("discovery_job_id"),
+    continuationJobId: text("continuation_job_id"),
+    opportunityId: integer("opportunity_id").references(() => opportunitiesTable.id),
+    approvalId: integer("approval_id").references(() => approvalsTable.id),
+    projectId: integer("project_id").references(() => projectsTable.id),
+    state: text("state").notNull().default("STARTING"),
+    stage: text("stage").notNull().default("DISCOVERY"),
+    message: text("message").notNull().default("Preparando ciclo"),
+    error: text("error"),
+    errorService: text("error_service"),
+    errorStatusCode: integer("error_status_code"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => ({
+    idempotencyUnique: uniqueIndex("soy_cycles_idempotency_unique").on(table.idempotencyKey),
+  }),
+);
+
 export const insertOpportunitySchema = createInsertSchema(opportunitiesTable).omit({
   id: true,
   createdAt: true,

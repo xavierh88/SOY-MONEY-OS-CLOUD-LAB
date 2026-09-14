@@ -321,6 +321,45 @@ export interface Dashboard {
   recentActivity: Activity[];
 }
 
+export interface CycleInput {
+  /** @minLength 2 */
+  query: string;
+  /**
+     * @minLength 8
+     * @maxLength 120
+     */
+  idempotencyKey: string;
+}
+
+export interface Cycle {
+  id: number;
+  idempotencyKey: string;
+  /** @nullable */
+  discoveryJobId?: string | null;
+  /** @nullable */
+  continuationJobId?: string | null;
+  /** @nullable */
+  opportunityId?: number | null;
+  /** @nullable */
+  approvalId?: number | null;
+  /** @nullable */
+  projectId?: number | null;
+  state: string;
+  stage: string;
+  message: string;
+  /** @nullable */
+  error?: string | null;
+  /** @nullable */
+  errorService?: string | null;
+  /** @nullable */
+  errorStatusCode?: number | null;
+  startedAt: string;
+  updatedAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+  createdAt: string;
+}
+
 /**
  * Resource not found
  */

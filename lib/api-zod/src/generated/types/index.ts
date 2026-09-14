@@ -12,6 +12,8 @@ export * from './approvalDecisionInput';
 export * from './approvalDecisionInputDecision';
 export * from './buildStageResponse';
 export * from './completeStageResponse';
+export * from './cycle';
+export * from './cycleInput';
 export * from './dashboard';
 export * from './demandProof';
 export * from './error';

@@ -593,3 +593,123 @@ export const ListLearningResponseItem = zod.object({
 export const ListLearningResponse = zod.array(ListLearningResponseItem)
 
 
+/**
+ * @summary Get the latest persistent orchestration cycle
+ */
+export const GetCurrentCycleResponse = zod.union([zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "discoveryJobId": zod.string().nullish(),
+  "continuationJobId": zod.string().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "approvalId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "message": zod.string(),
+  "error": zod.string().nullish(),
+  "errorService": zod.string().nullish(),
+  "errorStatusCode": zod.number().int().nullish(),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+}),zod.null()])
+
+
+/**
+ * @summary Start the Windmill discovery flow
+ */
+export const startCycleBodyQueryMin = 2;
+
+export const startCycleBodyIdempotencyKeyMin = 8;
+export const startCycleBodyIdempotencyKeyMax = 120;
+
+
+
+export const StartCycleBody = zod.object({
+  "query": zod.string().min(startCycleBodyQueryMin),
+  "idempotencyKey": zod.string().min(startCycleBodyIdempotencyKeyMin).max(startCycleBodyIdempotencyKeyMax)
+})
+
+export const StartCycleResponse = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "discoveryJobId": zod.string().nullish(),
+  "continuationJobId": zod.string().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "approvalId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "message": zod.string(),
+  "error": zod.string().nullish(),
+  "errorService": zod.string().nullish(),
+  "errorStatusCode": zod.number().int().nullish(),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Synchronize and get a cycle
+ */
+export const GetCycleParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetCycleResponse = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "discoveryJobId": zod.string().nullish(),
+  "continuationJobId": zod.string().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "approvalId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "message": zod.string(),
+  "error": zod.string().nullish(),
+  "errorService": zod.string().nullish(),
+  "errorStatusCode": zod.number().int().nullish(),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Apply a human decision and start continuation only after approval
+ */
+export const DecideCycleParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DecideCycleBody = zod.object({
+  "decision": zod.enum(['approved', 'rejected'])
+})
+
+export const DecideCycleResponse = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "discoveryJobId": zod.string().nullish(),
+  "continuationJobId": zod.string().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "approvalId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "message": zod.string(),
+  "error": zod.string().nullish(),
+  "errorService": zod.string().nullish(),
+  "errorStatusCode": zod.number().int().nullish(),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
