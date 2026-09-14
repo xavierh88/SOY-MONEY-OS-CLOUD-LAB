@@ -1,0 +1,650 @@
+SOY MONEY OS — IMPLEMENTACIÓN RÁPIDA V1 END-TO-END
+FASE POST-APROBACIÓN / PROJECT EXECUTION
+
+CONTEXTO IMPORTANTE
+
+Ya existe y fue probado exitosamente un flujo Windmill ↔ SOY MONEY OS.
+
+NO reconstruyas ni reemplaces lo que ya funciona.
+
+El flujo probado actualmente llega correctamente hasta:
+
+DISCOVERY
+→ RESEARCH
+→ investigación web real
+→ SEARCH_EVIDENCE
+→ persistencia de evidencia en Replit
+→ DEMAND VALIDATION
+→ HUMAN DEMAND REVIEW
+→ HUMAN APPROVAL
+→ creación de PROJECT
+→ STOP_SAFE
+
+Prueba real actual:
+
+opportunityId = 7
+projectId = 4
+projectStatus = PLANNED
+
+El último resultado confirmado en Windmill fue:
+
+status = AUTONOMOUS_CYCLE_TEST_COMPLETED
+nextStage = STOP_SAFE
+finalState = READY_FOR_FUTURE_EXECUTION
+projectStatus = PLANNED
+
+También están funcionando:
+
+GET /api/projects
+GET /api/results
+GET /api/learning
+GET /api/evidence
+GET /api/evidence?opportunityId=<id>
+
+Y existe el sistema actual de approvals.
+
+IMPORTANTE:
+Antes de modificar código, inspecciona el proyecto completo y confirma los contratos, modelos, tablas y endpoints existentes.
+
+NO inventes endpoints existentes.
+NO dupliques funcionalidades existentes.
+NO cambies innecesariamente la arquitectura.
+NO modifiques la UI en esta fase.
+NO rompas compatibilidad con Windmill.
+
+==================================================
+OBJETIVO
+==================================================
+
+Completar rápidamente una V1 funcional del ciclo POST-APROBACIÓN.
+
+Necesitamos pasar de:
+
+PROJECT = PLANNED
+
+a:
+
+BUILD
+→ QA
+→ SELL_READY
+→ RESULT
+→ LEARNING
+→ COMPLETED
+
+La V1 debe permitir demostrar un ciclo completo de SOY MONEY OS sin realizar operaciones financieras reales ni publicar/vender automáticamente.
+
+Queremos probar después todo el ciclo desde Windmill.
+
+==================================================
+PRINCIPIO FUNDAMENTAL
+==================================================
+
+Esta es una V1 demostrable.
+
+NO construir todavía un sistema empresarial gigantesco.
+
+Priorizar:
+
+1. funcionalidad;
+2. trazabilidad;
+3. persistencia;
+4. contratos API claros;
+5. seguridad;
+6. pruebas reproducibles;
+7. compatibilidad con Windmill.
+
+Evitar sobrearquitectura.
+
+==================================================
+MÓDULO 1 — PROJECT EXECUTION / BUILD
+==================================================
+
+Implementar la capacidad de iniciar un proyecto que ya fue aprobado.
+
+Debe aceptar únicamente proyectos válidos que puedan continuar.
+
+Ejemplo:
+
+projectId = 4
+opportunityId = 7
+status = PLANNED
+
+Crear el endpoint necesario siguiendo la arquitectura actual.
+
+Preferencia conceptual:
+
+POST /api/projects/:id/start
+
+pero antes verifica si ya existe una ruta equivalente.
+
+NO crear duplicados si ya existe.
+
+Al iniciar:
+
+PLANNED
+→ BUILDING
+
+Debe crearse/persistirse una ejecución de proyecto.
+
+La ejecución debe contener como mínimo:
+
+projectId
+opportunityId
+status
+startedAt
+currentStage
+deliverableType
+deliverable
+buildNotes
+
+Para esta V1 NO es necesario construir automáticamente software complejo.
+
+El BUILD puede generar un MVP estructurado basado en la oportunidad.
+
+Ejemplos posibles:
+
+DIGITAL_PRODUCT
+SERVICE
+LANDING_PAGE
+REPORT
+AUTOMATION
+CONSULTING_OFFER
+CONTENT_PRODUCT
+OTHER
+
+El entregable mínimo debe contener:
+
+title
+type
+problem
+targetCustomer
+solution
+valueProposition
+deliverables
+implementationPlan
+proposedPrice
+assumptions
+limitations
+
+No inventar hechos de mercado.
+
+Los datos provenientes de SEARCH_EVIDENCE siguen siendo:
+
+SEARCH_EVIDENCE
+NOT_VERIFIED
+
+El BUILD puede utilizarlos como señales, pero NO convertirlos automáticamente en hechos verificados.
+
+==================================================
+MÓDULO 2 — QA
+==================================================
+
+Después de BUILD debe existir una etapa de revisión.
+
+BUILDING
+→ QA_REVIEW
+
+QA debe evaluar como mínimo:
+
+completitud
+coherencia
+relación con la oportunidad
+relación con la evidencia
+claridad de la propuesta
+viabilidad básica
+campos faltantes
+contradicciones
+
+Resultado:
+
+PASS
+
+o
+
+NEEDS_FIX
+
+Persistir:
+
+qaStatus
+qaScore
+issues[]
+recommendations[]
+checkedAt
+
+Si NEEDS_FIX:
+
+NO marcar el proyecto como terminado.
+
+Debe quedar preparado para una corrección posterior.
+
+Para V1 no necesitamos un loop infinito automático.
+
+Máximo comportamiento seguro:
+
+BUILD
+→ QA
+→ NEEDS_FIX
+
+o:
+
+BUILD
+→ QA
+→ PASS
+
+==================================================
+MÓDULO 3 — SELL READY
+==================================================
+
+Solamente cuando QA = PASS.
+
+Preparar un paquete comercial.
+
+NO vender.
+NO publicar.
+NO enviar campañas.
+NO gastar dinero.
+
+Generar/persistir:
+
+productName
+oneLinePitch
+targetCustomer
+problem
+solution
+valueProposition
+offer
+proposedPrice
+pricingRationale
+salesCopy
+landingPageCopy
+marketingPlan
+recommendedChannels
+callToAction
+risks
+assumptions
+
+Estado:
+
+QA_PASS
+→ SELL_READY
+
+Debe quedar explícitamente marcado:
+
+publicationExecuted = false
+marketingExecuted = false
+saleExecuted = false
+financialExecution = false
+
+==================================================
+MÓDULO 4 — RESULT + LEARNING
+==================================================
+
+Usar las estructuras /api/results y /api/learning existentes si corresponde.
+
+NO crear sistemas paralelos innecesarios.
+
+Registrar un RESULT de preparación, NO una venta ficticia.
+
+Ejemplo conceptual:
+
+resultType = MVP_PREPARED
+status = COMPLETED
+revenue = 0
+realRevenue = false
+
+Debe quedar claro que:
+
+producto/oferta preparada ≠ venta realizada.
+
+Registrar LEARNING basado únicamente en lo ocurrido realmente durante el pipeline.
+
+Ejemplos:
+
+BUILD completado
+QA PASS
+SELL_READY generado
+problemas encontrados
+suposiciones pendientes
+siguiente experimento recomendado
+
+NO registrar aprendizaje inventado sobre clientes reales.
+
+==================================================
+ESTADOS V1
+==================================================
+
+Usar los estados existentes cuando sea posible.
+
+Si hacen falta estados nuevos, mantener una máquina de estados simple y explícita:
+
+PLANNED
+→ BUILDING
+→ QA_REVIEW
+→ NEEDS_FIX
+
+o:
+
+PLANNED
+→ BUILDING
+→ QA_REVIEW
+→ QA_PASS
+→ SELL_READY
+→ COMPLETED
+
+No permitir saltos inválidos.
+
+Ejemplo:
+
+PLANNED → SELL_READY
+
+debe rechazarse.
+
+==================================================
+SEGURIDAD OBLIGATORIA
+==================================================
+
+Estas reglas son INNEGOCIABLES:
+
+automaticApproval = false
+
+realVerifiedAutomatically = false
+
+automaticFinancialExecution = false
+
+moneySpent = false
+
+SEARCH_EVIDENCE nunca debe convertirse automáticamente en REAL_VERIFIED.
+
+No crear Demand Proof real automáticamente.
+
+No realizar:
+
+pagos
+compras
+trades
+apuestas
+transferencias
+publicaciones reales
+campañas pagadas
+envío masivo
+contrataciones
+operaciones financieras
+
+sin autorización humana explícita y una implementación futura específica.
+
+==================================================
+IDEMPOTENCIA
+==================================================
+
+Muy importante para Windmill.
+
+Si Windmill repite accidentalmente una llamada, NO debemos crear:
+
+dos builds
+dos sell packages
+dos results
+dos learning records equivalentes
+
+Implementar protección razonable contra duplicación.
+
+==================================================
+ERRORES
+==================================================
+
+Errores API deben ser JSON.
+
+No devolver páginas HTML para errores de API.
+
+Formato recomendado:
+
+{
+  "error": "...",
+  "code": "...",
+  "details": {}
+}
+
+Usar códigos HTTP adecuados:
+
+400 bad request
+404 not found
+409 invalid state / duplicate
+422 validation error
+500 internal error
+
+==================================================
+OBSERVABILIDAD
+==================================================
+
+Cada etapa debe poder determinar:
+
+projectId
+opportunityId
+currentStage
+status
+lastUpdatedAt
+
+Si ya existe Activity Log, utilizarlo.
+
+Registrar eventos como:
+
+PROJECT_BUILD_STARTED
+PROJECT_BUILD_COMPLETED
+PROJECT_QA_COMPLETED
+PROJECT_SELL_READY
+PROJECT_COMPLETED
+
+==================================================
+ENDPOINT DE ESTADO
+==================================================
+
+Windmill necesita poder consultar el proyecto.
+
+Verifica si GET /api/projects ya proporciona suficiente información.
+
+Si no:
+
+extiéndelo de manera compatible.
+
+Idealmente debemos poder consultar:
+
+GET /api/projects/:id
+
+sin romper:
+
+GET /api/projects
+
+Debe devolver el estado completo necesario para continuar la orquestación.
+
+==================================================
+NO UI TODAVÍA
+==================================================
+
+No modificar el dashboard en esta tarea.
+
+Primero queremos que el backend y Windmill completen una ejecución end-to-end.
+
+La UI será la siguiente fase.
+
+==================================================
+PRUEBA END-TO-END OBLIGATORIA
+==================================================
+
+Usar un proyecto de prueba seguro.
+
+Preferentemente utilizar/copiar el escenario:
+
+opportunityId 7
+projectId 4
+
+PERO:
+
+No corromper datos existentes.
+
+Si ejecutar sobre Project 4 pudiera modificar irreversiblemente la prueba anterior, crear datos de prueba aislados.
+
+Probar:
+
+1. proyecto PLANNED válido;
+2. iniciar BUILD;
+3. persistencia BUILD;
+4. ejecutar QA;
+5. QA PASS;
+6. crear SELL_READY;
+7. registrar RESULT;
+8. registrar LEARNING;
+9. proyecto termina correctamente;
+10. volver a consultar el proyecto;
+11. confirmar persistencia.
+
+También probar:
+
+- project inexistente;
+- transición inválida;
+- ejecución duplicada;
+- QA antes de BUILD;
+- SELL_READY antes de QA PASS.
+
+==================================================
+TESTS OBLIGATORIOS
+==================================================
+
+Ejecutar:
+
+typecheck
+tests existentes
+tests nuevos
+
+No declarar terminado si rompe tests anteriores.
+
+==================================================
+COMPATIBILIDAD CON WINDMILL
+==================================================
+
+Las respuestas deben ser JSON estable y sencillo.
+
+Cada endpoint POST debe devolver como mínimo:
+
+status
+projectId
+opportunityId
+nextStage
+
+cuando corresponda.
+
+Ejemplo conceptual:
+
+{
+  "status": "BUILD_COMPLETED",
+  "projectId": 4,
+  "opportunityId": 7,
+  "nextStage": "QA_REVIEW"
+}
+
+Windmill decidirá qué etapa llamar después.
+
+NO introducir una dependencia obligatoria de n8n.
+
+Windmill será el orquestador de esta V1.
+
+==================================================
+NO IMPLEMENTAR TODAVÍA
+==================================================
+
+No implementar todavía:
+
+pagos reales
+Stripe real
+publicación automática
+campañas pagadas
+trading
+apuestas
+crypto
+compras
+marketplaces
+email masivo
+social posting real
+infraestructura compleja
+Kubernetes
+microservicios innecesarios
+agentes externos pagados obligatorios
+
+Eso pertenece a fases posteriores.
+
+==================================================
+AL FINAL QUIERO UN INFORME EXACTO
+==================================================
+
+No respondas simplemente "terminado".
+
+Entrégame:
+
+SOY MONEY OS V1 POST-APPROVAL REPORT
+
+1. IMPLEMENTATION
+PASS / FAIL
+
+2. ENDPOINTS
+Método + ruta exacta de cada endpoint nuevo/reutilizado.
+
+3. CONTRACTS
+Body JSON exacto requerido por cada POST.
+
+4. RESPONSES
+Ejemplo JSON real de cada respuesta.
+
+5. STATE MACHINE
+Estados y transiciones finales implementadas.
+
+6. DATABASE
+Tablas/campos añadidos o reutilizados.
+
+7. TESTS
+Cantidad PASS/FAIL.
+
+8. BACKWARD COMPATIBILITY
+Confirmar que los endpoints anteriores siguen funcionando.
+
+9. SAFETY
+Confirmar explícitamente:
+
+automaticApproval = false
+REAL_VERIFIED automático = false
+financialExecution = false
+moneySpent = false
+realSaleExecuted = false
+
+10. WINDMILL INTEGRATION
+Darme, en orden, las llamadas exactas que Windmill deberá realizar para completar:
+
+PROJECT PLANNED
+→ BUILD
+→ QA
+→ SELL_READY
+→ RESULT
+→ LEARNING
+→ COMPLETED
+
+11. PUBLIC DEPLOYMENT
+
+IMPORTANTE:
+
+Después de completar y probar localmente, comprobar si el deployment público contiene esta versión.
+
+URL pública:
+
+https://soy-money-os--xavierhernand29.replit.app
+
+No asumir que LIVE significa que tiene el snapshot nuevo.
+
+Si requiere REPUBLISH, indícalo claramente.
+
+Después del deployment, probar públicamente los endpoints GET/read-only correspondientes.
+
+NO ejecutar acciones destructivas en producción solo para demostrar funcionamiento.
+
+Terminar indicando exactamente:
+
+LOCAL: PASS/FAIL
+PUBLIC DEPLOYMENT: PASS/FAIL
+READY FOR WINDMILL: YES/NO
+NEXT ACTION: ...
