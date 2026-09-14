@@ -155,12 +155,149 @@ export interface ApprovalDecisionInput {
   decision: ApprovalDecisionInputDecision;
 }
 
+/**
+ * @nullable
+ */
+export type ProjectSellPackage = { [key: string]: unknown } | null;
+
 export interface Project {
   id: number;
   opportunityId: number;
   name: string;
   status: string;
+  /** @nullable */
+  qaStatus?: string | null;
+  /** @nullable */
+  qaScore?: number | null;
+  qaIssues: string[];
+  qaRecommendations: string[];
+  /** @nullable */
+  qaCheckedAt?: string | null;
+  /** @nullable */
+  sellPackage?: ProjectSellPackage;
+  publicationExecuted: boolean;
+  marketingExecuted: boolean;
+  saleExecuted: boolean;
+  financialExecution: boolean;
   createdAt: string;
+  updatedAt: string;
+}
+
+export type ProjectExecutionDeliverable = { [key: string]: unknown };
+
+export interface ProjectExecution {
+  id: number;
+  opportunityId: number;
+  projectId: number;
+  status: string;
+  currentStage: string;
+  deliverableType: string;
+  deliverable: ProjectExecutionDeliverable;
+  buildNotes: string;
+  startedAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface Result {
+  id: number;
+  projectId: number;
+  resultType: string;
+  outcome: string;
+  status: string;
+  revenue: number;
+  realRevenue: boolean;
+  createdAt: string;
+}
+
+export interface LearningInsight {
+  id: number;
+  /** @nullable */
+  projectId?: number | null;
+  title: string;
+  summary: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface ProjectDetail {
+  project: Project;
+  execution: ProjectExecution | null;
+  result: Result | null;
+  learning: LearningInsight | null;
+}
+
+export type StartProjectInputDeliverableType = typeof StartProjectInputDeliverableType[keyof typeof StartProjectInputDeliverableType];
+
+
+export const StartProjectInputDeliverableType = {
+  DIGITAL_PRODUCT: 'DIGITAL_PRODUCT',
+  SERVICE: 'SERVICE',
+  LANDING_PAGE: 'LANDING_PAGE',
+  REPORT: 'REPORT',
+  AUTOMATION: 'AUTOMATION',
+  CONSULTING_OFFER: 'CONSULTING_OFFER',
+  CONTENT_PRODUCT: 'CONTENT_PRODUCT',
+  OTHER: 'OTHER',
+} as const;
+
+export interface StartProjectInput {
+  deliverableType: StartProjectInputDeliverableType;
+  buildNotes?: string;
+}
+
+export interface BuildStageResponse {
+  status: string;
+  projectId: number;
+  opportunityId: number;
+  nextStage: string;
+  execution: ProjectExecution;
+}
+
+export interface QaStageResponse {
+  status: string;
+  projectId: number;
+  opportunityId: number;
+  nextStage: string;
+  qaStatus: string;
+  qaScore: number;
+  issues: string[];
+  recommendations: string[];
+  checkedAt: string;
+}
+
+export type SellReadyStageResponseSellPackage = { [key: string]: unknown };
+
+export interface SellReadyStageResponse {
+  status: string;
+  projectId: number;
+  opportunityId: number;
+  nextStage: string;
+  sellPackage: SellReadyStageResponseSellPackage;
+}
+
+export interface ResultStageResponse {
+  status: string;
+  projectId: number;
+  opportunityId: number;
+  nextStage: string;
+  result: Result;
+}
+
+export interface LearningStageResponse {
+  status: string;
+  projectId: number;
+  opportunityId: number;
+  nextStage: string;
+  learning: LearningInsight;
+}
+
+export interface CompleteStageResponse {
+  status: string;
+  projectId: number;
+  opportunityId: number;
+  nextStage: string;
+  project: Project;
 }
 
 export interface DemandProof {
@@ -169,22 +306,6 @@ export interface DemandProof {
   proofType: string;
   status: string;
   summary: string;
-  createdAt: string;
-}
-
-export interface Result {
-  id: number;
-  projectId: number;
-  outcome: string;
-  status: string;
-  createdAt: string;
-}
-
-export interface LearningInsight {
-  id: number;
-  title: string;
-  summary: string;
-  status: string;
   createdAt: string;
 }
 

@@ -23,6 +23,8 @@ import type {
   Activity,
   Approval,
   ApprovalDecisionInput,
+  BuildStageResponse,
+  CompleteStageResponse,
   Dashboard,
   DemandProof,
   Error,
@@ -30,6 +32,7 @@ import type {
   EvidenceInput,
   HealthStatus,
   LearningInsight,
+  LearningStageResponse,
   ListEvidenceParams,
   NotFoundResponse,
   Opportunity,
@@ -39,7 +42,12 @@ import type {
   PipelineInput,
   PipelineRun,
   Project,
-  Result
+  ProjectDetail,
+  QaStageResponse,
+  Result,
+  ResultStageResponse,
+  SellReadyStageResponse,
+  StartProjectInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1045,6 +1053,542 @@ export function useListProjects<TData = Awaited<ReturnType<typeof listProjects>>
 
 
 
+
+export const getGetProjectUrl = (id: number,) => {
+
+
+
+
+  return `/api/projects/${id}`
+}
+
+/**
+ * @summary Get a project and its post-approval execution state
+ */
+export const getProject = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ProjectDetail> => {
+
+  return customFetch<ProjectDetail>(getGetProjectUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProjectQueryKey = (id: number,) => {
+    return [
+    `/api/projects/${id}`
+    ] as const;
+    }
+
+
+export const getGetProjectQueryOptions = <TData = Awaited<ReturnType<typeof getProject>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProjectQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProject>>> = ({ signal }) => getProject(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProject>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProjectQueryResult = NonNullable<Awaited<ReturnType<typeof getProject>>>
+export type GetProjectQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get a project and its post-approval execution state
+ */
+
+export function useGetProject<TData = Awaited<ReturnType<typeof getProject>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProjectQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartProjectBuildUrl = (id: number,) => {
+
+
+
+
+  return `/api/projects/${id}/start`
+}
+
+/**
+ * @summary Build a structured deliverable for an approved planned project
+ */
+export const startProjectBuild = async (id: number,
+    startProjectInput: StartProjectInput, options?: Parameters<typeof customFetch>[1]): Promise<BuildStageResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BuildStageResponse>(getStartProjectBuildUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(startProjectInput)
+  }
+);}
+
+
+
+
+
+export const getStartProjectBuildMutationKey = () => ['startProjectBuild'] as const;
+
+export const getStartProjectBuildMutationOptions = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startProjectBuild>>, TError,StartProjectBuildMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startProjectBuild>>, TError,StartProjectBuildMutationVariables, TContext> => {
+
+const mutationKey = getStartProjectBuildMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startProjectBuild>>, StartProjectBuildMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  startProjectBuild(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartProjectBuildMutationResult = NonNullable<Awaited<ReturnType<typeof startProjectBuild>>>
+    export type StartProjectBuildMutationBody = BodyType<StartProjectInput>
+    export type StartProjectBuildMutationError = ErrorType<NotFoundResponse | Error>
+    export type StartProjectBuildMutationVariables = {id: number;data: BodyType<StartProjectInput>}
+
+    /**
+ * @summary Build a structured deliverable for an approved planned project
+ */
+export const useStartProjectBuild = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startProjectBuild>>, TError,StartProjectBuildMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startProjectBuild>>,
+        TError,
+        StartProjectBuildMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStartProjectBuildMutationOptions(options));
+    }
+
+export const getReviewProjectQaUrl = (id: number,) => {
+
+
+
+
+  return `/api/projects/${id}/qa`
+}
+
+/**
+ * @summary Review a built project deliverable
+ */
+export const reviewProjectQa = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<QaStageResponse> => {
+
+  return customFetch<QaStageResponse>(getReviewProjectQaUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReviewProjectQaMutationKey = () => ['reviewProjectQa'] as const;
+
+export const getReviewProjectQaMutationOptions = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewProjectQa>>, TError,ReviewProjectQaMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewProjectQa>>, TError,ReviewProjectQaMutationVariables, TContext> => {
+
+const mutationKey = getReviewProjectQaMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewProjectQa>>, ReviewProjectQaMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  reviewProjectQa(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewProjectQaMutationResult = NonNullable<Awaited<ReturnType<typeof reviewProjectQa>>>
+
+    export type ReviewProjectQaMutationError = ErrorType<NotFoundResponse | Error>
+    export type ReviewProjectQaMutationVariables = {id: number}
+
+    /**
+ * @summary Review a built project deliverable
+ */
+export const useReviewProjectQa = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewProjectQa>>, TError,ReviewProjectQaMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewProjectQa>>,
+        TError,
+        ReviewProjectQaMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReviewProjectQaMutationOptions(options));
+    }
+
+export const getPrepareProjectSellReadyUrl = (id: number,) => {
+
+
+
+
+  return `/api/projects/${id}/sell-ready`
+}
+
+/**
+ * @summary Prepare a non-published commercial package after QA passes
+ */
+export const prepareProjectSellReady = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<SellReadyStageResponse> => {
+
+  return customFetch<SellReadyStageResponse>(getPrepareProjectSellReadyUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPrepareProjectSellReadyMutationKey = () => ['prepareProjectSellReady'] as const;
+
+export const getPrepareProjectSellReadyMutationOptions = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof prepareProjectSellReady>>, TError,PrepareProjectSellReadyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof prepareProjectSellReady>>, TError,PrepareProjectSellReadyMutationVariables, TContext> => {
+
+const mutationKey = getPrepareProjectSellReadyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof prepareProjectSellReady>>, PrepareProjectSellReadyMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  prepareProjectSellReady(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PrepareProjectSellReadyMutationResult = NonNullable<Awaited<ReturnType<typeof prepareProjectSellReady>>>
+
+    export type PrepareProjectSellReadyMutationError = ErrorType<NotFoundResponse | Error>
+    export type PrepareProjectSellReadyMutationVariables = {id: number}
+
+    /**
+ * @summary Prepare a non-published commercial package after QA passes
+ */
+export const usePrepareProjectSellReady = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof prepareProjectSellReady>>, TError,PrepareProjectSellReadyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof prepareProjectSellReady>>,
+        TError,
+        PrepareProjectSellReadyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPrepareProjectSellReadyMutationOptions(options));
+    }
+
+export const getRecordProjectResultUrl = (id: number,) => {
+
+
+
+
+  return `/api/projects/${id}/result`
+}
+
+/**
+ * @summary Record preparation result without claiming a sale
+ */
+export const recordProjectResult = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ResultStageResponse> => {
+
+  return customFetch<ResultStageResponse>(getRecordProjectResultUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRecordProjectResultMutationKey = () => ['recordProjectResult'] as const;
+
+export const getRecordProjectResultMutationOptions = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordProjectResult>>, TError,RecordProjectResultMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordProjectResult>>, TError,RecordProjectResultMutationVariables, TContext> => {
+
+const mutationKey = getRecordProjectResultMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordProjectResult>>, RecordProjectResultMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  recordProjectResult(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordProjectResultMutationResult = NonNullable<Awaited<ReturnType<typeof recordProjectResult>>>
+
+    export type RecordProjectResultMutationError = ErrorType<NotFoundResponse | Error>
+    export type RecordProjectResultMutationVariables = {id: number}
+
+    /**
+ * @summary Record preparation result without claiming a sale
+ */
+export const useRecordProjectResult = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordProjectResult>>, TError,RecordProjectResultMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordProjectResult>>,
+        TError,
+        RecordProjectResultMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRecordProjectResultMutationOptions(options));
+    }
+
+export const getRecordProjectLearningUrl = (id: number,) => {
+
+
+
+
+  return `/api/projects/${id}/learning`
+}
+
+/**
+ * @summary Record learning from completed preparation stages
+ */
+export const recordProjectLearning = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<LearningStageResponse> => {
+
+  return customFetch<LearningStageResponse>(getRecordProjectLearningUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRecordProjectLearningMutationKey = () => ['recordProjectLearning'] as const;
+
+export const getRecordProjectLearningMutationOptions = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordProjectLearning>>, TError,RecordProjectLearningMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordProjectLearning>>, TError,RecordProjectLearningMutationVariables, TContext> => {
+
+const mutationKey = getRecordProjectLearningMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordProjectLearning>>, RecordProjectLearningMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  recordProjectLearning(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordProjectLearningMutationResult = NonNullable<Awaited<ReturnType<typeof recordProjectLearning>>>
+
+    export type RecordProjectLearningMutationError = ErrorType<NotFoundResponse | Error>
+    export type RecordProjectLearningMutationVariables = {id: number}
+
+    /**
+ * @summary Record learning from completed preparation stages
+ */
+export const useRecordProjectLearning = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordProjectLearning>>, TError,RecordProjectLearningMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordProjectLearning>>,
+        TError,
+        RecordProjectLearningMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRecordProjectLearningMutationOptions(options));
+    }
+
+export const getCompleteProjectUrl = (id: number,) => {
+
+
+
+
+  return `/api/projects/${id}/complete`
+}
+
+/**
+ * @summary Complete a project after result and learning are persisted
+ */
+export const completeProject = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<CompleteStageResponse> => {
+
+  return customFetch<CompleteStageResponse>(getCompleteProjectUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompleteProjectMutationKey = () => ['completeProject'] as const;
+
+export const getCompleteProjectMutationOptions = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeProject>>, TError,CompleteProjectMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeProject>>, TError,CompleteProjectMutationVariables, TContext> => {
+
+const mutationKey = getCompleteProjectMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeProject>>, CompleteProjectMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  completeProject(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteProjectMutationResult = NonNullable<Awaited<ReturnType<typeof completeProject>>>
+
+    export type CompleteProjectMutationError = ErrorType<NotFoundResponse | Error>
+    export type CompleteProjectMutationVariables = {id: number}
+
+    /**
+ * @summary Complete a project after result and learning are persisted
+ */
+export const useCompleteProject = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeProject>>, TError,CompleteProjectMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeProject>>,
+        TError,
+        CompleteProjectMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteProjectMutationOptions(options));
+    }
 
 export const getListActivityUrl = () => {
 

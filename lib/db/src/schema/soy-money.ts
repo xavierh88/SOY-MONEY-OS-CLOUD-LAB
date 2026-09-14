@@ -1,6 +1,8 @@
 import { createInsertSchema } from "drizzle-zod";
 import {
+  boolean,
   integer,
+  jsonb,
   pgTable,
   real,
   serial,
@@ -58,12 +60,25 @@ export const evidenceTable = pgTable(
   }),
 );
 
-export const executionsTable = pgTable("soy_executions", {
-  id: serial("id").primaryKey(),
-  opportunityId: integer("opportunity_id").references(() => opportunitiesTable.id),
-  status: text("status").notNull().default("RUNNING"),
-  ...timestamps,
-});
+export const executionsTable = pgTable(
+  "soy_executions",
+  {
+    id: serial("id").primaryKey(),
+    opportunityId: integer("opportunity_id").references(() => opportunitiesTable.id),
+    projectId: integer("project_id").references(() => projectsTable.id),
+    status: text("status").notNull().default("RUNNING"),
+    currentStage: text("current_stage").notNull().default("PIPELINE"),
+    deliverableType: text("deliverable_type"),
+    deliverable: jsonb("deliverable").$type<Record<string, unknown>>(),
+    buildNotes: text("build_notes"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (table) => ({
+    projectExecutionUnique: uniqueIndex("soy_executions_project_unique").on(table.projectId),
+  }),
+);
 
 export const activitiesTable = pgTable("soy_activity", {
   id: serial("id").primaryKey(),
@@ -84,13 +99,30 @@ export const approvalsTable = pgTable("soy_approvals", {
   decidedAt: timestamp("decided_at", { withTimezone: true }),
 });
 
-export const projectsTable = pgTable("soy_projects", {
-  id: serial("id").primaryKey(),
-  opportunityId: integer("opportunity_id").notNull().references(() => opportunitiesTable.id),
-  name: text("name").notNull(),
-  status: text("status").notNull().default("PLANNED"),
-  ...timestamps,
-});
+export const projectsTable = pgTable(
+  "soy_projects",
+  {
+    id: serial("id").primaryKey(),
+    opportunityId: integer("opportunity_id").notNull().references(() => opportunitiesTable.id),
+    name: text("name").notNull(),
+    status: text("status").notNull().default("PLANNED"),
+    qaStatus: text("qa_status"),
+    qaScore: integer("qa_score"),
+    qaIssues: text("qa_issues").array().notNull().default([]),
+    qaRecommendations: text("qa_recommendations").array().notNull().default([]),
+    qaCheckedAt: timestamp("qa_checked_at", { withTimezone: true }),
+    sellPackage: jsonb("sell_package").$type<Record<string, unknown>>(),
+    publicationExecuted: boolean("publication_executed").notNull().default(false),
+    marketingExecuted: boolean("marketing_executed").notNull().default(false),
+    saleExecuted: boolean("sale_executed").notNull().default(false),
+    financialExecution: boolean("financial_execution").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (table) => ({
+    opportunityProjectUnique: uniqueIndex("soy_projects_opportunity_unique").on(table.opportunityId),
+  }),
+);
 
 export const demandProofTable = pgTable("soy_demand_proof", {
   id: serial("id").primaryKey(),
@@ -101,21 +133,37 @@ export const demandProofTable = pgTable("soy_demand_proof", {
   ...timestamps,
 });
 
-export const resultsTable = pgTable("soy_results", {
-  id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull().references(() => projectsTable.id),
-  outcome: text("outcome").notNull(),
-  status: text("status").notNull(),
-  ...timestamps,
-});
+export const resultsTable = pgTable(
+  "soy_results",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id").notNull().references(() => projectsTable.id),
+    resultType: text("result_type").notNull().default("PREPARATION"),
+    outcome: text("outcome").notNull(),
+    status: text("status").notNull(),
+    revenue: real("revenue").notNull().default(0),
+    realRevenue: boolean("real_revenue").notNull().default(false),
+    ...timestamps,
+  },
+  (table) => ({
+    projectResultUnique: uniqueIndex("soy_results_project_unique").on(table.projectId),
+  }),
+);
 
-export const learningTable = pgTable("soy_learning", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  summary: text("summary").notNull(),
-  status: text("status").notNull(),
-  ...timestamps,
-});
+export const learningTable = pgTable(
+  "soy_learning",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id").references(() => projectsTable.id),
+    title: text("title").notNull(),
+    summary: text("summary").notNull(),
+    status: text("status").notNull(),
+    ...timestamps,
+  },
+  (table) => ({
+    projectLearningUnique: uniqueIndex("soy_learning_project_unique").on(table.projectId),
+  }),
+);
 
 export const insertOpportunitySchema = createInsertSchema(opportunitiesTable).omit({
   id: true,

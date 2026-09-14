@@ -339,40 +339,66 @@ router.post("/approvals/:id/decision", async (req, res): Promise<void> => {
   }
 
   const status = body.data.decision === "approved" ? "APPROVED" : "REJECTED";
-  const [approval] = await db.update(approvalsTable)
-    .set({ status, decidedAt: new Date() })
-    .where(eq(approvalsTable.id, existing.id))
-    .returning();
-
-  if (body.data.decision === "approved") {
-    await db.update(opportunitiesTable)
-      .set({ status: "PROJECT_READY" })
-      .where(eq(opportunitiesTable.id, existing.opportunityId));
-    const [opportunity] = await db.select().from(opportunitiesTable).where(eq(opportunitiesTable.id, existing.opportunityId));
-    if (opportunity) {
-      const [project] = await db.insert(projectsTable).values({
-        opportunityId: opportunity.id,
-        name: opportunity.name,
-        status: "PLANNED",
-      }).returning();
-      await db.insert(learningTable).values({
-        title: "Gate humano aplicado",
-        summary: `La oportunidad "${opportunity.name}" pasó a proyecto exploratorio tras una aprobación explícita. Sigue sin ser evidencia de ingresos.`,
-        status: "OBSERVE",
-      });
-      await db.insert(resultsTable).values({
-        projectId: project.id,
-        outcome: "Pendiente de ejecución controlada",
-        status: "NOT_STARTED",
-      });
+  if (existing.status !== "PENDING") {
+    if (existing.status === status) {
+      res.json(DecideApprovalResponse.parse(existing));
+      return;
     }
-  } else {
-    await db.update(opportunitiesTable)
-      .set({ status: "REJECTED" })
-      .where(eq(opportunitiesTable.id, existing.opportunityId));
+    res.status(409).json({ error: `Approval already decided as ${existing.status}` });
+    return;
   }
 
-  res.json(DecideApprovalResponse.parse(approval));
+  const outcome = await db.transaction(async (tx) => {
+    const [approval] = await tx.update(approvalsTable)
+      .set({ status, decidedAt: new Date() })
+      .where(and(eq(approvalsTable.id, existing.id), eq(approvalsTable.status, "PENDING")))
+      .returning();
+    if (!approval) {
+      const [current] = await tx.select().from(approvalsTable).where(eq(approvalsTable.id, existing.id));
+      return { approval: current, changed: false };
+    }
+
+    if (body.data.decision === "approved") {
+      await tx.update(opportunitiesTable)
+        .set({ status: "PROJECT_READY" })
+        .where(eq(opportunitiesTable.id, existing.opportunityId));
+      const [opportunity] = await tx.select().from(opportunitiesTable).where(eq(opportunitiesTable.id, existing.opportunityId));
+      if (opportunity) {
+        const [project] = await tx.insert(projectsTable).values({
+          opportunityId: opportunity.id,
+          name: opportunity.name,
+          status: "PLANNED",
+        }).onConflictDoNothing({ target: projectsTable.opportunityId }).returning();
+        if (project) {
+          await tx.insert(learningTable).values({
+            title: "Gate humano aplicado",
+            summary: `La oportunidad "${opportunity.name}" pasó a proyecto exploratorio tras una aprobación explícita. Sigue sin ser evidencia de ingresos.`,
+            status: "OBSERVE",
+          });
+          await tx.insert(resultsTable).values({
+            projectId: project.id,
+            outcome: "Pendiente de ejecución controlada",
+            status: "NOT_STARTED",
+          });
+        }
+      }
+    } else {
+      await tx.update(opportunitiesTable)
+        .set({ status: "REJECTED" })
+        .where(eq(opportunitiesTable.id, existing.opportunityId));
+    }
+    return { approval, changed: true };
+  });
+
+  if (!outcome.approval) {
+    res.status(404).json({ error: "Approval not found" });
+    return;
+  }
+  if (!outcome.changed && outcome.approval.status !== status) {
+    res.status(409).json({ error: `Approval already decided as ${outcome.approval.status}` });
+    return;
+  }
+  res.json(DecideApprovalResponse.parse(outcome.approval));
 });
 
 router.get("/projects", async (_req, res): Promise<void> => {

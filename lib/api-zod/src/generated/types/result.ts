@@ -9,7 +9,10 @@
 export interface Result {
   id: number;
   projectId: number;
+  resultType: string;
   outcome: string;
   status: string;
+  revenue: number;
+  realRevenue: boolean;
   createdAt: Date;
 }

@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "test:evidence": "tsx ./src/test-evidence-endpoint.ts",
+    "test:post-approval": "tsx ./src/test-post-approval.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

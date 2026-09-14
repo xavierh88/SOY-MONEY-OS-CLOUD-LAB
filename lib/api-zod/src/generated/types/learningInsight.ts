@@ -8,6 +8,8 @@
 
 export interface LearningInsight {
   id: number;
+  /** @nullable */
+  projectId?: number | null;
   title: string;
   summary: string;
   status: string;

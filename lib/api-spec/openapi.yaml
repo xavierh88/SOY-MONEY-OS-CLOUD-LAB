@@ -234,6 +234,166 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Project"
+  /projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get a project and its post-approval execution state
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Project execution detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /projects/{id}/start:
+    post:
+      operationId: startProjectBuild
+      tags: [projects]
+      summary: Build a structured deliverable for an approved planned project
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartProjectInput"
+      responses:
+        "200":
+          description: Existing idempotent build result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildStageResponse"
+        "201":
+          description: Build completed and ready for QA
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildStageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid project state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{id}/qa:
+    post:
+      operationId: reviewProjectQa
+      tags: [projects]
+      summary: Review a built project deliverable
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: QA result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QaStageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid project state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{id}/sell-ready:
+    post:
+      operationId: prepareProjectSellReady
+      tags: [projects]
+      summary: Prepare a non-published commercial package after QA passes
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Sell-ready package
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SellReadyStageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid project state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{id}/result:
+    post:
+      operationId: recordProjectResult
+      tags: [projects]
+      summary: Record preparation result without claiming a sale
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Preparation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultStageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid project state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{id}/learning:
+    post:
+      operationId: recordProjectLearning
+      tags: [projects]
+      summary: Record learning from completed preparation stages
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Learning record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningStageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid project state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{id}/complete:
+    post:
+      operationId: completeProject
+      tags: [projects]
+      summary: Complete a project after result and learning are persisted
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Completed project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompleteStageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid project state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /activity:
     get:
       operationId: listActivity
@@ -447,13 +607,127 @@ components:
           enum: [approved, rejected]
     Project:
       type: object
-      required: [id, opportunityId, name, status, createdAt]
+      required: [id, opportunityId, name, status, qaIssues, qaRecommendations, publicationExecuted, marketingExecuted, saleExecuted, financialExecution, createdAt, updatedAt]
       properties:
         id: { type: integer }
         opportunityId: { type: integer }
         name: { type: string }
         status: { type: string }
+        qaStatus: { type: ["string", "null"] }
+        qaScore: { type: ["integer", "null"] }
+        qaIssues: { type: array, items: { type: string } }
+        qaRecommendations: { type: array, items: { type: string } }
+        qaCheckedAt: { type: ["string", "null"], format: date-time }
+        sellPackage: { type: ["object", "null"], additionalProperties: true }
+        publicationExecuted: { type: boolean }
+        marketingExecuted: { type: boolean }
+        saleExecuted: { type: boolean }
+        financialExecution: { type: boolean }
         createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProjectExecution:
+      type: object
+      required: [id, opportunityId, projectId, status, currentStage, deliverableType, deliverable, buildNotes, startedAt, updatedAt, createdAt]
+      properties:
+        id: { type: integer }
+        opportunityId: { type: integer }
+        projectId: { type: integer }
+        status: { type: string }
+        currentStage: { type: string }
+        deliverableType: { type: string }
+        deliverable: { type: object, additionalProperties: true }
+        buildNotes: { type: string }
+        startedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    ProjectDetail:
+      type: object
+      required: [project, execution, result, learning]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        execution:
+          oneOf:
+            - $ref: "#/components/schemas/ProjectExecution"
+            - type: "null"
+        result:
+          oneOf:
+            - $ref: "#/components/schemas/Result"
+            - type: "null"
+        learning:
+          oneOf:
+            - $ref: "#/components/schemas/LearningInsight"
+            - type: "null"
+    StartProjectInput:
+      type: object
+      required: [deliverableType]
+      properties:
+        deliverableType:
+          type: string
+          enum: [DIGITAL_PRODUCT, SERVICE, LANDING_PAGE, REPORT, AUTOMATION, CONSULTING_OFFER, CONTENT_PRODUCT, OTHER]
+        buildNotes: { type: string }
+    BuildStageResponse:
+      type: object
+      required: [status, projectId, opportunityId, nextStage, execution]
+      properties:
+        status: { type: string }
+        projectId: { type: integer }
+        opportunityId: { type: integer }
+        nextStage: { type: string }
+        execution:
+          $ref: "#/components/schemas/ProjectExecution"
+    QaStageResponse:
+      type: object
+      required: [status, projectId, opportunityId, nextStage, qaStatus, qaScore, issues, recommendations, checkedAt]
+      properties:
+        status: { type: string }
+        projectId: { type: integer }
+        opportunityId: { type: integer }
+        nextStage: { type: string }
+        qaStatus: { type: string }
+        qaScore: { type: integer }
+        issues: { type: array, items: { type: string } }
+        recommendations: { type: array, items: { type: string } }
+        checkedAt: { type: string, format: date-time }
+    SellReadyStageResponse:
+      type: object
+      required: [status, projectId, opportunityId, nextStage, sellPackage]
+      properties:
+        status: { type: string }
+        projectId: { type: integer }
+        opportunityId: { type: integer }
+        nextStage: { type: string }
+        sellPackage: { type: object, additionalProperties: true }
+    ResultStageResponse:
+      type: object
+      required: [status, projectId, opportunityId, nextStage, result]
+      properties:
+        status: { type: string }
+        projectId: { type: integer }
+        opportunityId: { type: integer }
+        nextStage: { type: string }
+        result:
+          $ref: "#/components/schemas/Result"
+    LearningStageResponse:
+      type: object
+      required: [status, projectId, opportunityId, nextStage, learning]
+      properties:
+        status: { type: string }
+        projectId: { type: integer }
+        opportunityId: { type: integer }
+        nextStage: { type: string }
+        learning:
+          $ref: "#/components/schemas/LearningInsight"
+    CompleteStageResponse:
+      type: object
+      required: [status, projectId, opportunityId, nextStage, project]
+      properties:
+        status: { type: string }
+        projectId: { type: integer }
+        opportunityId: { type: integer }
+        nextStage: { type: string }
+        project:
+          $ref: "#/components/schemas/Project"
     DemandProof:
       type: object
       required: [id, opportunityId, proofType, status, summary, createdAt]
@@ -466,18 +740,22 @@ components:
         createdAt: { type: string, format: date-time }
     Result:
       type: object
-      required: [id, projectId, outcome, status, createdAt]
+      required: [id, projectId, resultType, outcome, status, revenue, realRevenue, createdAt]
       properties:
         id: { type: integer }
         projectId: { type: integer }
+        resultType: { type: string }
         outcome: { type: string }
         status: { type: string }
+        revenue: { type: number }
+        realRevenue: { type: boolean }
         createdAt: { type: string, format: date-time }
     LearningInsight:
       type: object
       required: [id, title, summary, status, createdAt]
       properties:
         id: { type: integer }
+        projectId: { type: ["integer", "null"] }
         title: { type: string }
         summary: { type: string }
         status: { type: string }

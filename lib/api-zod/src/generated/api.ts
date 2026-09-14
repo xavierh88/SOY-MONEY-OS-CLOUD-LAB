@@ -309,9 +309,230 @@ export const ListProjectsResponseItem = zod.object({
   "opportunityId": zod.number().int(),
   "name": zod.string(),
   "status": zod.string(),
-  "createdAt": zod.coerce.date()
+  "qaStatus": zod.string().nullish(),
+  "qaScore": zod.number().int().nullish(),
+  "qaIssues": zod.array(zod.string()),
+  "qaRecommendations": zod.array(zod.string()),
+  "qaCheckedAt": zod.coerce.date().nullish(),
+  "sellPackage": zod.record(zod.string(), zod.unknown()).nullish(),
+  "publicationExecuted": zod.boolean(),
+  "marketingExecuted": zod.boolean(),
+  "saleExecuted": zod.boolean(),
+  "financialExecution": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
 })
 export const ListProjectsResponse = zod.array(ListProjectsResponseItem)
+
+
+/**
+ * @summary Get a project and its post-approval execution state
+ */
+export const GetProjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetProjectResponse = zod.object({
+  "project": zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "qaStatus": zod.string().nullish(),
+  "qaScore": zod.number().int().nullish(),
+  "qaIssues": zod.array(zod.string()),
+  "qaRecommendations": zod.array(zod.string()),
+  "qaCheckedAt": zod.coerce.date().nullish(),
+  "sellPackage": zod.record(zod.string(), zod.unknown()).nullish(),
+  "publicationExecuted": zod.boolean(),
+  "marketingExecuted": zod.boolean(),
+  "saleExecuted": zod.boolean(),
+  "financialExecution": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "execution": zod.union([zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "projectId": zod.number().int(),
+  "status": zod.string(),
+  "currentStage": zod.string(),
+  "deliverableType": zod.string(),
+  "deliverable": zod.record(zod.string(), zod.unknown()),
+  "buildNotes": zod.string(),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+}),zod.null()]),
+  "result": zod.union([zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int(),
+  "resultType": zod.string(),
+  "outcome": zod.string(),
+  "status": zod.string(),
+  "revenue": zod.number(),
+  "realRevenue": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}),zod.null()]),
+  "learning": zod.union([zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int().nullish(),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Build a structured deliverable for an approved planned project
+ */
+export const StartProjectBuildParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const StartProjectBuildBody = zod.object({
+  "deliverableType": zod.enum(['DIGITAL_PRODUCT', 'SERVICE', 'LANDING_PAGE', 'REPORT', 'AUTOMATION', 'CONSULTING_OFFER', 'CONTENT_PRODUCT', 'OTHER']),
+  "buildNotes": zod.string().optional()
+})
+
+export const StartProjectBuildResponse = zod.object({
+  "status": zod.string(),
+  "projectId": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "nextStage": zod.string(),
+  "execution": zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "projectId": zod.number().int(),
+  "status": zod.string(),
+  "currentStage": zod.string(),
+  "deliverableType": zod.string(),
+  "deliverable": zod.record(zod.string(), zod.unknown()),
+  "buildNotes": zod.string(),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Review a built project deliverable
+ */
+export const ReviewProjectQaParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ReviewProjectQaResponse = zod.object({
+  "status": zod.string(),
+  "projectId": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "nextStage": zod.string(),
+  "qaStatus": zod.string(),
+  "qaScore": zod.number().int(),
+  "issues": zod.array(zod.string()),
+  "recommendations": zod.array(zod.string()),
+  "checkedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Prepare a non-published commercial package after QA passes
+ */
+export const PrepareProjectSellReadyParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const PrepareProjectSellReadyResponse = zod.object({
+  "status": zod.string(),
+  "projectId": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "nextStage": zod.string(),
+  "sellPackage": zod.record(zod.string(), zod.unknown())
+})
+
+
+/**
+ * @summary Record preparation result without claiming a sale
+ */
+export const RecordProjectResultParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const RecordProjectResultResponse = zod.object({
+  "status": zod.string(),
+  "projectId": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "nextStage": zod.string(),
+  "result": zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int(),
+  "resultType": zod.string(),
+  "outcome": zod.string(),
+  "status": zod.string(),
+  "revenue": zod.number(),
+  "realRevenue": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Record learning from completed preparation stages
+ */
+export const RecordProjectLearningParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const RecordProjectLearningResponse = zod.object({
+  "status": zod.string(),
+  "projectId": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "nextStage": zod.string(),
+  "learning": zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int().nullish(),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Complete a project after result and learning are persisted
+ */
+export const CompleteProjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const CompleteProjectResponse = zod.object({
+  "status": zod.string(),
+  "projectId": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "nextStage": zod.string(),
+  "project": zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "qaStatus": zod.string().nullish(),
+  "qaScore": zod.number().int().nullish(),
+  "qaIssues": zod.array(zod.string()),
+  "qaRecommendations": zod.array(zod.string()),
+  "qaCheckedAt": zod.coerce.date().nullish(),
+  "sellPackage": zod.record(zod.string(), zod.unknown()).nullish(),
+  "publicationExecuted": zod.boolean(),
+  "marketingExecuted": zod.boolean(),
+  "saleExecuted": zod.boolean(),
+  "financialExecution": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+})
 
 
 /**
@@ -348,8 +569,11 @@ export const ListDemandProofResponse = zod.array(ListDemandProofResponseItem)
 export const ListResultsResponseItem = zod.object({
   "id": zod.number().int(),
   "projectId": zod.number().int(),
+  "resultType": zod.string(),
   "outcome": zod.string(),
   "status": zod.string(),
+  "revenue": zod.number(),
+  "realRevenue": zod.boolean(),
   "createdAt": zod.coerce.date()
 })
 export const ListResultsResponse = zod.array(ListResultsResponseItem)
@@ -360,6 +584,7 @@ export const ListResultsResponse = zod.array(ListResultsResponseItem)
  */
 export const ListLearningResponseItem = zod.object({
   "id": zod.number().int(),
+  "projectId": zod.number().int().nullish(),
   "title": zod.string(),
   "summary": zod.string(),
   "status": zod.string(),

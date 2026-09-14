@@ -5,11 +5,27 @@
  * SOY MONEY OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProjectSellPackage } from './projectSellPackage';
 
 export interface Project {
   id: number;
   opportunityId: number;
   name: string;
   status: string;
+  /** @nullable */
+  qaStatus?: string | null;
+  /** @nullable */
+  qaScore?: number | null;
+  qaIssues: string[];
+  qaRecommendations: string[];
+  /** @nullable */
+  qaCheckedAt?: Date | null;
+  /** @nullable */
+  sellPackage?: ProjectSellPackage;
+  publicationExecuted: boolean;
+  marketingExecuted: boolean;
+  saleExecuted: boolean;
+  financialExecution: boolean;
   createdAt: Date;
+  updatedAt: Date;
 }
