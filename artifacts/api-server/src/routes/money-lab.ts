@@ -71,7 +71,9 @@ async function persistRemoteRun(run: GitHubRun, source: "MANUAL" | "SCHEDULED") 
 
 async function syncCycle(id: number) {
   let [cycle] = await db.select().from(marketCyclesTable).where(eq(marketCyclesTable.id, id));
-  if (!cycle || !cycle.githubRunId || !activeStatuses.includes(cycle.status as typeof activeStatuses[number])) {
+  const needsCompletedArtifact = cycle?.status === "COMPLETED" && cycle.result === null;
+  if (!cycle || !cycle.githubRunId ||
+    (!activeStatuses.includes(cycle.status as typeof activeStatuses[number]) && !needsCompletedArtifact)) {
     return cycle;
   }
   try {
@@ -134,7 +136,10 @@ async function syncCycle(id: number) {
 async function registerScheduledRuns() {
   if (!isGitHubConfigured()) return;
   const scheduled = await listWorkflowRuns("schedule");
-  for (const run of scheduled.slice(0, 10)) await persistRemoteRun(run, "SCHEDULED");
+  for (const run of scheduled.slice(0, 10)) {
+    const cycle = await persistRemoteRun(run, "SCHEDULED");
+    if (cycle?.status === "COMPLETED" && cycle.result === null) await syncCycle(cycle.id);
+  }
 }
 
 function nextSchedule() {
