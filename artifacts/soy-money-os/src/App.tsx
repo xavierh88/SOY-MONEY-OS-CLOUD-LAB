@@ -37,13 +37,16 @@ import { Link, Route, Switch, useLocation, useParams } from 'wouter';
 import {
   getGetDashboardQueryKey,
   getGetOpportunityQueryKey,
+  getGetProjectQueryKey,
   getHealthCheckQueryKey,
   getListApprovalsQueryKey,
   getListOpportunitiesQueryKey,
+  getListProjectsQueryKey,
   useCreateOpportunity,
   useDecideApproval,
   useGetDashboard,
   useGetOpportunity,
+  useGetProject,
   useHealthCheck,
   useListActivity,
   useListApprovals,
@@ -53,6 +56,10 @@ import {
   useListProjects,
   useListResults,
   useStartPipeline,
+  useGetCurrentCycle,
+  getGetCurrentCycleQueryKey,
+  useStartCycle,
+  useDecideCycle,
 } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -173,16 +180,170 @@ function MetricCard({ label, value, note, icon: Icon, tone = 'ink' }: { label: s
   return <div className={cx('metric-card animate-enter', `metric-${tone}`)}><div className="metric-top"><span>{label}</span><Icon size={17} /></div><strong data-testid={`metric-${label.toLowerCase().replaceAll(' ', '-')}`}>{value}</strong><small>{note}</small></div>;
 }
 
-function PipelineLaunch({ onCreated }: { onCreated?: () => void }) {
+function CycleControl({ onCreated }: { onCreated?: () => void }) {
+  const queryClient = useQueryClient();
+  const { data: cycle } = useGetCurrentCycle({
+    query: {
+      queryKey: getGetCurrentCycleQueryKey(),
+      refetchInterval: (query) => {
+        const state = query.state.data?.state;
+        if (state === 'COMPLETED' || state === 'FAILED' || state === 'REJECTED') return false;
+        return 3000;
+      }
+    }
+  });
+
+  const startCycle = useStartCycle();
+  const decideCycle = useDecideCycle();
+  const opportunity = useGetOpportunity(cycle?.opportunityId ?? 0, { query: { enabled: !!cycle?.opportunityId, queryKey: getGetOpportunityQueryKey(cycle?.opportunityId ?? 0) } });
+  const projectId = cycle?.projectId ?? 0;
+  const project = useGetProject(projectId, { query: { queryKey: getGetProjectQueryKey(projectId), enabled: projectId > 0, refetchInterval: projectId > 0 && cycle?.state !== 'COMPLETED' && cycle?.state !== 'REJECTED' && cycle?.state !== 'FAILED' ? 3000 : false } });
+  const approvals = useListApprovals();
+  const cycleApproval = approvals.data?.find((item) => item.id === cycle?.approvalId);
   const [query, setQuery] = useState('');
-  const startPipeline = useStartPipeline();
-  const [result, setResult] = useState<{ name?: string; executionId?: number } | null>(null);
+
+  const isTerminal = cycle?.state === 'COMPLETED' || cycle?.state === 'FAILED' || cycle?.state === 'REJECTED';
+  const isActive = cycle && !isTerminal;
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (query.trim().length < 2) return;
-    startPipeline.mutate({ data: { query: query.trim() } }, { onSuccess: (run) => { setResult({ name: run.opportunity?.name, executionId: run.executionId }); setQuery(''); onCreated?.(); } });
+    const idempotencyKey = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+    startCycle.mutate({ data: { query: query.trim(), idempotencyKey } }, {
+      onSuccess: () => {
+        setQuery('');
+        queryClient.invalidateQueries({ queryKey: getGetCurrentCycleQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() });
+        onCreated?.();
+      }
+    });
   };
-  return <div className="launch-panel"><div className="launch-intro"><div className="launch-icon"><Zap size={20} /></div><div><div className="eyebrow">Nuevo proceso</div><h2>Arranca una investigación</h2><p>Describe una tensión de mercado. El motor la convertirá en una oportunidad trazable.</p></div></div><form onSubmit={submit} className="launch-form"><div className="launch-input-wrap"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ej. software de cobro para clínicas pequeñas" data-testid="input-pipeline-query" /><span>⌘ ↵</span></div><button type="submit" className="button button-primary" disabled={startPipeline.isPending || query.trim().length < 2} data-testid="button-start-pipeline">{startPipeline.isPending ? <RefreshCw size={15} className="spin" /> : <Play size={15} />}{startPipeline.isPending ? 'Procesando' : 'Iniciar pipeline'}</button></form>{result && <div className="launch-result" data-testid="status-pipeline-success"><CheckCircle2 size={16} /><span>Pipeline #{result.executionId} creado{result.name ? ` · ${result.name}` : ''}</span><Link href="/ejecucion">Ver ejecución <ArrowRight size={14} /></Link></div>}</div>;
+
+  const handleDecision = (decision: 'approved' | 'rejected') => {
+    if (!cycle?.id) return;
+    decideCycle.mutate({ id: cycle.id, data: { decision } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetCurrentCycleQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListApprovalsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListOpportunitiesQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+      }
+    });
+  };
+
+  const stages = [
+    'DISCOVERY', 'RESEARCH', 'EVIDENCE', 'VALIDATION', 'WAITING_APPROVAL',
+    'APPROVED', 'BUILD', 'QA', 'SELL_READY', 'RESULT', 'LEARNING', 'COMPLETED'
+  ];
+
+  return (
+    <div className="launch-panel cycle-panel">
+      <div className="launch-intro">
+        <div className="launch-icon"><Zap size={20} /></div>
+        <div>
+          <div className="eyebrow">Motor Autónomo</div>
+          <h2>Operación de ciclo completo</h2>
+          <p>Describe una tensión de mercado. El motor investigará, pedirá tu decisión y preparará el proyecto sin publicar ni vender.</p>
+        </div>
+      </div>
+      <form onSubmit={submit} className="launch-form">
+        <div className="launch-input-wrap">
+          <Search size={17} />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Ej. software de cobro para clínicas"
+            disabled={!!(isActive || startCycle.isPending)}
+            data-testid="input-cycle-query"
+          />
+          <span>⌘ ↵</span>
+        </div>
+        <button
+          type="submit"
+          className="button button-primary"
+          disabled={!!(startCycle.isPending || query.trim().length < 2 || isActive)}
+          data-testid="button-start-cycle"
+        >
+          {startCycle.isPending ? <RefreshCw size={15} className="spin" /> : <Play size={15} />}
+          {startCycle.isPending ? 'Iniciando' : 'INICIAR CICLO'}
+        </button>
+      </form>
+
+      {cycle && (
+        <div className="cycle-active-section animate-enter">
+          <div className="eyebrow">CICLO ACTUAL: {cycle.state}</div>
+
+          <div className="cycle-stages">
+            {stages.map((s) => {
+              const isCurrent = cycle.stage === s && !isTerminal;
+              const isDone = stages.indexOf(cycle.stage) > stages.indexOf(s) || isTerminal;
+              return (
+                <div key={s} className={cx('cycle-stage', isCurrent && 'stage-current', isDone && 'stage-done')}>
+                  {s.replaceAll('_', ' ')}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="cycle-meta">
+            <div><strong>ID:</strong> CYC-{String(cycle.id).padStart(4, '0')}</div>
+            <div><strong>Inicio:</strong> {formatTime(cycle.startedAt)}</div>
+            <div><strong>Actualización:</strong> {formatTime(cycle.updatedAt)}</div>
+            {cycle.opportunityId && <div><strong>Oportunidad:</strong> #{cycle.opportunityId}</div>}
+            {cycle.projectId && <div><strong>Proyecto:</strong> #{cycle.projectId}</div>}
+            {cycle.approvalId && <div><strong>Aprobación:</strong> #{cycle.approvalId}</div>}
+          </div>
+
+          {(opportunity.data || cycleApproval || project.data) && <div className="cycle-detail">
+            {opportunity.data && <div><strong>{opportunity.data.name}</strong><span>{opportunity.data.status} · {opportunity.data.proofStatus} · {opportunity.data.evidence.length} evidencias</span></div>}
+            {cycleApproval && <div><strong>Decisión humana: {cycleApproval.status}</strong><span>{cycleApproval.reason}</span></div>}
+            {project.data && <div><strong>Proyecto: {project.data.project.status}</strong><span>QA {project.data.project.qaStatus ?? 'pendiente'} · Paquete comercial {project.data.project.sellPackage ? 'preparado' : 'pendiente'} · Resultado {project.data.result?.status ?? 'pendiente'} · Aprendizaje {project.data.learning?.status ?? 'pendiente'}</span></div>}
+          </div>}
+
+          {cycle.state === 'COMPLETED' ? (
+            <div className="cycle-message" style={{ borderColor: 'hsl(145 43% 41%)', backgroundColor: 'hsl(145 43% 41% / 0.1)' }}>
+              Proyecto preparado. No se ha realizado una venta real.
+            </div>
+          ) : cycle.message ? (
+            <div className="cycle-message">
+              <strong>{cycle.stage}:</strong> {cycle.message}
+            </div>
+          ) : null}
+
+          {cycle.error && (
+            <div className="cycle-error">
+              <strong>Error{cycle.errorService ? ` (${cycle.errorService} ${cycle.errorStatusCode})` : ''}:</strong> {cycle.error}
+            </div>
+          )}
+
+          {cycle.stage === 'WAITING_APPROVAL' && !isTerminal && (
+            <div className="cycle-actions">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => handleDecision('approved')}
+                disabled={decideCycle.isPending}
+                data-testid="button-approve-cycle"
+              >
+                {decideCycle.isPending ? 'Procesando...' : <><Check size={14} /> APROBAR</>}
+              </button>
+              <button
+                type="button"
+                className="button"
+                style={{ backgroundColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))', borderColor: 'transparent' }}
+                onClick={() => handleDecision('rejected')}
+                disabled={decideCycle.isPending}
+                data-testid="button-reject-cycle"
+              >
+                {decideCycle.isPending ? 'Procesando...' : <><X size={14} /> RECHAZAR</>}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ActivityList({ activities, compact = false }: { activities?: Array<{ id?: number; executionId?: number; stage?: string; status?: string; message?: string; createdAt?: string }>; compact?: boolean }) {
@@ -199,7 +360,7 @@ function DashboardPage() {
   return <div><PageHeader eyebrow="Control ejecutivo / 01" title="El dinero está en las señales." description="Detecta, verifica y decide qué merece convertirse en una operación." action={<Link href="/oportunidades" className="button button-secondary" data-testid="link-see-opportunities">Abrir oportunidades <ArrowRight size={15} /></Link>} />
     <div className="hero-strip animate-enter animate-enter-delay-1"><div><div className="hero-label"><span className="live-bar" /> MOTOR DE INTELIGENCIA ACTIVO</div><h2>De la hipótesis a la evidencia.<br /><em>Sin atajos.</em></h2></div><div className="hero-aside"><div className="hero-aside-value">{d?.systemStatus ? statusLabel(d.systemStatus) : 'MONITOREANDO'}</div><div>estado del sistema</div><div className="hero-grid-mark"><span /><span /><span /><span /></div></div></div>
     <div className="metric-grid"><MetricCard label="Señales encontradas" value={d?.opportunitiesFound ?? '—'} note="en el universo explorado" icon={Radar} tone="lime" /><MetricCard label="Verificadas" value={d?.opportunitiesVerified ?? '—'} note="listas para decisión humana" icon={ShieldCheck} tone="blue" /><MetricCard label="Procesos activos" value={d?.activeProcesses ?? '—'} note={`${d?.failedProcesses ?? 0} fallidos en el periodo`} icon={ActivityIcon} tone="amber" /><MetricCard label="Aprobaciones" value={d?.pendingApprovals ?? approvals.data?.length ?? '—'} note="requieren criterio humano" icon={ClipboardCheck} tone="coral" /></div>
-    <div className="dashboard-grid"><PipelineLaunch onCreated={() => { queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); queryClient.invalidateQueries({ queryKey: getListOpportunitiesQueryKey() }); }} /><section className="panel activity-panel"><div className="panel-heading"><div><div className="eyebrow">Registro reciente</div><h3>Actividad del sistema</h3></div><Link href="/ejecucion" className="icon-link" data-testid="link-all-activity"><ArrowRight size={17} /></Link></div><DataState loading={dashboard.isLoading} error={!!dashboard.error} empty={!dashboard.isLoading && recent.length === 0} onRetry={() => void dashboard.refetch()}><ActivityList activities={recent} compact /></DataState></section></div>
+    <div className="dashboard-grid"><CycleControl onCreated={() => { queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); queryClient.invalidateQueries({ queryKey: getListOpportunitiesQueryKey() }); }} /><section className="panel activity-panel"><div className="panel-heading"><div><div className="eyebrow">Registro reciente</div><h3>Actividad del sistema</h3></div><Link href="/ejecucion" className="icon-link" data-testid="link-all-activity"><ArrowRight size={17} /></Link></div><DataState loading={dashboard.isLoading} error={!!dashboard.error} empty={!dashboard.isLoading && recent.length === 0} onRetry={() => void dashboard.refetch()}><ActivityList activities={recent} compact /></DataState></section></div>
     <div className="lower-grid"><section className="panel"><div className="panel-heading"><div><div className="eyebrow">Decisión humana</div><h3>Cola de aprobación</h3></div><Link href="/oportunidades" className="text-link" data-testid="link-approval-queue">Revisar cola <ArrowRight size={14} /></Link></div>{(approvals.data || []).slice(0, 3).map((approval) => <ApprovalRow key={approval.id} approval={approval} />)}{!approvals.isLoading && !approvals.data?.length && <div className="inline-empty">No hay checkpoints pendientes.</div>}</section><section className="panel signal-panel"><div className="panel-heading"><div><div className="eyebrow">Inventario de señales</div><h3>Últimas oportunidades</h3></div><Link href="/oportunidades" className="text-link" data-testid="link-opportunity-inventory">Ver inventario <ArrowRight size={14} /></Link></div>{(opportunities.data || []).slice(0, 3).map((opportunity) => <Link href={`/oportunidades/${opportunity.id}`} className="signal-row" key={opportunity.id} data-testid={`link-opportunity-${opportunity.id}`}><div className="signal-score">{opportunity.score}<small>/100</small></div><div><strong>{opportunity.name}</strong><span>{opportunity.sector} · {statusLabel(opportunity.proofStatus)}</span></div><ArrowRight size={15} /></Link>)}{!opportunities.isLoading && !opportunities.data?.length && <div className="inline-empty">La bandeja está lista para nuevas señales.</div>}</section></div>
   </div>;
 }

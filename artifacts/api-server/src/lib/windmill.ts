@@ -1,5 +1,7 @@
 type WindmillJob = {
   id?: string;
+  type?: string;
+  completed_at?: string;
   running?: boolean;
   success?: boolean;
   completed?: boolean;
