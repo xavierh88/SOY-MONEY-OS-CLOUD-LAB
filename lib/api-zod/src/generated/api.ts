@@ -167,6 +167,28 @@ export const GetOpportunityApprovalResponse = zod.object({
 
 
 /**
+ * @summary List persisted evidence
+ */
+export const ListEvidenceQueryParams = zod.object({
+  "opportunityId": zod.coerce.number().int().optional()
+})
+
+export const ListEvidenceResponseItem = zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "source": zod.string(),
+  "url": zod.string(),
+  "collectedAt": zod.coerce.date(),
+  "claim": zod.string(),
+  "verificationStatus": zod.string(),
+  "contradictions": zod.array(zod.string()),
+  "gaps": zod.array(zod.string()),
+  "proofType": zod.string()
+})
+export const ListEvidenceResponse = zod.array(ListEvidenceResponseItem)
+
+
+/**
  * @summary Receive external evidence for an existing opportunity
  */
 

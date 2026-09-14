@@ -26,6 +26,7 @@ import {
   GetOpportunityParams,
   GetOpportunityResponse,
   ListActivityResponse,
+  ListEvidenceResponse,
   ListApprovalsResponse,
   ListDemandProofResponse,
   ListLearningResponse,
@@ -139,6 +140,38 @@ router.get("/opportunities/:id/approval", async (req, res): Promise<void> => {
     createdAt: approval.createdAt,
     updatedAt: approval.decidedAt ?? approval.createdAt,
   }));
+});
+
+router.get("/evidence", async (req, res): Promise<void> => {
+  const rawOpportunityId = req.query.opportunityId;
+  if (rawOpportunityId === undefined) {
+    const evidence = await db.select().from(evidenceTable).orderBy(desc(evidenceTable.collectedAt));
+    res.json(ListEvidenceResponse.parse(evidence));
+    return;
+  }
+
+  const opportunityIdValue = Array.isArray(rawOpportunityId) ? rawOpportunityId[0] : rawOpportunityId;
+  const opportunityId = Number(opportunityIdValue);
+  if (!Number.isInteger(opportunityId)) {
+    res.status(400).json({ error: "opportunityId must be an integer" });
+    return;
+  }
+
+  const [opportunity] = await db
+    .select({ id: opportunitiesTable.id })
+    .from(opportunitiesTable)
+    .where(eq(opportunitiesTable.id, opportunityId));
+  if (!opportunity) {
+    res.status(404).json({ error: "Opportunity not found" });
+    return;
+  }
+
+  const evidence = await db
+    .select()
+    .from(evidenceTable)
+    .where(eq(evidenceTable.opportunityId, opportunityId))
+    .orderBy(desc(evidenceTable.collectedAt));
+  res.json(ListEvidenceResponse.parse(evidence));
 });
 
 router.post("/evidence", async (req, res): Promise<void> => {

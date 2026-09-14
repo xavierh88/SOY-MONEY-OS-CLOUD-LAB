@@ -1,0 +1,139 @@
+Continúa únicamente con la integración SOY MONEY OS ↔ Windmill.
+
+IMPORTANTE:
+POST /api/evidence ya funciona correctamente en producción.
+Windmill acaba de persistir 29 evidencias para opportunityId = 7,
+recibiendo HTTP 201 y failed = 0.
+
+NO modificar ni romper POST /api/evidence.
+
+PROBLEMA ACTUAL:
+
+Windmill necesita leer las evidencias persistidas para realizar
+la etapa EVIDENCE_REVIEW.
+
+Actualmente:
+
+GET /api/evidence
+
+devuelve HTTP 404.
+
+OBJETIVO:
+
+Implementar:
+
+GET /api/evidence
+
+Debe devolver las evidencias persistidas.
+
+REQUISITOS:
+
+1. Debe ser solamente lectura.
+
+2. No debe modificar ninguna evidencia.
+
+3. No debe cambiar verificationStatus.
+
+4. SEARCH_EVIDENCE debe continuar siendo SEARCH_EVIDENCE.
+
+5. NOT_VERIFIED debe continuar siendo NOT_VERIFIED.
+
+6. Está absolutamente prohibido convertir automáticamente
+   evidencia a REAL_VERIFIED.
+
+7. No realizar aprobación automática.
+
+8. No realizar operaciones financieras.
+
+9. Mantener compatibilidad completa con el POST /api/evidence
+   que ya funciona.
+
+10. Preferiblemente permitir filtro por opportunityId:
+
+GET /api/evidence?opportunityId=7
+
+Si se proporciona opportunityId:
+devolver solamente las evidencias de esa oportunidad.
+
+Si no se proporciona:
+devolver todas las evidencias que el contrato permita devolver.
+
+11. La respuesta debe ser JSON.
+
+Puede devolver:
+
+[
+  {...},
+  {...}
+]
+
+o:
+
+{
+  "evidence": [
+    {...},
+    {...}
+  ]
+}
+
+pero dime exactamente cuál contrato implementaste.
+
+PRUEBAS OBLIGATORIAS:
+
+A. GET /api/evidence -> HTTP 200.
+
+B. GET /api/evidence?opportunityId=7 -> HTTP 200.
+
+C. Confirmar que las evidencias creadas previamente para
+   opportunityId 7 pueden recuperarse.
+
+D. Confirmar que siguen teniendo:
+
+proofType = SEARCH_EVIDENCE
+verificationStatus = NOT_VERIFIED
+
+E. opportunityId inexistente debe devolver una respuesta
+   controlada, no un error interno 500.
+
+F. Typecheck y tests deben pasar.
+
+MUY IMPORTANTE:
+
+Después de terminar localmente, actualizar el deployment público.
+
+URL pública:
+
+https://soy-money-os--xavierhernand29.replit.app
+
+Probar DIRECTAMENTE contra producción:
+
+GET https://soy-money-os--xavierhernand29.replit.app/api/evidence
+
+y:
+
+GET https://soy-money-os--xavierhernand29.replit.app/api/evidence?opportunityId=7
+
+No declares terminado si la URL pública todavía devuelve 404.
+
+NO:
+- rediseñar interfaz
+- modificar arquitectura innecesariamente
+- cambiar endpoints existentes
+- eliminar información
+- crear REAL_VERIFIED
+- aprobar checkpoints
+- ejecutar dinero
+
+AL FINAL RESPONDE:
+
+PASS o FAIL
+
+y dame:
+
+- contrato exacto de GET /api/evidence
+- ejemplo de respuesta HTTP 200
+- cantidad de evidencias recuperadas para opportunityId 7
+- confirmación de SEARCH_EVIDENCE
+- confirmación de NOT_VERIFIED
+- resultado de tests
+- confirmación de deployment público

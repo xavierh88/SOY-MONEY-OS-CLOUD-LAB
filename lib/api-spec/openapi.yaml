@@ -110,6 +110,33 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
   /evidence:
+    get:
+      operationId: listEvidence
+      tags: [evidence]
+      summary: List persisted evidence
+      parameters:
+        - in: query
+          name: opportunityId
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Evidence list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Evidence"
+        "400":
+          description: Invalid opportunityId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
     post:
       operationId: createEvidence
       tags: [evidence]

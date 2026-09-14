@@ -48,6 +48,21 @@ assert.equal(createResult.body.opportunityId, opportunityId);
 assert.equal(createResult.body.proofType, "SEARCH_EVIDENCE");
 assert.equal(createResult.body.verificationStatus, "NOT_VERIFIED");
 
+const listAllResult = await request<JsonObject[]>("/evidence");
+assert.equal(listAllResult.response.status, 200);
+assert.ok(listAllResult.body.some((item) => item.id === createResult.body.id));
+
+const filteredResult = await request<JsonObject[]>(`/evidence?opportunityId=${String(opportunityId)}`);
+assert.equal(filteredResult.response.status, 200);
+assert.ok(filteredResult.body.length >= 1);
+assert.ok(filteredResult.body.every((item) => item.opportunityId === opportunityId));
+assert.ok(filteredResult.body.some((item) => item.id === createResult.body.id));
+assert.ok(filteredResult.body.every((item) => item.proofType !== "REAL_VERIFIED"));
+assert.ok(filteredResult.body.every((item) => item.verificationStatus === "NOT_VERIFIED"));
+
+const missingEvidenceOpportunityResult = await request<JsonObject[]>("/evidence?opportunityId=999999999");
+assert.equal(missingEvidenceOpportunityResult.response.status, 404);
+
 const detailResult = await request<JsonObject>(`/opportunities/${opportunityId}`);
 assert.equal(detailResult.response.status, 200);
 const detailEvidence = (detailResult.body.evidence as JsonObject[]).find(

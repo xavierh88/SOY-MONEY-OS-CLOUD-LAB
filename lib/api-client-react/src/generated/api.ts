@@ -30,6 +30,7 @@ import type {
   EvidenceInput,
   HealthStatus,
   LearningInsight,
+  ListEvidenceParams,
   NotFoundResponse,
   Opportunity,
   OpportunityApproval,
@@ -530,6 +531,90 @@ export function useGetOpportunityApproval<TData = Awaited<ReturnType<typeof getO
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetOpportunityApprovalQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListEvidenceUrl = (params?: ListEvidenceParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/evidence?${stringifiedParams}` : `/api/evidence`
+}
+
+/**
+ * @summary List persisted evidence
+ */
+export const listEvidence = async (params?: ListEvidenceParams, options?: Parameters<typeof customFetch>[1]): Promise<Evidence[]> => {
+
+  return customFetch<Evidence[]>(getListEvidenceUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEvidenceQueryKey = (params?: ListEvidenceParams,) => {
+    return [
+    `/api/evidence`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListEvidenceQueryOptions = <TData = Awaited<ReturnType<typeof listEvidence>>, TError = ErrorType<Error | NotFoundResponse>>(params?: ListEvidenceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEvidence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEvidenceQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEvidence>>> = ({ signal }) => listEvidence(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEvidence>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEvidenceQueryResult = NonNullable<Awaited<ReturnType<typeof listEvidence>>>
+export type ListEvidenceQueryError = ErrorType<Error | NotFoundResponse>
+
+
+/**
+ * @summary List persisted evidence
+ */
+
+export function useListEvidence<TData = Awaited<ReturnType<typeof listEvidence>>, TError = ErrorType<Error | NotFoundResponse>>(
+ params?: ListEvidenceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEvidence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEvidenceQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

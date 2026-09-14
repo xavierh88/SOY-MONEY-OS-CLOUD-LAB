@@ -205,3 +205,7 @@ export interface Dashboard {
  */
 export type NotFoundResponse = Error;
 
+export type ListEvidenceParams = {
+opportunityId?: number;
+};
+

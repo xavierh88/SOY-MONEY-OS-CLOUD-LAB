@@ -19,6 +19,7 @@ export * from './evidenceInputProofType';
 export * from './evidenceInputVerificationStatus';
 export * from './healthStatus';
 export * from './learningInsight';
+export * from './listEvidenceParams';
 export * from './notFoundResponse';
 export * from './opportunity';
 export * from './opportunityApproval';
