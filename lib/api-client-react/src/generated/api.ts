@@ -36,6 +36,9 @@ import type {
   LearningInsight,
   LearningStageResponse,
   ListEvidenceParams,
+  MarketCycle,
+  MarketCycleInput,
+  MoneyLabSummary,
   NotFoundResponse,
   Opportunity,
   OpportunityApproval,
@@ -150,13 +153,6 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-
-
-
-
-
-
 export const getGetDashboardUrl = () => {
 
 
@@ -227,13 +223,6 @@ export function useGetDashboard<TData = Awaited<ReturnType<typeof getDashboard>>
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-
-
-
-
-
-
 export const getListOpportunitiesUrl = () => {
 
 
@@ -304,12 +293,6 @@ export function useListOpportunities<TData = Awaited<ReturnType<typeof listOppor
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-
-
-
-
-
 
 export const getCreateOpportunityUrl = () => {
 
@@ -469,12 +452,6 @@ export function useGetOpportunity<TData = Awaited<ReturnType<typeof getOpportuni
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-
-
-
-
-
 
 export const getGetOpportunityApprovalUrl = (id: number,) => {
 
@@ -2230,4 +2207,400 @@ export const useDecideCycle = <TError = ErrorType<NotFoundResponse | Error>,
       > => {
       return useMutation(getDecideCycleMutationOptions(options));
     }
+
+export const getStartMarketCycleUrl = () => {
+
+
+
+
+  return `/api/money-lab/market-cycle/start`
+}
+
+/**
+ * @summary Dispatch the GitHub Actions market research cycle
+ */
+export const startMarketCycle = async (marketCycleInput: MarketCycleInput, options?: Parameters<typeof customFetch>[1]): Promise<MarketCycle> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<MarketCycle>(getStartMarketCycleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(marketCycleInput)
+  }
+);}
+
+
+
+
+
+export const getStartMarketCycleMutationKey = () => ['startMarketCycle'] as const;
+
+export const getStartMarketCycleMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startMarketCycle>>, TError,StartMarketCycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startMarketCycle>>, TError,StartMarketCycleMutationVariables, TContext> => {
+
+const mutationKey = getStartMarketCycleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startMarketCycle>>, StartMarketCycleMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  startMarketCycle(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartMarketCycleMutationResult = NonNullable<Awaited<ReturnType<typeof startMarketCycle>>>
+    export type StartMarketCycleMutationBody = BodyType<MarketCycleInput>
+    export type StartMarketCycleMutationError = ErrorType<Error>
+    export type StartMarketCycleMutationVariables = {data: BodyType<MarketCycleInput>}
+
+    /**
+ * @summary Dispatch the GitHub Actions market research cycle
+ */
+export const useStartMarketCycle = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startMarketCycle>>, TError,StartMarketCycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startMarketCycle>>,
+        TError,
+        StartMarketCycleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStartMarketCycleMutationOptions(options));
+    }
+
+export const getGetMarketCycleStatusUrl = (id: number,) => {
+
+
+
+
+  return `/api/money-lab/market-cycle/status/${id}`
+}
+
+/**
+ * @summary Synchronize and return a market cycle
+ */
+export const getMarketCycleStatus = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<MarketCycle> => {
+
+  return customFetch<MarketCycle>(getGetMarketCycleStatusUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMarketCycleStatusQueryKey = (id: number,) => {
+    return [
+    `/api/money-lab/market-cycle/status/${id}`
+    ] as const;
+    }
+
+
+export const getGetMarketCycleStatusQueryOptions = <TData = Awaited<ReturnType<typeof getMarketCycleStatus>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketCycleStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMarketCycleStatusQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarketCycleStatus>>> = ({ signal }) => getMarketCycleStatus(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMarketCycleStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMarketCycleStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getMarketCycleStatus>>>
+export type GetMarketCycleStatusQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Synchronize and return a market cycle
+ */
+
+export function useGetMarketCycleStatus<TData = Awaited<ReturnType<typeof getMarketCycleStatus>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketCycleStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMarketCycleStatusQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListMarketCyclesUrl = () => {
+
+
+
+
+  return `/api/money-lab/market-cycles`
+}
+
+/**
+ * @summary List persisted market cycles
+ */
+export const listMarketCycles = async ( options?: Parameters<typeof customFetch>[1]): Promise<MarketCycle[]> => {
+
+  return customFetch<MarketCycle[]>(getListMarketCyclesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMarketCyclesQueryKey = () => {
+    return [
+    `/api/money-lab/market-cycles`
+    ] as const;
+    }
+
+
+export const getListMarketCyclesQueryOptions = <TData = Awaited<ReturnType<typeof listMarketCycles>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMarketCycles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMarketCyclesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMarketCycles>>> = ({ signal }) => listMarketCycles({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMarketCycles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMarketCyclesQueryResult = NonNullable<Awaited<ReturnType<typeof listMarketCycles>>>
+export type ListMarketCyclesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List persisted market cycles
+ */
+
+export function useListMarketCycles<TData = Awaited<ReturnType<typeof listMarketCycles>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMarketCycles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMarketCyclesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMarketCycleUrl = (id: number,) => {
+
+
+
+
+  return `/api/money-lab/market-cycles/${id}`
+}
+
+/**
+ * @summary Get one persisted market cycle
+ */
+export const getMarketCycle = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<MarketCycle> => {
+
+  return customFetch<MarketCycle>(getGetMarketCycleUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMarketCycleQueryKey = (id: number,) => {
+    return [
+    `/api/money-lab/market-cycles/${id}`
+    ] as const;
+    }
+
+
+export const getGetMarketCycleQueryOptions = <TData = Awaited<ReturnType<typeof getMarketCycle>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMarketCycleQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarketCycle>>> = ({ signal }) => getMarketCycle(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMarketCycle>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMarketCycleQueryResult = NonNullable<Awaited<ReturnType<typeof getMarketCycle>>>
+export type GetMarketCycleQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get one persisted market cycle
+ */
+
+export function useGetMarketCycle<TData = Awaited<ReturnType<typeof getMarketCycle>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMarketCycleQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMoneyLabSummaryUrl = () => {
+
+
+
+
+  return `/api/money-lab/summary`
+}
+
+/**
+ * @summary Get Market Lab aggregate status
+ */
+export const getMoneyLabSummary = async ( options?: Parameters<typeof customFetch>[1]): Promise<MoneyLabSummary> => {
+
+  return customFetch<MoneyLabSummary>(getGetMoneyLabSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMoneyLabSummaryQueryKey = () => {
+    return [
+    `/api/money-lab/summary`
+    ] as const;
+    }
+
+
+export const getGetMoneyLabSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getMoneyLabSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMoneyLabSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMoneyLabSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMoneyLabSummary>>> = ({ signal }) => getMoneyLabSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMoneyLabSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMoneyLabSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getMoneyLabSummary>>>
+export type GetMoneyLabSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get Market Lab aggregate status
+ */
+
+export function useGetMoneyLabSummary<TData = Awaited<ReturnType<typeof getMoneyLabSummary>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMoneyLabSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMoneyLabSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

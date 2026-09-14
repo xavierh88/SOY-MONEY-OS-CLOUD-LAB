@@ -360,6 +360,67 @@ export interface Cycle {
   createdAt: string;
 }
 
+export interface MarketCycleInput {
+  /**
+     * @minLength 8
+     * @maxLength 120
+     */
+  idempotencyKey: string;
+}
+
+/**
+ * @nullable
+ */
+export type MarketCycleResult = { [key: string]: unknown } | null;
+
+export interface MarketCycle {
+  id: number;
+  /** @nullable */
+  githubRunId?: string | null;
+  githubWorkflow: string;
+  /** @nullable */
+  githubRunUrl?: string | null;
+  dispatchKey: string;
+  status: string;
+  source: string;
+  marketsAnalyzed: number;
+  candidatesFound: number;
+  paperApproved: number;
+  rejected: number;
+  /** @nullable */
+  result?: MarketCycleResult;
+  errors: string[];
+  realMoneyUsed: false;
+  financialExecution: false;
+  realVerified: false;
+  startedAt: string;
+  updatedAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+  createdAt: string;
+}
+
+export type MoneyLabSummaryConnectionStatus = typeof MoneyLabSummaryConnectionStatus[keyof typeof MoneyLabSummaryConnectionStatus];
+
+
+export const MoneyLabSummaryConnectionStatus = {
+  CONNECTED: 'CONNECTED',
+  GITHUB_CONNECTION_REQUIRED: 'GITHUB_CONNECTION_REQUIRED',
+} as const;
+
+export interface MoneyLabSummary {
+  connectionStatus: MoneyLabSummaryConnectionStatus;
+  latestCycle: MarketCycle | null;
+  /** @nullable */
+  nextScheduledCycle: string | null;
+  totalCycles: number;
+  marketsAnalyzed: number;
+  candidatesFound: number;
+  paperApproved: number;
+  rejected: number;
+  failed: number;
+}
+
 /**
  * Resource not found
  */

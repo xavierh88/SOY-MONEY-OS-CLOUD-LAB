@@ -713,3 +713,166 @@ export const DecideCycleResponse = zod.object({
 })
 
 
+/**
+ * @summary Dispatch the GitHub Actions market research cycle
+ */
+export const startMarketCycleBodyIdempotencyKeyMin = 8;
+export const startMarketCycleBodyIdempotencyKeyMax = 120;
+
+
+
+export const StartMarketCycleBody = zod.object({
+  "idempotencyKey": zod.string().min(startMarketCycleBodyIdempotencyKeyMin).max(startMarketCycleBodyIdempotencyKeyMax)
+})
+
+export const StartMarketCycleResponse = zod.object({
+  "id": zod.number().int(),
+  "githubRunId": zod.string().nullish(),
+  "githubWorkflow": zod.string(),
+  "githubRunUrl": zod.string().nullish(),
+  "dispatchKey": zod.string(),
+  "status": zod.string(),
+  "source": zod.string(),
+  "marketsAnalyzed": zod.number().int(),
+  "candidatesFound": zod.number().int(),
+  "paperApproved": zod.number().int(),
+  "rejected": zod.number().int(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "errors": zod.array(zod.string()),
+  "realMoneyUsed": zod.literal(false),
+  "financialExecution": zod.literal(false),
+  "realVerified": zod.literal(false),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Synchronize and return a market cycle
+ */
+export const GetMarketCycleStatusParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetMarketCycleStatusResponse = zod.object({
+  "id": zod.number().int(),
+  "githubRunId": zod.string().nullish(),
+  "githubWorkflow": zod.string(),
+  "githubRunUrl": zod.string().nullish(),
+  "dispatchKey": zod.string(),
+  "status": zod.string(),
+  "source": zod.string(),
+  "marketsAnalyzed": zod.number().int(),
+  "candidatesFound": zod.number().int(),
+  "paperApproved": zod.number().int(),
+  "rejected": zod.number().int(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "errors": zod.array(zod.string()),
+  "realMoneyUsed": zod.literal(false),
+  "financialExecution": zod.literal(false),
+  "realVerified": zod.literal(false),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List persisted market cycles
+ */
+export const ListMarketCyclesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "githubRunId": zod.string().nullish(),
+  "githubWorkflow": zod.string(),
+  "githubRunUrl": zod.string().nullish(),
+  "dispatchKey": zod.string(),
+  "status": zod.string(),
+  "source": zod.string(),
+  "marketsAnalyzed": zod.number().int(),
+  "candidatesFound": zod.number().int(),
+  "paperApproved": zod.number().int(),
+  "rejected": zod.number().int(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "errors": zod.array(zod.string()),
+  "realMoneyUsed": zod.literal(false),
+  "financialExecution": zod.literal(false),
+  "realVerified": zod.literal(false),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListMarketCyclesResponse = zod.array(ListMarketCyclesResponseItem)
+
+
+/**
+ * @summary Get one persisted market cycle
+ */
+export const GetMarketCycleParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetMarketCycleResponse = zod.object({
+  "id": zod.number().int(),
+  "githubRunId": zod.string().nullish(),
+  "githubWorkflow": zod.string(),
+  "githubRunUrl": zod.string().nullish(),
+  "dispatchKey": zod.string(),
+  "status": zod.string(),
+  "source": zod.string(),
+  "marketsAnalyzed": zod.number().int(),
+  "candidatesFound": zod.number().int(),
+  "paperApproved": zod.number().int(),
+  "rejected": zod.number().int(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "errors": zod.array(zod.string()),
+  "realMoneyUsed": zod.literal(false),
+  "financialExecution": zod.literal(false),
+  "realVerified": zod.literal(false),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get Market Lab aggregate status
+ */
+export const GetMoneyLabSummaryResponse = zod.object({
+  "connectionStatus": zod.enum(['CONNECTED', 'GITHUB_CONNECTION_REQUIRED']),
+  "latestCycle": zod.union([zod.object({
+  "id": zod.number().int(),
+  "githubRunId": zod.string().nullish(),
+  "githubWorkflow": zod.string(),
+  "githubRunUrl": zod.string().nullish(),
+  "dispatchKey": zod.string(),
+  "status": zod.string(),
+  "source": zod.string(),
+  "marketsAnalyzed": zod.number().int(),
+  "candidatesFound": zod.number().int(),
+  "paperApproved": zod.number().int(),
+  "rejected": zod.number().int(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "errors": zod.array(zod.string()),
+  "realMoneyUsed": zod.literal(false),
+  "financialExecution": zod.literal(false),
+  "realVerified": zod.literal(false),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+}),zod.null()]),
+  "nextScheduledCycle": zod.coerce.date().nullable(),
+  "totalCycles": zod.number().int(),
+  "marketsAnalyzed": zod.number().int(),
+  "candidatesFound": zod.number().int(),
+  "paperApproved": zod.number().int(),
+  "rejected": zod.number().int(),
+  "failed": zod.number().int()
+})
+
+

@@ -60,6 +60,11 @@ import {
   getGetCurrentCycleQueryKey,
   useStartCycle,
   useDecideCycle,
+  getGetMoneyLabSummaryQueryKey,
+  getListMarketCyclesQueryKey,
+  useGetMoneyLabSummary,
+  useListMarketCycles,
+  useStartMarketCycle,
 } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -84,6 +89,7 @@ const navGroups = [
       { href: '/ejecucion', label: 'Ejecución', icon: ActivityIcon },
       { href: '/resultados', label: 'Resultados', icon: BarChart3 },
       { href: '/aprendizaje', label: 'Aprendizaje', icon: BrainCircuit },
+      { href: '/money-lab', label: 'Money Lab', icon: Gauge },
     ],
   },
 ];
@@ -434,6 +440,114 @@ function ResultsPage() {
   return <div><PageHeader eyebrow="Retorno / 06" title="Resultados" description="Lo que ocurrió después de la hipótesis. El aprendizaje empieza cuando medimos el resultado." /><DataState loading={results.isLoading} error={!!results.error} empty={!results.isLoading && !results.data?.length} onRetry={() => void results.refetch()}><div className="results-list">{(results.data || []).map((result) => <div className="result-row" key={result.id} data-testid={`row-result-${result.id}`}><div className="result-status"><BarChart3 size={17} /></div><div className="result-main"><div><span className="record-id">RES-{String(result.id).padStart(3, '0')}</span><Badge value={result.status} small /></div><h3>{result.outcome}</h3><span>Proyecto: {names.get(result.projectId) || `#${result.projectId}`}</span></div><time>{formatDate(result.createdAt)}</time><ArrowRight size={16} /></div>)}</div></DataState></div>;
 }
 
+function marketClassification(status?: string) {
+  if (status === 'PAPER_APPROVED' || status === 'PAPER_CANDIDATE') return 'PAPER / SIMULATION';
+  if (status === 'NO_VALID_OPPORTUNITY') return 'NO VALID OPPORTUNITY';
+  if (status === 'FAILED') return 'FAILED';
+  if (status === 'COMPLETED') return 'RESEARCH';
+  return 'RESEARCH';
+}
+
+function MoneyLabPage() {
+  const queryClient = useQueryClient();
+  const summary = useGetMoneyLabSummary({
+    query: {
+      queryKey: getGetMoneyLabSummaryQueryKey(),
+      refetchInterval: (query) => {
+        const status = query.state.data?.latestCycle?.status;
+        return status === 'QUEUED' || status === 'RUNNING' ? 3000 : false;
+      },
+    },
+  });
+  const history = useListMarketCycles({
+    query: {
+      queryKey: getListMarketCyclesQueryKey(),
+      refetchInterval: (query) => {
+        const latest = query.state.data?.[0]?.status;
+        return latest === 'QUEUED' || latest === 'RUNNING' ? 3000 : false;
+      },
+    },
+  });
+  const start = useStartMarketCycle();
+  const latest = summary.data?.latestCycle;
+  const active = latest?.status === 'QUEUED' || latest?.status === 'RUNNING';
+  const connectionRequired = summary.data?.connectionStatus === 'GITHUB_CONNECTION_REQUIRED';
+
+  const runNow = () => {
+    const idempotencyKey = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+    start.mutate({ data: { idempotencyKey } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetMoneyLabSummaryQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListMarketCyclesQueryKey() });
+      },
+    });
+  };
+
+  return <div>
+    <PageHeader
+      eyebrow="Laboratorio cuantitativo / 09"
+      title="Market Lab"
+      description="Investigación histórica y simulación en GitHub Actions. Ningún resultado de este laboratorio usa dinero real ni constituye evidencia REAL_VERIFIED."
+      action={<button className="button button-primary" onClick={runNow} disabled={start.isPending || active || connectionRequired} data-testid="button-run-market-cycle">
+        {start.isPending ? <RefreshCw size={15} className="spin" /> : <Play size={15} />}
+        {start.isPending ? 'INICIANDO' : 'EJECUTAR CICLO AHORA'}
+      </button>}
+    />
+
+    {connectionRequired && <div className="proof-banner money-lab-warning" data-testid="github-connection-required">
+      <CircleAlert size={22} />
+      <div><strong>GITHUB_CONNECTION_REQUIRED</strong><p>Falta la autorización segura de GitHub. El resto de SOY MONEY OS y Windmill continúan funcionando.</p></div>
+    </div>}
+
+    <div className="money-lab-guardrail">
+      <Badge value="PAPER / SIMULATION" />
+      <span>real_money_used = false</span>
+      <span>financial_execution = false</span>
+      <span>real_verified = false</span>
+    </div>
+
+    <div className="metric-grid">
+      <MetricCard label="Mercados analizados" value={summary.data?.marketsAnalyzed ?? '—'} note="series históricas procesadas" icon={Radar} tone="blue" />
+      <MetricCard label="Candidatos encontrados" value={summary.data?.candidatesFound ?? '—'} note="señales de investigación" icon={FileSearch} tone="amber" />
+      <MetricCard label="Paper approved" value={summary.data?.paperApproved ?? '—'} note="simulación, no verificación real" icon={ShieldCheck} tone="lime" />
+      <MetricCard label="Descartados" value={summary.data?.rejected ?? '—'} note={`${summary.data?.failed ?? 0} ciclos fallidos`} icon={X} tone="coral" />
+    </div>
+
+    <section className="panel money-lab-current">
+      <div className="panel-heading"><div><div className="eyebrow">ÚLTIMO CICLO</div><h3>SOY Autonomous Market Cycle V1</h3></div><Badge value={latest?.status || 'SIN DATOS'} /></div>
+      <DataState loading={summary.isLoading} error={!!summary.error} empty={!summary.isLoading && !latest} onRetry={() => void summary.refetch()}>
+        {latest && <div className="market-cycle-detail">
+          <div><span>Estado</span><strong>{statusLabel(latest.status)}</strong></div>
+          <div><span>Clasificación</span><strong>{marketClassification(latest.status)}</strong></div>
+          <div><span>Última ejecución</span><strong>{formatDate(latest.startedAt)} · {formatTime(latest.startedAt)}</strong></div>
+          <div><span>Próximo ciclo</span><strong>{summary.data?.nextScheduledCycle ? `${formatDate(summary.data.nextScheduledCycle)} · ${formatTime(summary.data.nextScheduledCycle)}` : 'No calculado'}</strong></div>
+          <div><span>Run ID</span><strong>{latest.githubRunId || 'Pendiente de GitHub'}</strong></div>
+          <div><span>Origen</span><strong>{latest.source}</strong></div>
+        </div>}
+        {latest?.errors?.length ? <div className="cycle-error"><strong>Errores reales:</strong> {latest.errors.join(' · ')}</div> : null}
+        {active && <div className="market-progress"><span className="pulse-dot" /><strong>{latest.status === 'QUEUED' ? 'En cola de GitHub Actions' : 'Investigación y validación en progreso'}</strong></div>}
+        {latest?.result && <details className="market-result"><summary>Ver resultado persistido</summary><pre>{JSON.stringify(latest.result, null, 2)}</pre></details>}
+      </DataState>
+    </section>
+
+    <section className="panel money-lab-history">
+      <div className="panel-heading"><div><div className="eyebrow">TRAZABILIDAD</div><h3>Historial de ciclos</h3></div><span className="muted-text">{summary.data?.totalCycles ?? 0} REGISTROS</span></div>
+      <DataState loading={history.isLoading} error={!!history.error} empty={!history.isLoading && !history.data?.length} onRetry={() => void history.refetch()}>
+        <div className="table-card market-table">
+          <div className="table-head"><span>Ciclo</span><span>Estado</span><span>Clasificación</span><span>Métricas</span><span>Fecha</span></div>
+          {(history.data || []).map((cycle) => <div className="table-row" key={cycle.id} data-testid={`market-cycle-${cycle.id}`}>
+            <div className="table-title"><span className="mini-id">ML-{String(cycle.id).padStart(4, '0')}</span><strong>{cycle.source} · Run {cycle.githubRunId || 'pendiente'}</strong></div>
+            <Badge value={cycle.status} small />
+            <span className="table-summary">{marketClassification(cycle.status)}</span>
+            <span>{cycle.marketsAnalyzed} mercados · {cycle.paperApproved} paper approved</span>
+            <span className="muted-text">{formatDate(cycle.startedAt)}</span>
+          </div>)}
+        </div>
+      </DataState>
+    </section>
+  </div>;
+}
+
 function LearningPage() {
   const learning = useListLearning();
   return <div><PageHeader eyebrow="Memoria del sistema / 07" title="Aprendizaje" description="Patrones que la operación devuelve al sistema para que la próxima decisión sea más precisa." action={<div className="header-stamp"><BookOpen size={15} /> Base de conocimiento</div>} /><DataState loading={learning.isLoading} error={!!learning.error} empty={!learning.isLoading && !learning.data?.length} onRetry={() => void learning.refetch()}><div className="insight-grid">{(learning.data || []).map((insight) => <article className="insight-card" key={insight.id} data-testid={`card-insight-${insight.id}`}><div className="insight-top"><span className="insight-index">0{insight.id}</span><Badge value={insight.status} small /></div><Sparkles size={19} className="insight-icon" /><h3>{insight.title}</h3><p>{insight.summary}</p><div className="insight-date">{formatDate(insight.createdAt)} <ArrowRight size={13} /></div></article>)}</div></DataState></div>;
@@ -454,7 +568,7 @@ function SettingsPage() {
 }
 
 function Router() {
-  return <Shell><ErrorBoundary resetKey={window.location.pathname}><Switch><Route path="/" component={DashboardPage} /><Route path="/oportunidades" component={OpportunitiesPage} /><Route path="/oportunidades/:id" component={OpportunityDetailPage} /><Route path="/demand-proof" component={DemandProofPage} /><Route path="/proyectos" component={ProjectsPage} /><Route path="/ejecucion" component={ExecutionPage} /><Route path="/resultados" component={ResultsPage} /><Route path="/aprendizaje" component={LearningPage} /><Route path="/configuracion" component={SettingsPage} /><Route component={NotFound} /></Switch></ErrorBoundary></Shell>;
+  return <Shell><ErrorBoundary resetKey={window.location.pathname}><Switch><Route path="/" component={DashboardPage} /><Route path="/oportunidades" component={OpportunitiesPage} /><Route path="/oportunidades/:id" component={OpportunityDetailPage} /><Route path="/demand-proof" component={DemandProofPage} /><Route path="/proyectos" component={ProjectsPage} /><Route path="/ejecucion" component={ExecutionPage} /><Route path="/resultados" component={ResultsPage} /><Route path="/aprendizaje" component={LearningPage} /><Route path="/money-lab" component={MoneyLabPage} /><Route path="/configuracion" component={SettingsPage} /><Route component={NotFound} /></Switch></ErrorBoundary></Shell>;
 }
 
 function App() {

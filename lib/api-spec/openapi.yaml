@@ -21,6 +21,7 @@ tags:
   - name: results
   - name: learning
   - name: cycles
+  - name: money-lab
 paths:
   /healthz:
     get:
@@ -539,6 +540,100 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /money-lab/market-cycle/start:
+    post:
+      operationId: startMarketCycle
+      tags: [money-lab]
+      summary: Dispatch the GitHub Actions market research cycle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketCycleInput"
+      responses:
+        "201":
+          description: Market cycle dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketCycle"
+        "200":
+          description: Existing idempotent market cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketCycle"
+        "409":
+          description: Another manual market cycle is active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: GitHub connection required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /money-lab/market-cycle/status/{id}:
+    get:
+      operationId: getMarketCycleStatus
+      tags: [money-lab]
+      summary: Synchronize and return a market cycle
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Synchronized market cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketCycle"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /money-lab/market-cycles:
+    get:
+      operationId: listMarketCycles
+      tags: [money-lab]
+      summary: List persisted market cycles
+      responses:
+        "200":
+          description: Market cycle history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketCycle"
+  /money-lab/market-cycles/{id}:
+    get:
+      operationId: getMarketCycle
+      tags: [money-lab]
+      summary: Get one persisted market cycle
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Market cycle detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketCycle"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /money-lab/summary:
+    get:
+      operationId: getMoneyLabSummary
+      tags: [money-lab]
+      summary: Get Market Lab aggregate status
+      responses:
+        "200":
+          description: Market Lab summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoneyLabSummary"
 components:
   parameters:
     Id:
@@ -892,4 +987,49 @@ components:
         updatedAt: { type: string, format: date-time }
         completedAt: { type: ["string", "null"], format: date-time }
         createdAt: { type: string, format: date-time }
+    MarketCycleInput:
+      type: object
+      required: [idempotencyKey]
+      properties:
+        idempotencyKey: { type: string, minLength: 8, maxLength: 120 }
+    MarketCycle:
+      type: object
+      required: [id, githubWorkflow, dispatchKey, status, source, marketsAnalyzed, candidatesFound, paperApproved, rejected, errors, realMoneyUsed, financialExecution, realVerified, startedAt, updatedAt, createdAt]
+      properties:
+        id: { type: integer }
+        githubRunId: { type: ["string", "null"] }
+        githubWorkflow: { type: string }
+        githubRunUrl: { type: ["string", "null"] }
+        dispatchKey: { type: string }
+        status: { type: string }
+        source: { type: string }
+        marketsAnalyzed: { type: integer }
+        candidatesFound: { type: integer }
+        paperApproved: { type: integer }
+        rejected: { type: integer }
+        result: { type: ["object", "null"], additionalProperties: true }
+        errors: { type: array, items: { type: string } }
+        realMoneyUsed: { type: boolean, enum: [false] }
+        financialExecution: { type: boolean, enum: [false] }
+        realVerified: { type: boolean, enum: [false] }
+        startedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        completedAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+    MoneyLabSummary:
+      type: object
+      required: [connectionStatus, latestCycle, nextScheduledCycle, totalCycles, marketsAnalyzed, candidatesFound, paperApproved, rejected, failed]
+      properties:
+        connectionStatus: { type: string, enum: [CONNECTED, GITHUB_CONNECTION_REQUIRED] }
+        latestCycle:
+          oneOf:
+            - $ref: "#/components/schemas/MarketCycle"
+            - type: "null"
+        nextScheduledCycle: { type: ["string", "null"], format: date-time }
+        totalCycles: { type: integer }
+        marketsAnalyzed: { type: integer }
+        candidatesFound: { type: integer }
+        paperApproved: { type: integer }
+        rejected: { type: integer }
+        failed: { type: integer }
 

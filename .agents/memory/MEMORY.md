@@ -1,2 +1,3 @@
 - [Evidence gates](soy-money-os.md) — keep hypotheses, simulations, and verified demand distinct; only REAL_VERIFIED can unlock later gates.
 - [Project cardinality](project-cardinality.md) — historical production data can contain multiple projects per opportunity; do not require uniqueness without reconciliation.
+- [Market Lab evidence boundary](market-lab-evidence.md) — GitHub quantitative cycles remain research simulation; PAPER_APPROVED must never become REAL_VERIFIED.

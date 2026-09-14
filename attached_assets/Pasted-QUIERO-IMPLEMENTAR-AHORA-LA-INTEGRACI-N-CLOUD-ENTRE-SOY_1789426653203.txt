@@ -1,0 +1,189 @@
+QUIERO IMPLEMENTAR AHORA LA INTEGRACIÓN CLOUD ENTRE SOY MONEY OS Y GITHUB ACTIONS.
+
+IMPORTANTE:
+NO reconstruyas el proyecto.
+NO elimines funciones existentes.
+NO rompas la integración actual con Windmill.
+NO cambies la lógica de approvals, projects, evidence, results ni learning que ya funciona.
+Primero audita el código actual y reutiliza la arquitectura existente.
+
+OBJETIVO:
+Conectar el dashboard actual de SOY MONEY OS con el repositorio:
+
+xavierh88/SOY-MONEY-OS-CLOUD-LAB
+
+Ese repositorio ya tiene GitHub Actions funcionando y probado correctamente.
+
+WORKFLOW PRINCIPAL A INTEGRAR:
+SOY Autonomous Market Cycle V1
+
+Archivo:
+.github/workflows/autonomous-market-cycle.yml
+
+Este workflow ya realiza automáticamente:
+- investigación de múltiples mercados;
+- optimización de estrategias;
+- filtro inicial;
+- validación;
+- walk-forward;
+- costos/slippage;
+- Monte Carlo;
+- stress testing;
+- PAPER_APPROVED o NO_VALID_OPPORTUNITY;
+- SIN operaciones reales;
+- SIN utilizar dinero real.
+
+OBJETIVO FUNCIONAL:
+
+Desde SOY MONEY OS quiero poder:
+
+1. Lanzar un ciclo del Market Lab desde el dashboard.
+2. Replit debe llamar GitHub Actions usando workflow_dispatch.
+3. Guardar el GitHub workflow run ID.
+4. Consultar el estado del run:
+   QUEUED
+   IN_PROGRESS
+   COMPLETED
+   FAILED
+5. Cuando termine, recuperar el resultado del ciclo.
+6. Guardar ese resultado de forma permanente en la base de datos de SOY MONEY OS.
+7. Mostrarlo en el dashboard Money Lab.
+8. Evitar duplicados.
+9. Mantener historial de ciclos.
+10. Preparar la arquitectura para que los ciclos programados de GitHub también puedan registrarse automáticamente en SOY.
+
+CREAR BACKEND/API:
+
+POST /api/money-lab/market-cycle/start
+GET  /api/money-lab/market-cycle/status/:id
+GET  /api/money-lab/market-cycles
+GET  /api/money-lab/market-cycles/:id
+GET  /api/money-lab/summary
+
+Crear las tablas necesarias sin borrar ni modificar datos existentes.
+
+Cada ciclo debe guardar como mínimo:
+
+- id
+- github_run_id
+- github_workflow
+- started_at
+- completed_at
+- status
+- source
+- markets_analyzed
+- candidates_found
+- paper_approved
+- rejected
+- result
+- errors
+- real_money_used = false
+- financial_execution = false
+- real_verified = false
+
+ESTADOS INTERNOS:
+
+QUEUED
+RUNNING
+COMPLETED
+FAILED
+NO_VALID_OPPORTUNITY
+PAPER_CANDIDATE
+PAPER_APPROVED
+
+REGLAS IMPORTANTES:
+
+- PAPER_APPROVED NO significa oportunidad real verificada.
+- Nunca convertir automáticamente un resultado cuantitativo en REAL_VERIFIED.
+- Nunca ejecutar trades, compras, apuestas ni movimientos financieros.
+- Nunca mezclar ganancias simuladas con dinero real.
+- Si no pasa ningún candidato, registrar NO_VALID_OPPORTUNITY.
+- No fabricar resultados.
+- Si GitHub falla, registrar el error real.
+- Máximo 3 reintentos.
+- Mantener idempotencia usando github_run_id.
+
+DASHBOARD:
+
+Agregar o mejorar Money Lab.
+
+Mostrar:
+
+MARKET LAB
+Estado del último ciclo
+Última ejecución
+Próximo ciclo
+Mercados analizados
+Candidatos encontrados
+PAPER_APPROVED
+Descartados
+Errores
+
+Botón:
+[ EJECUTAR CICLO AHORA ]
+
+Al hacer clic:
+- inicia GitHub Actions;
+- muestra QUEUED/RUNNING;
+- actualiza el progreso;
+- cuando termine muestra el resultado.
+
+Agregar historial de ciclos.
+
+Distinguir visualmente:
+
+REAL
+PAPER / SIMULATION
+RESEARCH
+NO VALID OPPORTUNITY
+FAILED
+
+CONFIGURACIÓN SEGURA:
+
+No colocar tokens en código.
+
+Preparar estas variables/secrets de Replit:
+
+GITHUB_OWNER=xavierh88
+GITHUB_REPO=SOY-MONEY-OS-CLOUD-LAB
+GITHUB_MARKET_WORKFLOW=autonomous-market-cycle.yml
+GITHUB_TOKEN=<secret>
+
+El GITHUB_TOKEN debe leerse solamente desde Secrets/Environment.
+
+Si falta el token, no inventarlo ni bloquear toda la aplicación.
+Mostrar:
+
+GITHUB_CONNECTION_REQUIRED
+
+y explicar qué secret falta.
+
+IMPORTANTE:
+Todavía NO me pidas cambiar GitHub ni crear tokens hasta que hayas terminado primero toda la implementación que puedas hacer sin ellos.
+
+PRUEBAS OBLIGATORIAS:
+
+- build
+- typecheck
+- migraciones
+- API tests
+- comprobar que dashboard anterior sigue funcionando
+- comprobar que Windmill sigue funcionando
+- comprobar que no se duplican runs
+- comprobar que simulación permanece separada de dinero real
+
+AL FINAL NO ME DIGAS SOLO "TERMINADO".
+
+Entrégame un reporte exacto:
+
+1. archivos modificados;
+2. endpoints creados;
+3. tablas/campos creados;
+4. componentes del dashboard creados;
+5. pruebas realizadas;
+6. errores encontrados;
+7. qué queda pendiente;
+8. exactamente qué secret o autorización necesito proporcionar;
+9. instrucciones de un solo paso para continuar.
+
+Empieza ahora.
