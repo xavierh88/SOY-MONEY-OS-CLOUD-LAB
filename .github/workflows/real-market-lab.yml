@@ -1,0 +1,56 @@
+name: SOY Real Market Lab V1
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbol:
+        description: 'Stooq symbol (example SPY.US)'
+        required: false
+        default: 'SPY.US'
+      trials:
+        description: 'Optuna trials'
+        required: false
+        default: '180'
+  schedule:
+    - cron: '37 14 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: soy-real-market-lab
+  cancel-in-progress: false
+
+jobs:
+  real-market-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Run real historical market research
+        env:
+          SOY_SYMBOL: ${{ inputs.symbol || 'SPY.US' }}
+          SOY_TRIALS: ${{ inputs.trials || '180' }}
+        run: python src/real_market_lab.py
+      - name: Enforce safety contract
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('results/real_market_latest.json'))
+          assert d['data_classification']=='PUBLIC_HISTORICAL_MARKET_DATA'
+          assert d['real_verified'] is False
+          assert d['financial_execution'] is False
+          assert d['real_money_used'] is False
+          assert d['evidence_status']=='BACKTEST_RESEARCH_ONLY'
+          print('SOY SAFETY CONTRACT: PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: soy-real-market-result
+          path: results/real_market_latest.json
+          retention-days: 30
