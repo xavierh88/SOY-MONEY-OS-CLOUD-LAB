@@ -1,0 +1,494 @@
+QUIERO INTEGRAR AL DASHBOARD DE SOY MONEY OS EL CICLO AUTÓNOMO QUE YA FUE PROBADO EXITOSAMENTE EN WINDMILL.
+
+IMPORTANTE:
+NO reconstruyas el sistema desde cero.
+NO cambies la arquitectura existente innecesariamente.
+NO rompas ningún endpoint, tabla, dato, dashboard o funcionalidad actual.
+Primero inspecciona completamente el proyecto actual y reutiliza lo que ya existe.
+
+==================================================
+ESTADO YA COMPROBADO
+==================================================
+
+El backend público actual está funcionando en:
+
+https://soy-money-os--xavierhernand29.replit.app
+
+Ya fue probado un ciclo real de integración que terminó correctamente.
+
+Última prueba exitosa:
+
+- opportunityId: 8
+- approvalId: 7
+- projectId: 5
+- projectStatus: COMPLETED
+- qaStatus: PASS
+- qaScore: 100
+- nextStage: STOP_SAFE
+- publicationExecuted: false
+- marketingExecuted: false
+- saleExecuted: false
+- financialExecution: false
+
+La secuencia probada fue:
+
+DISCOVERY
+→ investigación web
+→ SEARCH_EVIDENCE
+→ validación
+→ HUMAN_DECISION_REQUIRED
+→ aprobación humana
+→ creación de PROJECT
+→ BUILD
+→ QA
+→ SELL_READY
+→ RESULT
+→ LEARNING
+→ COMPLETE
+→ STOP_SAFE
+
+==================================================
+WINDMILL
+==================================================
+
+Ya existen dos flujos desplegados y probados.
+
+1. DISCOVERY / INVESTIGACIÓN
+Nombre visible:
+SOY MONEY OS — Discovery to Human Approval V1
+
+Su función es:
+
+crear oportunidad
+→ recopilar evidencia
+→ investigación
+→ validación
+→ detenerse en HUMAN_DECISION_REQUIRED
+
+NO debe aprobar automáticamente.
+
+2. CONTINUACIÓN POST-APROBACIÓN
+
+Nombre visible:
+SOY MONEY OS - Continuación Aprobada V4 FIXED
+
+Su función es:
+
+tomar una oportunidad/proyecto ya aprobado
+→ BUILD
+→ QA
+→ SELL_READY
+→ RESULT
+→ LEARNING
+→ COMPLETE
+
+Este flujo ya terminó correctamente el projectId 5.
+
+IMPORTANTE:
+No hardcodear rutas/nombres de Windmill sin verificarlos primero.
+Inspecciona configuración existente.
+
+Si hacen falta paths o IDs de los flows, crea configuración mediante variables de entorno, por ejemplo:
+
+WINDMILL_BASE_URL
+WINDMILL_TOKEN
+WINDMILL_WORKSPACE
+WINDMILL_DISCOVERY_FLOW_PATH
+WINDMILL_CONTINUATION_FLOW_PATH
+
+Nunca expongas WINDMILL_TOKEN al frontend.
+
+==================================================
+OBJETIVO
+==================================================
+
+Quiero dejar de entrar manualmente a Windmill.
+
+Quiero controlar este proceso desde el dashboard de SOY MONEY OS.
+
+Implementa una V1 funcional y profesional en el dashboard con:
+
+1. BOTÓN "INICIAR CICLO"
+
+Al pulsarlo:
+
+- backend inicia el flujo DISCOVERY de Windmill;
+- registrar el ciclo;
+- mostrar que está ejecutándose;
+- no permitir múltiples ejecuciones accidentales simultáneas del mismo ciclo;
+- no inventar datos.
+
+2. SECCIÓN "CICLO ACTUAL"
+
+Debe mostrar como mínimo:
+
+- cycleId
+- opportunityId
+- projectId si ya existe
+- approvalId cuando exista
+- estado actual
+- etapa actual
+- fecha/hora de inicio
+- última actualización
+- mensaje legible
+- error si existe
+
+Mostrar visualmente etapas:
+
+DISCOVERY
+RESEARCH
+EVIDENCE
+VALIDATION
+WAITING_APPROVAL
+APPROVED
+BUILD
+QA
+SELL_READY
+RESULT
+LEARNING
+COMPLETED
+
+3. APROBACIÓN HUMANA
+
+Cuando DISCOVERY termine con:
+
+HUMAN_DECISION_REQUIRED
+
+el dashboard debe mostrar claramente:
+
+"Decisión humana requerida"
+
+Mostrar:
+
+- opportunityId
+- approvalId
+- reason
+- estado PENDING
+- información disponible de la oportunidad
+- resumen de evidencia/validación disponible
+
+Botones:
+
+APROBAR
+RECHAZAR
+
+APROBAR:
+
+- debe llamar al endpoint existente de aprobación de Replit;
+- usar el approvalId REAL del ciclo;
+- body:
+  {
+    "decision": "approved"
+  }
+
+- verificar que quedó APPROVED;
+- después iniciar automáticamente el flujo de CONTINUACIÓN V4;
+- NO volver a pedir al usuario entrar a Windmill.
+
+RECHAZAR:
+
+- body:
+  {
+    "decision": "rejected"
+  }
+
+- detener el ciclo;
+- no iniciar BUILD.
+
+NUNCA aprobar automáticamente.
+
+4. CONTINUACIÓN AUTOMÁTICA
+
+Después de aprobación humana:
+
+continuar:
+
+BUILD
+→ QA
+→ SELL_READY
+→ RESULT
+→ LEARNING
+→ COMPLETE
+
+Mostrar el progreso en el dashboard.
+
+Cuando termine correctamente:
+
+estado del ciclo:
+COMPLETED
+
+Mostrar:
+
+- opportunity
+- project
+- QA score/status
+- sell package
+- result
+- learning
+- estado final
+
+==================================================
+MUY IMPORTANTE: RESULTADO REAL
+==================================================
+
+No confundas preparación comercial con una venta real.
+
+Si:
+
+saleExecuted = false
+realRevenue = false
+publicationExecuted = false
+
+el dashboard debe decir claramente algo como:
+
+"Proyecto preparado. No se ha realizado una venta real."
+
+No mostrar ingresos ficticios.
+
+No marcar demanda como probada automáticamente.
+
+==================================================
+SEGURIDAD EXISTENTE
+==================================================
+
+Mantener estrictamente:
+
+SEARCH_EVIDENCE != REAL_VERIFIED
+
+SEARCH_EVIDENCE != Demand Proof
+
+No convertir evidencia automáticamente a REAL_VERIFIED.
+
+No inventar:
+
+- usuarios
+- compradores
+- ventas
+- ingresos
+- demanda
+- conversiones
+- métricas
+
+No ejecutar automáticamente:
+
+- pagos
+- compras
+- gasto publicitario
+- publicación comercial
+- transacciones
+- inversiones
+
+automaticApproval = false
+
+automaticFinancialExecution = false
+
+==================================================
+ARQUITECTURA
+==================================================
+
+Primero inspecciona:
+
+- rutas actuales
+- tablas
+- modelos
+- servicios
+- frontend
+- estado del dashboard
+- API de proyectos
+- API de approvals
+- API de opportunities
+- activity/logs
+- results
+- learning
+- configuración existente de Windmill
+
+REUTILIZA lo existente.
+
+No dupliques tablas ni endpoints si ya existe algo equivalente.
+
+Si es necesario crear una entidad Cycle/Orchestration, hazla mínima.
+
+Debe sobrevivir recargas del navegador.
+
+La UI nunca debe almacenar tokens Windmill.
+
+Las llamadas a Windmill deben realizarse server-side.
+
+==================================================
+ENDPOINTS INTERNOS SUGERIDOS
+==================================================
+
+Puedes adaptar nombres a la arquitectura actual.
+
+Ejemplo:
+
+POST /api/control/cycles/start
+
+GET /api/control/cycles/current
+
+GET /api/control/cycles/:id
+
+POST /api/control/cycles/:id/approve
+
+POST /api/control/cycles/:id/reject
+
+POST /api/control/cycles/:id/continue
+
+Pero primero comprueba si ya hay endpoints equivalentes.
+
+NO crear endpoints duplicados innecesariamente.
+
+==================================================
+IDEMPOTENCIA
+==================================================
+
+Crítico.
+
+- doble clic en Iniciar no debe crear ciclos duplicados;
+- doble clic en Aprobar no debe crear proyectos duplicados;
+- si Windmill responde dos veces, no duplicar datos;
+- si el proyecto ya avanzó de etapa, continuar desde el estado real;
+- si el proyecto está COMPLETED, devolver estado final sin ejecutarlo otra vez.
+
+==================================================
+ERRORES
+==================================================
+
+Implementar errores visibles y útiles.
+
+Nunca fallar silenciosamente.
+
+Guardar como mínimo:
+
+- etapa
+- mensaje
+- código HTTP si existe
+- servicio que falló
+- timestamp
+
+No hacer loops infinitos.
+
+Máximo 3 reintentos para errores temporales de red.
+
+No reintentar automáticamente una decisión humana.
+
+==================================================
+UI
+==================================================
+
+No quiero un rediseño general del dashboard.
+
+Añade solamente lo necesario para esta función.
+
+Debe ser claro para una persona no técnica.
+
+Necesito ver algo parecido:
+
+SOY MONEY OS
+
+[Ciclo autónomo]
+
+Estado:
+🟢 Investigación
+🟡 Esperando aprobación
+🔵 Construyendo
+✅ Completado
+🔴 Error
+
+[INICIAR CICLO]
+
+Cuando requiere aprobación:
+
+DECISIÓN REQUERIDA
+
+[Aprobar] [Rechazar]
+
+Después:
+
+Progreso:
+✓ Discovery
+✓ Research
+✓ Validation
+✓ Human Approval
+✓ Build
+✓ QA
+✓ Sell Ready
+✓ Result
+✓ Learning
+✓ Complete
+
+==================================================
+PRUEBAS OBLIGATORIAS
+==================================================
+
+Antes de decirme que terminaste:
+
+1. Typecheck completo.
+2. Tests existentes deben seguir pasando.
+3. No romper endpoints existentes.
+4. Probar carga del dashboard.
+5. Probar persistencia del estado del ciclo.
+6. Probar protección contra doble inicio.
+7. Probar protección contra doble aprobación.
+8. Probar que REJECT no inicia continuación.
+9. Probar que ningún token Windmill llega al navegador.
+10. Probar que PROJECT COMPLETED no se vuelve a ejecutar.
+11. Probar manejo de timeout/error Windmill.
+12. Probar que no se crean ventas ni ingresos ficticios.
+
+NO hagas una nueva operación financiera real.
+NO hagas publicación real.
+NO gastes dinero.
+
+==================================================
+PUBLICACIÓN
+==================================================
+
+Cuando LOCAL esté PASS:
+
+- prepara publicación;
+- aplica migraciones seguras si son necesarias;
+- no borres producción;
+- no sobrescribas datos históricos;
+- no añadas constraints que fallen por datos históricos sin analizar primero.
+
+Recordatorio:
+Anteriormente producción tenía proyectos históricos duplicados para una opportunity y un UNIQUE INDEX sobre opportunity_id falló.
+No vuelvas a introducir ese problema.
+
+Después de publicar, verificar públicamente:
+
+/api/healthz
+
+y los nuevos GET seguros de control de ciclos.
+
+NO ejecutes desde producción una aprobación, gasto o acción sensible durante la verificación.
+
+==================================================
+ENTREGA FINAL
+==================================================
+
+Al terminar quiero un reporte exacto:
+
+IMPLEMENTATION: PASS/FAIL
+TYPECHECK: PASS/FAIL
+TESTS: PASS/FAIL
+DASHBOARD: PASS/FAIL
+WINDMILL CONNECTION: PASS/FAIL
+IDEMPOTENCY: PASS/FAIL
+PUBLIC DEPLOYMENT: PASS/FAIL
+READY FOR OWNER TEST: YES/NO
+
+También dime:
+
+- qué archivos cambiaste;
+- qué tablas/migraciones añadiste;
+- endpoints exactos;
+- variables de entorno requeridas;
+- cómo identificar los dos flows Windmill;
+- qué botón debo pulsar yo para probarlo.
+
+IMPORTANTE:
+No me pidas realizar trabajo manual que tú puedas hacer dentro del proyecto.
+Avanza todo lo posible de forma autónoma.
+Si necesitas un secreto o identificador que no existe en el proyecto, detente únicamente en ese punto y dime exactamente qué dato falta.
