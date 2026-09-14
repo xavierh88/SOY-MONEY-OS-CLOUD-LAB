@@ -21,6 +21,8 @@ export * from './healthStatus';
 export * from './learningInsight';
 export * from './notFoundResponse';
 export * from './opportunity';
+export * from './opportunityApproval';
+export * from './opportunityApprovalDecision';
 export * from './opportunityDetail';
 export * from './opportunityInput';
 export * from './pipelineInput';

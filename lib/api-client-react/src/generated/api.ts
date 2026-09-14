@@ -32,6 +32,7 @@ import type {
   LearningInsight,
   NotFoundResponse,
   Opportunity,
+  OpportunityApproval,
   OpportunityDetail,
   OpportunityInput,
   PipelineInput,
@@ -452,6 +453,83 @@ export function useGetOpportunity<TData = Awaited<ReturnType<typeof getOpportuni
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetOpportunityQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOpportunityApprovalUrl = (id: number,) => {
+
+
+
+
+  return `/api/opportunities/${id}/approval`
+}
+
+/**
+ * @summary Get the latest human approval for an opportunity
+ */
+export const getOpportunityApproval = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<OpportunityApproval> => {
+
+  return customFetch<OpportunityApproval>(getGetOpportunityApprovalUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOpportunityApprovalQueryKey = (id: number,) => {
+    return [
+    `/api/opportunities/${id}/approval`
+    ] as const;
+    }
+
+
+export const getGetOpportunityApprovalQueryOptions = <TData = Awaited<ReturnType<typeof getOpportunityApproval>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpportunityApproval>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOpportunityApprovalQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOpportunityApproval>>> = ({ signal }) => getOpportunityApproval(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOpportunityApproval>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOpportunityApprovalQueryResult = NonNullable<Awaited<ReturnType<typeof getOpportunityApproval>>>
+export type GetOpportunityApprovalQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get the latest human approval for an opportunity
+ */
+
+export function useGetOpportunityApproval<TData = Awaited<ReturnType<typeof getOpportunityApproval>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpportunityApproval>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOpportunityApprovalQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

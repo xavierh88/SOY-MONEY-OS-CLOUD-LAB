@@ -21,6 +21,8 @@ import {
   DecideApprovalParams,
   DecideApprovalResponse,
   GetDashboardResponse,
+  GetOpportunityApprovalParams,
+  GetOpportunityApprovalResponse,
   GetOpportunityParams,
   GetOpportunityResponse,
   ListActivityResponse,
@@ -95,6 +97,48 @@ router.get("/opportunities/:id", async (req, res): Promise<void> => {
   }
   const evidence = await db.select().from(evidenceTable).where(eq(evidenceTable.opportunityId, opportunity.id)).orderBy(desc(evidenceTable.collectedAt));
   res.json(GetOpportunityResponse.parse({ ...opportunity, evidence }));
+});
+
+router.get("/opportunities/:id/approval", async (req, res): Promise<void> => {
+  const parsed = GetOpportunityApprovalParams.safeParse(req.params);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [opportunity] = await db
+    .select({ id: opportunitiesTable.id })
+    .from(opportunitiesTable)
+    .where(eq(opportunitiesTable.id, parsed.data.id));
+  if (!opportunity) {
+    res.status(404).json({ error: "Opportunity not found" });
+    return;
+  }
+
+  const [approval] = await db
+    .select()
+    .from(approvalsTable)
+    .where(eq(approvalsTable.opportunityId, opportunity.id))
+    .orderBy(desc(approvalsTable.createdAt))
+    .limit(1);
+  if (!approval) {
+    res.status(404).json({ error: "Approval not found" });
+    return;
+  }
+
+  const decision = approval.status === "APPROVED"
+    ? "approved"
+    : approval.status === "REJECTED"
+      ? "rejected"
+      : null;
+  res.json(GetOpportunityApprovalResponse.parse({
+    approvalId: approval.id,
+    opportunityId: approval.opportunityId,
+    status: approval.status,
+    decision,
+    createdAt: approval.createdAt,
+    updatedAt: approval.decidedAt ?? approval.createdAt,
+  }));
 });
 
 router.post("/evidence", async (req, res): Promise<void> => {

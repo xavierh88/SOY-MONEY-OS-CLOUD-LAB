@@ -93,6 +93,22 @@ paths:
                 $ref: "#/components/schemas/OpportunityDetail"
         "404":
           $ref: "#/components/responses/NotFound"
+  /opportunities/{id}/approval:
+    get:
+      operationId: getOpportunityApproval
+      tags: [approvals]
+      summary: Get the latest human approval for an opportunity
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Latest approval for the opportunity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpportunityApproval"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /evidence:
     post:
       operationId: createEvidence
@@ -322,6 +338,16 @@ components:
         contradictions: { type: array, items: { type: string } }
         gaps: { type: array, items: { type: string } }
         proofType: { type: string }
+    OpportunityApproval:
+      type: object
+      required: [approvalId, opportunityId, status, decision, createdAt, updatedAt]
+      properties:
+        approvalId: { type: integer }
+        opportunityId: { type: integer }
+        status: { type: string }
+        decision: { type: string, nullable: true, enum: [approved, rejected, null] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     EvidenceInput:
       type: object
       required: [opportunityId, source, url, claim, collectedAt, proofType, verificationStatus]

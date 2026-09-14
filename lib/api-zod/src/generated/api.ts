@@ -150,6 +150,23 @@ export const GetOpportunityResponse = zod.object({
 
 
 /**
+ * @summary Get the latest human approval for an opportunity
+ */
+export const GetOpportunityApprovalParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetOpportunityApprovalResponse = zod.object({
+  "approvalId": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "status": zod.string(),
+  "decision": zod.union([zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Receive external evidence for an existing opportunity
  */
 

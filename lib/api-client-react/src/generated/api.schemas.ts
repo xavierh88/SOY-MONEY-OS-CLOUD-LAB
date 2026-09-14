@@ -63,6 +63,23 @@ export interface Evidence {
   proofType: string;
 }
 
+export type OpportunityApprovalDecision = typeof OpportunityApprovalDecision[keyof typeof OpportunityApprovalDecision] | null;
+
+
+export const OpportunityApprovalDecision = {
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface OpportunityApproval {
+  approvalId: number;
+  opportunityId: number;
+  status: string;
+  decision: OpportunityApprovalDecision;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type EvidenceInputProofType = typeof EvidenceInputProofType[keyof typeof EvidenceInputProofType];
 
 
