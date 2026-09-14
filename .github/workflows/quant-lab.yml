@@ -1,0 +1,55 @@
+name: SOY Quant Lab Cloud V1
+
+on:
+  workflow_dispatch:
+    inputs:
+      trials:
+        description: 'Optuna trials'
+        required: false
+        default: '120'
+  schedule:
+    - cron: '17 13 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: soy-quant-lab
+  cancel-in-progress: false
+
+jobs:
+  quant-smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Run SOY Quant Lab
+        env:
+          SOY_TRIALS: ${{ inputs.trials || '120' }}
+          SOY_SEED: '42'
+        run: python src/quant_lab.py
+      - name: Validate safety contract
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('results/latest.json'))
+          assert d['real_verified'] is False
+          assert d['financial_execution'] is False
+          assert d['real_money_used'] is False
+          assert d['data_classification']=='SYNTHETIC_TEST_DATA'
+          print('SAFETY CONTRACT: PASS')
+          PY
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: soy-quant-lab-result
+          path: results/latest.json
+          retention-days: 30
