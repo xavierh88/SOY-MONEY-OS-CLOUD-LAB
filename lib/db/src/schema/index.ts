@@ -19,3 +19,4 @@
 
 export * from "./soy-money";
 export * from "./money-lab";
+export * from "./autonomy";

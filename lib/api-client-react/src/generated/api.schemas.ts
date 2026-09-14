@@ -421,6 +421,207 @@ export interface MoneyLabSummary {
   failed: number;
 }
 
+export type AutonomyStateStatus = typeof AutonomyStateStatus[keyof typeof AutonomyStateStatus];
+
+
+export const AutonomyStateStatus = {
+  OFF: 'OFF',
+  ON: 'ON',
+  PAUSED: 'PAUSED',
+} as const;
+
+export interface AutonomyState {
+  id: number;
+  status: AutonomyStateStatus;
+  timezone: string;
+  dailySlots: string[];
+  rotationIndex: number;
+  /** @nullable */
+  lastSlotKey?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AutonomyControlInput {
+  /** @minLength 1 */
+  timezone?: string;
+  /**
+     * @minItems 1
+     * @maxItems 5
+     * @items.pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9]$
+     */
+  dailySlots?: string[];
+}
+
+export type CycleRunInputCategory = typeof CycleRunInputCategory[keyof typeof CycleRunInputCategory];
+
+
+export const CycleRunInputCategory = {
+  BUSINESS: 'BUSINESS',
+  DIGITAL_PRODUCTS: 'DIGITAL_PRODUCTS',
+  SERVICES: 'SERVICES',
+  SAAS: 'SAAS',
+  AUTOMATION: 'AUTOMATION',
+  AFFILIATE: 'AFFILIATE',
+  MARKET: 'MARKET',
+  CRYPTO: 'CRYPTO',
+  SPORTS: 'SPORTS',
+  OTHER_LEGAL_OPPORTUNITIES: 'OTHER_LEGAL_OPPORTUNITIES',
+} as const;
+
+export interface CycleRunInput {
+  /**
+     * @minLength 8
+     * @maxLength 160
+     */
+  idempotencyKey: string;
+  category?: CycleRunInputCategory;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  slotKey?: string;
+}
+
+export interface AutonomousCycle {
+  id: number;
+  idempotencyKey: string;
+  /** @nullable */
+  slotKey?: string | null;
+  category: string;
+  state: string;
+  stage: string;
+  checkpoint: string;
+  /** @nullable */
+  opportunityId?: number | null;
+  /** @nullable */
+  projectId?: number | null;
+  /** @nullable */
+  selectedCandidateId?: number | null;
+  /** @nullable */
+  score?: number | null;
+  message: string;
+  /** @nullable */
+  errorCode?: string | null;
+  retryCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AutonomyCandidate {
+  opportunity: Opportunity;
+  score: number;
+  scoreIsDemandProof: false;
+  normalizedHash: string;
+  demandProofStatus?: string;
+}
+
+export type AutonomyLearningMetadata = { [key: string]: unknown };
+
+export interface AutonomyLearning {
+  id: number;
+  /** @nullable */
+  cycleId?: number | null;
+  category: string;
+  signal: string;
+  observation: string;
+  scoreDelta: number;
+  metadata: AutonomyLearningMetadata;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type HumanActionPayload = { [key: string]: unknown };
+
+export interface HumanAction {
+  id: number;
+  idempotencyKey: string;
+  /** @nullable */
+  cycleId?: number | null;
+  actionType: string;
+  checkpoint: string;
+  status: string;
+  payload: HumanActionPayload;
+  /** @nullable */
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type HumanActionCompleteInputPayload = { [key: string]: unknown };
+
+export interface HumanActionCompleteInput {
+  payload?: HumanActionCompleteInputPayload;
+}
+
+export type FinanceLedgerEntryMode = typeof FinanceLedgerEntryMode[keyof typeof FinanceLedgerEntryMode];
+
+
+export const FinanceLedgerEntryMode = {
+  REAL: 'REAL',
+  PAPER: 'PAPER',
+  POTENTIAL: 'POTENTIAL',
+} as const;
+
+export interface FinanceLedgerEntry {
+  id: number;
+  idempotencyKey: string;
+  /** @nullable */
+  accountId?: number | null;
+  mode: FinanceLedgerEntryMode;
+  entryType: string;
+  amount: number;
+  currency: string;
+  description: string;
+  /** @nullable */
+  sourceType?: string | null;
+  /** @nullable */
+  sourceId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PlatformAccountMode = typeof PlatformAccountMode[keyof typeof PlatformAccountMode];
+
+
+export const PlatformAccountMode = {
+  REAL: 'REAL',
+  PAPER: 'PAPER',
+  POTENTIAL: 'POTENTIAL',
+} as const;
+
+export interface PlatformAccount {
+  id: number;
+  platform: string;
+  accountName: string;
+  mode: PlatformAccountMode;
+  status: string;
+  availableAmount: number;
+  withdrawableAmount: number;
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinanceSummary {
+  real: number;
+  paper: number;
+  potential: number;
+}
+
+export type WithdrawableFinanceMode = typeof WithdrawableFinanceMode[keyof typeof WithdrawableFinanceMode];
+
+
+export const WithdrawableFinanceMode = {
+  REAL: 'REAL',
+} as const;
+
+export interface WithdrawableFinance {
+  mode: WithdrawableFinanceMode;
+  amount: number;
+  currency: string;
+}
+
 /**
  * Resource not found
  */

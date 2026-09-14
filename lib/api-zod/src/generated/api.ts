@@ -618,6 +618,30 @@ export const GetCurrentCycleResponse = zod.union([zod.object({
 
 
 /**
+ * @summary List autonomous cycles without touching Windmill cycles
+ */
+export const ListAutonomousCyclesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "slotKey": zod.string().nullish(),
+  "category": zod.string(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "checkpoint": zod.string(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "selectedCandidateId": zod.number().int().nullish(),
+  "score": zod.number().int().nullish(),
+  "message": zod.string(),
+  "errorCode": zod.string().nullish(),
+  "retryCount": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListAutonomousCyclesResponse = zod.array(ListAutonomousCyclesResponseItem)
+
+
+/**
  * @summary Start the Windmill discovery flow
  */
 export const startCycleBodyQueryMin = 2;
@@ -873,6 +897,472 @@ export const GetMoneyLabSummaryResponse = zod.object({
   "paperApproved": zod.number().int(),
   "rejected": zod.number().int(),
   "failed": zod.number().int()
+})
+
+
+/**
+ * @summary Enable the persisted autonomy controller
+ */
+
+export const startAutonomyBodyDailySlotsItemRegExp = new RegExp('^(?:[01][0-9]|2[0-3]):[0-5][0-9]$');
+export const startAutonomyBodyDailySlotsMax = 5;
+
+
+
+export const StartAutonomyBody = zod.object({
+  "timezone": zod.string().min(1).optional(),
+  "dailySlots": zod.array(zod.string().regex(startAutonomyBodyDailySlotsItemRegExp)).min(1).max(startAutonomyBodyDailySlotsMax).optional()
+})
+
+export const StartAutonomyResponse = zod.object({
+  "id": zod.number().int(),
+  "status": zod.enum(['OFF', 'ON', 'PAUSED']),
+  "timezone": zod.string(),
+  "dailySlots": zod.array(zod.string()),
+  "rotationIndex": zod.number().int(),
+  "lastSlotKey": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Disable the autonomy controller
+ */
+export const StopAutonomyResponse = zod.object({
+  "id": zod.number().int(),
+  "status": zod.enum(['OFF', 'ON', 'PAUSED']),
+  "timezone": zod.string(),
+  "dailySlots": zod.array(zod.string()),
+  "rotationIndex": zod.number().int(),
+  "lastSlotKey": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Pause new autonomous cycles
+ */
+export const PauseAutonomyResponse = zod.object({
+  "id": zod.number().int(),
+  "status": zod.enum(['OFF', 'ON', 'PAUSED']),
+  "timezone": zod.string(),
+  "dailySlots": zod.array(zod.string()),
+  "rotationIndex": zod.number().int(),
+  "lastSlotKey": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Resume autonomous cycles
+ */
+export const ResumeAutonomyResponse = zod.object({
+  "id": zod.number().int(),
+  "status": zod.enum(['OFF', 'ON', 'PAUSED']),
+  "timezone": zod.string(),
+  "dailySlots": zod.array(zod.string()),
+  "rotationIndex": zod.number().int(),
+  "lastSlotKey": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get persisted autonomy state
+ */
+export const GetAutonomyStatusResponse = zod.object({
+  "id": zod.number().int(),
+  "status": zod.enum(['OFF', 'ON', 'PAUSED']),
+  "timezone": zod.string(),
+  "dailySlots": zod.array(zod.string()),
+  "rotationIndex": zod.number().int(),
+  "lastSlotKey": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List autonomous cycle activity
+ */
+export const ListAutonomyActivityResponseItem = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "slotKey": zod.string().nullish(),
+  "category": zod.string(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "checkpoint": zod.string(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "selectedCandidateId": zod.number().int().nullish(),
+  "score": zod.number().int().nullish(),
+  "message": zod.string(),
+  "errorCode": zod.string().nullish(),
+  "retryCount": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListAutonomyActivityResponse = zod.array(ListAutonomyActivityResponseItem)
+
+
+/**
+ * @summary List autonomy learning records
+ */
+export const ListAutonomyLearningResponseItem = zod.object({
+  "id": zod.number().int(),
+  "cycleId": zod.number().int().nullish(),
+  "category": zod.string(),
+  "signal": zod.string(),
+  "observation": zod.string(),
+  "scoreDelta": zod.number().int(),
+  "metadata": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListAutonomyLearningResponse = zod.array(ListAutonomyLearningResponseItem)
+
+
+/**
+ * @summary Run one safe, idempotent autonomous cycle
+ */
+export const runAutonomousCycleBodyIdempotencyKeyMin = 8;
+export const runAutonomousCycleBodyIdempotencyKeyMax = 160;
+
+export const runAutonomousCycleBodySlotKeyMax = 160;
+
+
+
+export const RunAutonomousCycleBody = zod.object({
+  "idempotencyKey": zod.string().min(runAutonomousCycleBodyIdempotencyKeyMin).max(runAutonomousCycleBodyIdempotencyKeyMax),
+  "category": zod.enum(['BUSINESS', 'DIGITAL_PRODUCTS', 'SERVICES', 'SAAS', 'AUTOMATION', 'AFFILIATE', 'MARKET', 'CRYPTO', 'SPORTS', 'OTHER_LEGAL_OPPORTUNITIES']).optional(),
+  "slotKey": zod.string().min(1).max(runAutonomousCycleBodySlotKeyMax).optional()
+})
+
+export const RunAutonomousCycleResponse = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "slotKey": zod.string().nullish(),
+  "category": zod.string(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "checkpoint": zod.string(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "selectedCandidateId": zod.number().int().nullish(),
+  "score": zod.number().int().nullish(),
+  "message": zod.string(),
+  "errorCode": zod.string().nullish(),
+  "retryCount": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get an autonomous cycle without touching Windmill cycles
+ */
+export const GetAutonomousCycleParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetAutonomousCycleResponse = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "slotKey": zod.string().nullish(),
+  "category": zod.string(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "checkpoint": zod.string(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "selectedCandidateId": zod.number().int().nullish(),
+  "score": zod.number().int().nullish(),
+  "message": zod.string(),
+  "errorCode": zod.string().nullish(),
+  "retryCount": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List autonomous cycles
+ */
+export const ListAutonomyCyclesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "slotKey": zod.string().nullish(),
+  "category": zod.string(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "checkpoint": zod.string(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "selectedCandidateId": zod.number().int().nullish(),
+  "score": zod.number().int().nullish(),
+  "message": zod.string(),
+  "errorCode": zod.string().nullish(),
+  "retryCount": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListAutonomyCyclesResponse = zod.array(ListAutonomyCyclesResponseItem)
+
+
+/**
+ * @summary List existing opportunities as autonomy candidates
+ */
+export const ListCandidatesResponseItem = zod.object({
+  "opportunity": zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "sector": zod.string(),
+  "problem": zod.string(),
+  "targetCustomer": zod.string(),
+  "proposedSolution": zod.string(),
+  "monetizationMethod": zod.string(),
+  "score": zod.number().int(),
+  "estimatedCost": zod.number(),
+  "difficulty": zod.string(),
+  "risk": zod.string(),
+  "timeToRevenue": zod.string(),
+  "status": zod.string(),
+  "proofStatus": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "score": zod.number().int(),
+  "scoreIsDemandProof": zod.literal(false),
+  "normalizedHash": zod.string(),
+  "demandProofStatus": zod.string().optional()
+})
+export const ListCandidatesResponse = zod.array(ListCandidatesResponseItem)
+
+
+/**
+ * @summary Get an existing opportunity autonomy candidate
+ */
+export const GetCandidateParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetCandidateResponse = zod.object({
+  "opportunity": zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "sector": zod.string(),
+  "problem": zod.string(),
+  "targetCustomer": zod.string(),
+  "proposedSolution": zod.string(),
+  "monetizationMethod": zod.string(),
+  "score": zod.number().int(),
+  "estimatedCost": zod.number(),
+  "difficulty": zod.string(),
+  "risk": zod.string(),
+  "timeToRevenue": zod.string(),
+  "status": zod.string(),
+  "proofStatus": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "score": zod.number().int(),
+  "scoreIsDemandProof": zod.literal(false),
+  "normalizedHash": zod.string(),
+  "demandProofStatus": zod.string().optional()
+})
+
+
+/**
+ * @summary List existing opportunities with dedupe and scoring metadata
+ */
+export const ListAutonomyCandidatesResponseItem = zod.object({
+  "opportunity": zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "sector": zod.string(),
+  "problem": zod.string(),
+  "targetCustomer": zod.string(),
+  "proposedSolution": zod.string(),
+  "monetizationMethod": zod.string(),
+  "score": zod.number().int(),
+  "estimatedCost": zod.number(),
+  "difficulty": zod.string(),
+  "risk": zod.string(),
+  "timeToRevenue": zod.string(),
+  "status": zod.string(),
+  "proofStatus": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "score": zod.number().int(),
+  "scoreIsDemandProof": zod.literal(false),
+  "normalizedHash": zod.string(),
+  "demandProofStatus": zod.string().optional()
+})
+export const ListAutonomyCandidatesResponse = zod.array(ListAutonomyCandidatesResponseItem)
+
+
+/**
+ * @summary Get one existing opportunity candidate
+ */
+export const GetAutonomyCandidateParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetAutonomyCandidateResponse = zod.object({
+  "opportunity": zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "sector": zod.string(),
+  "problem": zod.string(),
+  "targetCustomer": zod.string(),
+  "proposedSolution": zod.string(),
+  "monetizationMethod": zod.string(),
+  "score": zod.number().int(),
+  "estimatedCost": zod.number(),
+  "difficulty": zod.string(),
+  "risk": zod.string(),
+  "timeToRevenue": zod.string(),
+  "status": zod.string(),
+  "proofStatus": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "score": zod.number().int(),
+  "scoreIsDemandProof": zod.literal(false),
+  "normalizedHash": zod.string(),
+  "demandProofStatus": zod.string().optional()
+})
+
+
+/**
+ * @summary List pending and completed human checkpoints
+ */
+export const ListHumanActionsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "cycleId": zod.number().int().nullish(),
+  "actionType": zod.string(),
+  "checkpoint": zod.string(),
+  "status": zod.string(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListHumanActionsResponse = zod.array(ListHumanActionsResponseItem)
+
+
+/**
+ * @summary Get a human checkpoint
+ */
+export const GetHumanActionParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetHumanActionResponse = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "cycleId": zod.number().int().nullish(),
+  "actionType": zod.string(),
+  "checkpoint": zod.string(),
+  "status": zod.string(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Complete a checkpoint and resume from its stored checkpoint
+ */
+export const CompleteHumanActionParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const CompleteHumanActionBody = zod.object({
+  "payload": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+export const CompleteHumanActionResponse = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "cycleId": zod.number().int().nullish(),
+  "actionType": zod.string(),
+  "checkpoint": zod.string(),
+  "status": zod.string(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List separated REAL, PAPER and POTENTIAL ledger entries
+ */
+export const ListFinanceLedgerResponseItem = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "accountId": zod.number().int().nullish(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']),
+  "entryType": zod.string(),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "description": zod.string(),
+  "sourceType": zod.string().nullish(),
+  "sourceId": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListFinanceLedgerResponse = zod.array(ListFinanceLedgerResponseItem)
+
+
+/**
+ * @summary Summarize finance by safety mode
+ */
+export const GetFinanceSummaryResponse = zod.object({
+  "real": zod.number(),
+  "paper": zod.number(),
+  "potential": zod.number()
+})
+
+
+/**
+ * @summary List platform accounts
+ */
+export const ListFinancePlatformsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "platform": zod.string(),
+  "accountName": zod.string(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']),
+  "status": zod.string(),
+  "availableAmount": zod.number(),
+  "withdrawableAmount": zod.number(),
+  "currency": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListFinancePlatformsResponse = zod.array(ListFinancePlatformsResponseItem)
+
+
+/**
+ * @summary Show explicitly withdrawable REAL funds only
+ */
+export const GetWithdrawableFinanceResponse = zod.object({
+  "mode": zod.enum(['REAL']),
+  "amount": zod.number(),
+  "currency": zod.string()
 })
 
 

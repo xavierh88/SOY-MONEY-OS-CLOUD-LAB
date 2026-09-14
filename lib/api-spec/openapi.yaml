@@ -22,6 +22,9 @@ tags:
   - name: learning
   - name: cycles
   - name: money-lab
+  - name: autonomy
+  - name: human-actions
+  - name: finance
 paths:
   /healthz:
     get:
@@ -467,6 +470,19 @@ paths:
                   - $ref: "#/components/schemas/Cycle"
                   - type: "null"
   /cycles:
+    get:
+      operationId: listAutonomousCycles
+      tags: [autonomy]
+      summary: List autonomous cycles without touching Windmill cycles
+      responses:
+        "200":
+          description: Autonomous cycles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AutonomousCycle"
     post:
       operationId: startCycle
       tags: [cycles]
@@ -634,6 +650,328 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MoneyLabSummary"
+  /autonomy/start:
+    post:
+      operationId: startAutonomy
+      tags: [autonomy]
+      summary: Enable the persisted autonomy controller
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutonomyControlInput"
+      responses:
+        "200":
+          description: Autonomy state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutonomyState"
+  /autonomy/stop:
+    post:
+      operationId: stopAutonomy
+      tags: [autonomy]
+      summary: Disable the autonomy controller
+      responses:
+        "200":
+          description: Autonomy state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutonomyState"
+  /autonomy/pause:
+    post:
+      operationId: pauseAutonomy
+      tags: [autonomy]
+      summary: Pause new autonomous cycles
+      responses:
+        "200":
+          description: Autonomy state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutonomyState"
+  /autonomy/resume:
+    post:
+      operationId: resumeAutonomy
+      tags: [autonomy]
+      summary: Resume autonomous cycles
+      responses:
+        "200":
+          description: Autonomy state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutonomyState"
+  /autonomy/status:
+    get:
+      operationId: getAutonomyStatus
+      tags: [autonomy]
+      summary: Get persisted autonomy state
+      responses:
+        "200":
+          description: Autonomy state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutonomyState"
+  /autonomy/activity:
+    get:
+      operationId: listAutonomyActivity
+      tags: [autonomy]
+      summary: List autonomous cycle activity
+      responses:
+        "200":
+          description: Autonomous cycles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AutonomousCycle"
+  /autonomy/learning:
+    get:
+      operationId: listAutonomyLearning
+      tags: [autonomy]
+      summary: List autonomy learning records
+      responses:
+        "200":
+          description: Learning records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AutonomyLearning"
+  /cycles/run:
+    post:
+      operationId: runAutonomousCycle
+      tags: [autonomy]
+      summary: Run one safe, idempotent autonomous cycle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CycleRunInput"
+      responses:
+        "201":
+          description: Autonomous cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutonomousCycle"
+        "200":
+          description: Existing idempotent autonomous cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutonomousCycle"
+        "409":
+          description: Autonomy is not enabled or slot is already running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /autonomy/cycles/{id}:
+    get:
+      operationId: getAutonomousCycle
+      tags: [autonomy]
+      summary: Get an autonomous cycle without touching Windmill cycles
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Autonomous cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutonomousCycle"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /autonomy/cycles:
+    get:
+      operationId: listAutonomyCycles
+      tags: [autonomy]
+      summary: List autonomous cycles
+      responses:
+        "200":
+          description: Autonomous cycles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AutonomousCycle"
+  /candidates:
+    get:
+      operationId: listCandidates
+      tags: [autonomy]
+      summary: List existing opportunities as autonomy candidates
+      responses:
+        "200":
+          description: Candidate list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AutonomyCandidate"
+  /candidates/{id}:
+    get:
+      operationId: getCandidate
+      tags: [autonomy]
+      summary: Get an existing opportunity autonomy candidate
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutonomyCandidate"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /autonomy/candidates:
+    get:
+      operationId: listAutonomyCandidates
+      tags: [autonomy]
+      summary: List existing opportunities with dedupe and scoring metadata
+      responses:
+        "200":
+          description: Candidate list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AutonomyCandidate"
+  /autonomy/candidates/{id}:
+    get:
+      operationId: getAutonomyCandidate
+      tags: [autonomy]
+      summary: Get one existing opportunity candidate
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutonomyCandidate"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /human-actions:
+    get:
+      operationId: listHumanActions
+      tags: [human-actions]
+      summary: List pending and completed human checkpoints
+      responses:
+        "200":
+          description: Human actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HumanAction"
+  /human-actions/{id}:
+    get:
+      operationId: getHumanAction
+      tags: [human-actions]
+      summary: Get a human checkpoint
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Human action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HumanAction"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /human-actions/{id}/complete:
+    post:
+      operationId: completeHumanAction
+      tags: [human-actions]
+      summary: Complete a checkpoint and resume from its stored checkpoint
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HumanActionCompleteInput"
+      responses:
+        "200":
+          description: Human action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HumanAction"
+        "409":
+          description: Action cannot be completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /finance/ledger:
+    get:
+      operationId: listFinanceLedger
+      tags: [finance]
+      summary: List separated REAL, PAPER and POTENTIAL ledger entries
+      responses:
+        "200":
+          description: Finance ledger
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinanceLedgerEntry"
+  /finance/summary:
+    get:
+      operationId: getFinanceSummary
+      tags: [finance]
+      summary: Summarize finance by safety mode
+      responses:
+        "200":
+          description: Finance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceSummary"
+  /finance/platforms:
+    get:
+      operationId: listFinancePlatforms
+      tags: [finance]
+      summary: List platform accounts
+      responses:
+        "200":
+          description: Platform accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformAccount"
+  /finance/withdrawable:
+    get:
+      operationId: getWithdrawableFinance
+      tags: [finance]
+      summary: Show explicitly withdrawable REAL funds only
+      responses:
+        "200":
+          description: Withdrawable finance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WithdrawableFinance"
 components:
   parameters:
     Id:
@@ -1032,4 +1370,139 @@ components:
         paperApproved: { type: integer }
         rejected: { type: integer }
         failed: { type: integer }
+    AutonomyState:
+      type: object
+      required: [id, status, timezone, dailySlots, rotationIndex, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [OFF, ON, PAUSED] }
+        timezone: { type: string }
+        dailySlots: { type: array, items: { type: string } }
+        rotationIndex: { type: integer }
+        lastSlotKey: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AutonomyControlInput:
+      type: object
+      properties:
+        timezone: { type: string, minLength: 1 }
+        dailySlots:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: { type: string, pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$" }
+    CycleRunInput:
+      type: object
+      required: [idempotencyKey]
+      properties:
+        idempotencyKey: { type: string, minLength: 8, maxLength: 160 }
+        category:
+          type: string
+          enum: [BUSINESS, DIGITAL_PRODUCTS, SERVICES, SAAS, AUTOMATION, AFFILIATE, MARKET, CRYPTO, SPORTS, OTHER_LEGAL_OPPORTUNITIES]
+        slotKey: { type: string, minLength: 1, maxLength: 160 }
+    AutonomousCycle:
+      type: object
+      required: [id, idempotencyKey, category, state, stage, checkpoint, message, retryCount, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        idempotencyKey: { type: string }
+        slotKey: { type: ["string", "null"] }
+        category: { type: string }
+        state: { type: string }
+        stage: { type: string }
+        checkpoint: { type: string }
+        opportunityId: { type: ["integer", "null"] }
+        projectId: { type: ["integer", "null"] }
+        selectedCandidateId: { type: ["integer", "null"] }
+        score: { type: ["integer", "null"] }
+        message: { type: string }
+        errorCode: { type: ["string", "null"] }
+        retryCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AutonomyCandidate:
+      type: object
+      required: [opportunity, score, scoreIsDemandProof, normalizedHash]
+      properties:
+        opportunity:
+          $ref: "#/components/schemas/Opportunity"
+        score: { type: integer }
+        scoreIsDemandProof: { type: boolean, enum: [false] }
+        normalizedHash: { type: string }
+        demandProofStatus: { type: string }
+    AutonomyLearning:
+      type: object
+      required: [id, category, signal, observation, scoreDelta, metadata, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        cycleId: { type: ["integer", "null"] }
+        category: { type: string }
+        signal: { type: string }
+        observation: { type: string }
+        scoreDelta: { type: integer }
+        metadata: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    HumanAction:
+      type: object
+      required: [id, idempotencyKey, actionType, checkpoint, status, payload, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        idempotencyKey: { type: string }
+        cycleId: { type: ["integer", "null"] }
+        actionType: { type: string }
+        checkpoint: { type: string }
+        status: { type: string }
+        payload: { type: object, additionalProperties: true }
+        completedAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    HumanActionCompleteInput:
+      type: object
+      properties:
+        payload: { type: object, additionalProperties: true }
+    FinanceLedgerEntry:
+      type: object
+      required: [id, idempotencyKey, mode, entryType, amount, currency, description, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        idempotencyKey: { type: string }
+        accountId: { type: ["integer", "null"] }
+        mode: { type: string, enum: [REAL, PAPER, POTENTIAL] }
+        entryType: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        description: { type: string }
+        sourceType: { type: ["string", "null"] }
+        sourceId: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PlatformAccount:
+      type: object
+      required: [id, platform, accountName, mode, status, availableAmount, withdrawableAmount, currency, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        platform: { type: string }
+        accountName: { type: string }
+        mode: { type: string, enum: [REAL, PAPER, POTENTIAL] }
+        status: { type: string }
+        availableAmount: { type: number }
+        withdrawableAmount: { type: number }
+        currency: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    FinanceSummary:
+      type: object
+      required: [real, paper, potential]
+      properties:
+        real: { type: number }
+        paper: { type: number }
+        potential: { type: number }
+    WithdrawableFinance:
+      type: object
+      required: [mode, amount, currency]
+      properties:
+        mode: { type: string, enum: [REAL] }
+        amount: { type: number }
+        currency: { type: string }
 

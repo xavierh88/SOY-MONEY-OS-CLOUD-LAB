@@ -23,16 +23,26 @@ import type {
   Activity,
   Approval,
   ApprovalDecisionInput,
+  AutonomousCycle,
+  AutonomyCandidate,
+  AutonomyControlInput,
+  AutonomyLearning,
+  AutonomyState,
   BuildStageResponse,
   CompleteStageResponse,
   Cycle,
   CycleInput,
+  CycleRunInput,
   Dashboard,
   DemandProof,
   Error,
   Evidence,
   EvidenceInput,
+  FinanceLedgerEntry,
+  FinanceSummary,
   HealthStatus,
+  HumanAction,
+  HumanActionCompleteInput,
   LearningInsight,
   LearningStageResponse,
   ListEvidenceParams,
@@ -46,13 +56,15 @@ import type {
   OpportunityInput,
   PipelineInput,
   PipelineRun,
+  PlatformAccount,
   Project,
   ProjectDetail,
   QaStageResponse,
   Result,
   ResultStageResponse,
   SellReadyStageResponse,
-  StartProjectInput
+  StartProjectInput,
+  WithdrawableFinance
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -153,6 +165,13 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
+
 export const getGetDashboardUrl = () => {
 
 
@@ -223,6 +242,13 @@ export function useGetDashboard<TData = Awaited<ReturnType<typeof getDashboard>>
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
+
 export const getListOpportunitiesUrl = () => {
 
 
@@ -293,6 +319,12 @@ export function useListOpportunities<TData = Awaited<ReturnType<typeof listOppor
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
 
 export const getCreateOpportunityUrl = () => {
 
@@ -452,6 +484,12 @@ export function useGetOpportunity<TData = Awaited<ReturnType<typeof getOpportuni
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
 
 export const getGetOpportunityApprovalUrl = (id: number,) => {
 
@@ -1954,6 +1992,83 @@ export function useGetCurrentCycle<TData = Awaited<ReturnType<typeof getCurrentC
 
 
 
+export const getListAutonomousCyclesUrl = () => {
+
+
+
+
+  return `/api/cycles`
+}
+
+/**
+ * @summary List autonomous cycles without touching Windmill cycles
+ */
+export const listAutonomousCycles = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomousCycle[]> => {
+
+  return customFetch<AutonomousCycle[]>(getListAutonomousCyclesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAutonomousCyclesQueryKey = () => {
+    return [
+    `/api/cycles`
+    ] as const;
+    }
+
+
+export const getListAutonomousCyclesQueryOptions = <TData = Awaited<ReturnType<typeof listAutonomousCycles>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutonomousCycles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAutonomousCyclesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAutonomousCycles>>> = ({ signal }) => listAutonomousCycles({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAutonomousCycles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAutonomousCyclesQueryResult = NonNullable<Awaited<ReturnType<typeof listAutonomousCycles>>>
+export type ListAutonomousCyclesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List autonomous cycles without touching Windmill cycles
+ */
+
+export function useListAutonomousCycles<TData = Awaited<ReturnType<typeof listAutonomousCycles>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutonomousCycles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAutonomousCyclesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getStartCycleUrl = () => {
 
 
@@ -2592,6 +2707,1648 @@ export function useGetMoneyLabSummary<TData = Awaited<ReturnType<typeof getMoney
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMoneyLabSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartAutonomyUrl = () => {
+
+
+
+
+  return `/api/autonomy/start`
+}
+
+/**
+ * @summary Enable the persisted autonomy controller
+ */
+export const startAutonomy = async (autonomyControlInput?: AutonomyControlInput, options?: Parameters<typeof customFetch>[1]): Promise<AutonomyState> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AutonomyState>(getStartAutonomyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(autonomyControlInput)
+  }
+);}
+
+
+
+
+
+export const getStartAutonomyMutationKey = () => ['startAutonomy'] as const;
+
+export const getStartAutonomyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startAutonomy>>, TError,StartAutonomyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startAutonomy>>, TError,StartAutonomyMutationVariables, TContext> => {
+
+const mutationKey = getStartAutonomyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startAutonomy>>, StartAutonomyMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  startAutonomy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartAutonomyMutationResult = NonNullable<Awaited<ReturnType<typeof startAutonomy>>>
+    export type StartAutonomyMutationBody = BodyType<AutonomyControlInput> | undefined
+    export type StartAutonomyMutationError = ErrorType<unknown>
+    export type StartAutonomyMutationVariables = {data?: BodyType<AutonomyControlInput>}
+
+    /**
+ * @summary Enable the persisted autonomy controller
+ */
+export const useStartAutonomy = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startAutonomy>>, TError,StartAutonomyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startAutonomy>>,
+        TError,
+        StartAutonomyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStartAutonomyMutationOptions(options));
+    }
+
+export const getStopAutonomyUrl = () => {
+
+
+
+
+  return `/api/autonomy/stop`
+}
+
+/**
+ * @summary Disable the autonomy controller
+ */
+export const stopAutonomy = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomyState> => {
+
+  return customFetch<AutonomyState>(getStopAutonomyUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStopAutonomyMutationKey = () => ['stopAutonomy'] as const;
+
+export const getStopAutonomyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopAutonomy>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof stopAutonomy>>, TError,void, TContext> => {
+
+const mutationKey = getStopAutonomyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof stopAutonomy>>, void> = () => {
+
+
+          return  stopAutonomy(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StopAutonomyMutationResult = NonNullable<Awaited<ReturnType<typeof stopAutonomy>>>
+
+    export type StopAutonomyMutationError = ErrorType<unknown>
+
+
+    /**
+ * @summary Disable the autonomy controller
+ */
+export const useStopAutonomy = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopAutonomy>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof stopAutonomy>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getStopAutonomyMutationOptions(options));
+    }
+
+export const getPauseAutonomyUrl = () => {
+
+
+
+
+  return `/api/autonomy/pause`
+}
+
+/**
+ * @summary Pause new autonomous cycles
+ */
+export const pauseAutonomy = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomyState> => {
+
+  return customFetch<AutonomyState>(getPauseAutonomyUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPauseAutonomyMutationKey = () => ['pauseAutonomy'] as const;
+
+export const getPauseAutonomyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseAutonomy>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pauseAutonomy>>, TError,void, TContext> => {
+
+const mutationKey = getPauseAutonomyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pauseAutonomy>>, void> = () => {
+
+
+          return  pauseAutonomy(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PauseAutonomyMutationResult = NonNullable<Awaited<ReturnType<typeof pauseAutonomy>>>
+
+    export type PauseAutonomyMutationError = ErrorType<unknown>
+
+
+    /**
+ * @summary Pause new autonomous cycles
+ */
+export const usePauseAutonomy = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseAutonomy>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pauseAutonomy>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPauseAutonomyMutationOptions(options));
+    }
+
+export const getResumeAutonomyUrl = () => {
+
+
+
+
+  return `/api/autonomy/resume`
+}
+
+/**
+ * @summary Resume autonomous cycles
+ */
+export const resumeAutonomy = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomyState> => {
+
+  return customFetch<AutonomyState>(getResumeAutonomyUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResumeAutonomyMutationKey = () => ['resumeAutonomy'] as const;
+
+export const getResumeAutonomyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeAutonomy>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resumeAutonomy>>, TError,void, TContext> => {
+
+const mutationKey = getResumeAutonomyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resumeAutonomy>>, void> = () => {
+
+
+          return  resumeAutonomy(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResumeAutonomyMutationResult = NonNullable<Awaited<ReturnType<typeof resumeAutonomy>>>
+
+    export type ResumeAutonomyMutationError = ErrorType<unknown>
+
+
+    /**
+ * @summary Resume autonomous cycles
+ */
+export const useResumeAutonomy = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeAutonomy>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resumeAutonomy>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getResumeAutonomyMutationOptions(options));
+    }
+
+export const getGetAutonomyStatusUrl = () => {
+
+
+
+
+  return `/api/autonomy/status`
+}
+
+/**
+ * @summary Get persisted autonomy state
+ */
+export const getAutonomyStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomyState> => {
+
+  return customFetch<AutonomyState>(getGetAutonomyStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAutonomyStatusQueryKey = () => {
+    return [
+    `/api/autonomy/status`
+    ] as const;
+    }
+
+
+export const getGetAutonomyStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAutonomyStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutonomyStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAutonomyStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAutonomyStatus>>> = ({ signal }) => getAutonomyStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAutonomyStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAutonomyStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAutonomyStatus>>>
+export type GetAutonomyStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get persisted autonomy state
+ */
+
+export function useGetAutonomyStatus<TData = Awaited<ReturnType<typeof getAutonomyStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutonomyStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAutonomyStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAutonomyActivityUrl = () => {
+
+
+
+
+  return `/api/autonomy/activity`
+}
+
+/**
+ * @summary List autonomous cycle activity
+ */
+export const listAutonomyActivity = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomousCycle[]> => {
+
+  return customFetch<AutonomousCycle[]>(getListAutonomyActivityUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAutonomyActivityQueryKey = () => {
+    return [
+    `/api/autonomy/activity`
+    ] as const;
+    }
+
+
+export const getListAutonomyActivityQueryOptions = <TData = Awaited<ReturnType<typeof listAutonomyActivity>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutonomyActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAutonomyActivityQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAutonomyActivity>>> = ({ signal }) => listAutonomyActivity({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAutonomyActivity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAutonomyActivityQueryResult = NonNullable<Awaited<ReturnType<typeof listAutonomyActivity>>>
+export type ListAutonomyActivityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List autonomous cycle activity
+ */
+
+export function useListAutonomyActivity<TData = Awaited<ReturnType<typeof listAutonomyActivity>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutonomyActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAutonomyActivityQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAutonomyLearningUrl = () => {
+
+
+
+
+  return `/api/autonomy/learning`
+}
+
+/**
+ * @summary List autonomy learning records
+ */
+export const listAutonomyLearning = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomyLearning[]> => {
+
+  return customFetch<AutonomyLearning[]>(getListAutonomyLearningUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAutonomyLearningQueryKey = () => {
+    return [
+    `/api/autonomy/learning`
+    ] as const;
+    }
+
+
+export const getListAutonomyLearningQueryOptions = <TData = Awaited<ReturnType<typeof listAutonomyLearning>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutonomyLearning>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAutonomyLearningQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAutonomyLearning>>> = ({ signal }) => listAutonomyLearning({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAutonomyLearning>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAutonomyLearningQueryResult = NonNullable<Awaited<ReturnType<typeof listAutonomyLearning>>>
+export type ListAutonomyLearningQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List autonomy learning records
+ */
+
+export function useListAutonomyLearning<TData = Awaited<ReturnType<typeof listAutonomyLearning>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutonomyLearning>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAutonomyLearningQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRunAutonomousCycleUrl = () => {
+
+
+
+
+  return `/api/cycles/run`
+}
+
+/**
+ * @summary Run one safe, idempotent autonomous cycle
+ */
+export const runAutonomousCycle = async (cycleRunInput: CycleRunInput, options?: Parameters<typeof customFetch>[1]): Promise<AutonomousCycle> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AutonomousCycle>(getRunAutonomousCycleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(cycleRunInput)
+  }
+);}
+
+
+
+
+
+export const getRunAutonomousCycleMutationKey = () => ['runAutonomousCycle'] as const;
+
+export const getRunAutonomousCycleMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runAutonomousCycle>>, TError,RunAutonomousCycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runAutonomousCycle>>, TError,RunAutonomousCycleMutationVariables, TContext> => {
+
+const mutationKey = getRunAutonomousCycleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runAutonomousCycle>>, RunAutonomousCycleMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  runAutonomousCycle(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunAutonomousCycleMutationResult = NonNullable<Awaited<ReturnType<typeof runAutonomousCycle>>>
+    export type RunAutonomousCycleMutationBody = BodyType<CycleRunInput>
+    export type RunAutonomousCycleMutationError = ErrorType<Error>
+    export type RunAutonomousCycleMutationVariables = {data: BodyType<CycleRunInput>}
+
+    /**
+ * @summary Run one safe, idempotent autonomous cycle
+ */
+export const useRunAutonomousCycle = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runAutonomousCycle>>, TError,RunAutonomousCycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runAutonomousCycle>>,
+        TError,
+        RunAutonomousCycleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRunAutonomousCycleMutationOptions(options));
+    }
+
+export const getGetAutonomousCycleUrl = (id: number,) => {
+
+
+
+
+  return `/api/autonomy/cycles/${id}`
+}
+
+/**
+ * @summary Get an autonomous cycle without touching Windmill cycles
+ */
+export const getAutonomousCycle = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<AutonomousCycle> => {
+
+  return customFetch<AutonomousCycle>(getGetAutonomousCycleUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAutonomousCycleQueryKey = (id: number,) => {
+    return [
+    `/api/autonomy/cycles/${id}`
+    ] as const;
+    }
+
+
+export const getGetAutonomousCycleQueryOptions = <TData = Awaited<ReturnType<typeof getAutonomousCycle>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutonomousCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAutonomousCycleQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAutonomousCycle>>> = ({ signal }) => getAutonomousCycle(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAutonomousCycle>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAutonomousCycleQueryResult = NonNullable<Awaited<ReturnType<typeof getAutonomousCycle>>>
+export type GetAutonomousCycleQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get an autonomous cycle without touching Windmill cycles
+ */
+
+export function useGetAutonomousCycle<TData = Awaited<ReturnType<typeof getAutonomousCycle>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutonomousCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAutonomousCycleQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAutonomyCyclesUrl = () => {
+
+
+
+
+  return `/api/autonomy/cycles`
+}
+
+/**
+ * @summary List autonomous cycles
+ */
+export const listAutonomyCycles = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomousCycle[]> => {
+
+  return customFetch<AutonomousCycle[]>(getListAutonomyCyclesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAutonomyCyclesQueryKey = () => {
+    return [
+    `/api/autonomy/cycles`
+    ] as const;
+    }
+
+
+export const getListAutonomyCyclesQueryOptions = <TData = Awaited<ReturnType<typeof listAutonomyCycles>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutonomyCycles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAutonomyCyclesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAutonomyCycles>>> = ({ signal }) => listAutonomyCycles({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAutonomyCycles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAutonomyCyclesQueryResult = NonNullable<Awaited<ReturnType<typeof listAutonomyCycles>>>
+export type ListAutonomyCyclesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List autonomous cycles
+ */
+
+export function useListAutonomyCycles<TData = Awaited<ReturnType<typeof listAutonomyCycles>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutonomyCycles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAutonomyCyclesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCandidatesUrl = () => {
+
+
+
+
+  return `/api/candidates`
+}
+
+/**
+ * @summary List existing opportunities as autonomy candidates
+ */
+export const listCandidates = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomyCandidate[]> => {
+
+  return customFetch<AutonomyCandidate[]>(getListCandidatesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCandidatesQueryKey = () => {
+    return [
+    `/api/candidates`
+    ] as const;
+    }
+
+
+export const getListCandidatesQueryOptions = <TData = Awaited<ReturnType<typeof listCandidates>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCandidatesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCandidates>>> = ({ signal }) => listCandidates({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCandidates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCandidatesQueryResult = NonNullable<Awaited<ReturnType<typeof listCandidates>>>
+export type ListCandidatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List existing opportunities as autonomy candidates
+ */
+
+export function useListCandidates<TData = Awaited<ReturnType<typeof listCandidates>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCandidatesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCandidateUrl = (id: number,) => {
+
+
+
+
+  return `/api/candidates/${id}`
+}
+
+/**
+ * @summary Get an existing opportunity autonomy candidate
+ */
+export const getCandidate = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<AutonomyCandidate> => {
+
+  return customFetch<AutonomyCandidate>(getGetCandidateUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCandidateQueryKey = (id: number,) => {
+    return [
+    `/api/candidates/${id}`
+    ] as const;
+    }
+
+
+export const getGetCandidateQueryOptions = <TData = Awaited<ReturnType<typeof getCandidate>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCandidateQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCandidate>>> = ({ signal }) => getCandidate(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCandidate>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCandidateQueryResult = NonNullable<Awaited<ReturnType<typeof getCandidate>>>
+export type GetCandidateQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get an existing opportunity autonomy candidate
+ */
+
+export function useGetCandidate<TData = Awaited<ReturnType<typeof getCandidate>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCandidateQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAutonomyCandidatesUrl = () => {
+
+
+
+
+  return `/api/autonomy/candidates`
+}
+
+/**
+ * @summary List existing opportunities with dedupe and scoring metadata
+ */
+export const listAutonomyCandidates = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomyCandidate[]> => {
+
+  return customFetch<AutonomyCandidate[]>(getListAutonomyCandidatesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAutonomyCandidatesQueryKey = () => {
+    return [
+    `/api/autonomy/candidates`
+    ] as const;
+    }
+
+
+export const getListAutonomyCandidatesQueryOptions = <TData = Awaited<ReturnType<typeof listAutonomyCandidates>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutonomyCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAutonomyCandidatesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAutonomyCandidates>>> = ({ signal }) => listAutonomyCandidates({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAutonomyCandidates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAutonomyCandidatesQueryResult = NonNullable<Awaited<ReturnType<typeof listAutonomyCandidates>>>
+export type ListAutonomyCandidatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List existing opportunities with dedupe and scoring metadata
+ */
+
+export function useListAutonomyCandidates<TData = Awaited<ReturnType<typeof listAutonomyCandidates>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutonomyCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAutonomyCandidatesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAutonomyCandidateUrl = (id: number,) => {
+
+
+
+
+  return `/api/autonomy/candidates/${id}`
+}
+
+/**
+ * @summary Get one existing opportunity candidate
+ */
+export const getAutonomyCandidate = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<AutonomyCandidate> => {
+
+  return customFetch<AutonomyCandidate>(getGetAutonomyCandidateUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAutonomyCandidateQueryKey = (id: number,) => {
+    return [
+    `/api/autonomy/candidates/${id}`
+    ] as const;
+    }
+
+
+export const getGetAutonomyCandidateQueryOptions = <TData = Awaited<ReturnType<typeof getAutonomyCandidate>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutonomyCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAutonomyCandidateQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAutonomyCandidate>>> = ({ signal }) => getAutonomyCandidate(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAutonomyCandidate>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAutonomyCandidateQueryResult = NonNullable<Awaited<ReturnType<typeof getAutonomyCandidate>>>
+export type GetAutonomyCandidateQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get one existing opportunity candidate
+ */
+
+export function useGetAutonomyCandidate<TData = Awaited<ReturnType<typeof getAutonomyCandidate>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutonomyCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAutonomyCandidateQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListHumanActionsUrl = () => {
+
+
+
+
+  return `/api/human-actions`
+}
+
+/**
+ * @summary List pending and completed human checkpoints
+ */
+export const listHumanActions = async ( options?: Parameters<typeof customFetch>[1]): Promise<HumanAction[]> => {
+
+  return customFetch<HumanAction[]>(getListHumanActionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListHumanActionsQueryKey = () => {
+    return [
+    `/api/human-actions`
+    ] as const;
+    }
+
+
+export const getListHumanActionsQueryOptions = <TData = Awaited<ReturnType<typeof listHumanActions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHumanActions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListHumanActionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listHumanActions>>> = ({ signal }) => listHumanActions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listHumanActions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListHumanActionsQueryResult = NonNullable<Awaited<ReturnType<typeof listHumanActions>>>
+export type ListHumanActionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List pending and completed human checkpoints
+ */
+
+export function useListHumanActions<TData = Awaited<ReturnType<typeof listHumanActions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHumanActions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListHumanActionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetHumanActionUrl = (id: number,) => {
+
+
+
+
+  return `/api/human-actions/${id}`
+}
+
+/**
+ * @summary Get a human checkpoint
+ */
+export const getHumanAction = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<HumanAction> => {
+
+  return customFetch<HumanAction>(getGetHumanActionUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetHumanActionQueryKey = (id: number,) => {
+    return [
+    `/api/human-actions/${id}`
+    ] as const;
+    }
+
+
+export const getGetHumanActionQueryOptions = <TData = Awaited<ReturnType<typeof getHumanAction>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHumanAction>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHumanActionQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHumanAction>>> = ({ signal }) => getHumanAction(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHumanAction>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetHumanActionQueryResult = NonNullable<Awaited<ReturnType<typeof getHumanAction>>>
+export type GetHumanActionQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get a human checkpoint
+ */
+
+export function useGetHumanAction<TData = Awaited<ReturnType<typeof getHumanAction>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHumanAction>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetHumanActionQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCompleteHumanActionUrl = (id: number,) => {
+
+
+
+
+  return `/api/human-actions/${id}/complete`
+}
+
+/**
+ * @summary Complete a checkpoint and resume from its stored checkpoint
+ */
+export const completeHumanAction = async (id: number,
+    humanActionCompleteInput?: HumanActionCompleteInput, options?: Parameters<typeof customFetch>[1]): Promise<HumanAction> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<HumanAction>(getCompleteHumanActionUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(humanActionCompleteInput)
+  }
+);}
+
+
+
+
+
+export const getCompleteHumanActionMutationKey = () => ['completeHumanAction'] as const;
+
+export const getCompleteHumanActionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeHumanAction>>, TError,CompleteHumanActionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeHumanAction>>, TError,CompleteHumanActionMutationVariables, TContext> => {
+
+const mutationKey = getCompleteHumanActionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeHumanAction>>, CompleteHumanActionMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  completeHumanAction(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteHumanActionMutationResult = NonNullable<Awaited<ReturnType<typeof completeHumanAction>>>
+    export type CompleteHumanActionMutationBody = BodyType<HumanActionCompleteInput> | undefined
+    export type CompleteHumanActionMutationError = ErrorType<Error>
+    export type CompleteHumanActionMutationVariables = {id: number;data?: BodyType<HumanActionCompleteInput>}
+
+    /**
+ * @summary Complete a checkpoint and resume from its stored checkpoint
+ */
+export const useCompleteHumanAction = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeHumanAction>>, TError,CompleteHumanActionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeHumanAction>>,
+        TError,
+        CompleteHumanActionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteHumanActionMutationOptions(options));
+    }
+
+export const getListFinanceLedgerUrl = () => {
+
+
+
+
+  return `/api/finance/ledger`
+}
+
+/**
+ * @summary List separated REAL, PAPER and POTENTIAL ledger entries
+ */
+export const listFinanceLedger = async ( options?: Parameters<typeof customFetch>[1]): Promise<FinanceLedgerEntry[]> => {
+
+  return customFetch<FinanceLedgerEntry[]>(getListFinanceLedgerUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFinanceLedgerQueryKey = () => {
+    return [
+    `/api/finance/ledger`
+    ] as const;
+    }
+
+
+export const getListFinanceLedgerQueryOptions = <TData = Awaited<ReturnType<typeof listFinanceLedger>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFinanceLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFinanceLedgerQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFinanceLedger>>> = ({ signal }) => listFinanceLedger({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFinanceLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFinanceLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof listFinanceLedger>>>
+export type ListFinanceLedgerQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List separated REAL, PAPER and POTENTIAL ledger entries
+ */
+
+export function useListFinanceLedger<TData = Awaited<ReturnType<typeof listFinanceLedger>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFinanceLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFinanceLedgerQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetFinanceSummaryUrl = () => {
+
+
+
+
+  return `/api/finance/summary`
+}
+
+/**
+ * @summary Summarize finance by safety mode
+ */
+export const getFinanceSummary = async ( options?: Parameters<typeof customFetch>[1]): Promise<FinanceSummary> => {
+
+  return customFetch<FinanceSummary>(getGetFinanceSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFinanceSummaryQueryKey = () => {
+    return [
+    `/api/finance/summary`
+    ] as const;
+    }
+
+
+export const getGetFinanceSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getFinanceSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFinanceSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFinanceSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFinanceSummary>>> = ({ signal }) => getFinanceSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFinanceSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFinanceSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getFinanceSummary>>>
+export type GetFinanceSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Summarize finance by safety mode
+ */
+
+export function useGetFinanceSummary<TData = Awaited<ReturnType<typeof getFinanceSummary>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFinanceSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFinanceSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListFinancePlatformsUrl = () => {
+
+
+
+
+  return `/api/finance/platforms`
+}
+
+/**
+ * @summary List platform accounts
+ */
+export const listFinancePlatforms = async ( options?: Parameters<typeof customFetch>[1]): Promise<PlatformAccount[]> => {
+
+  return customFetch<PlatformAccount[]>(getListFinancePlatformsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFinancePlatformsQueryKey = () => {
+    return [
+    `/api/finance/platforms`
+    ] as const;
+    }
+
+
+export const getListFinancePlatformsQueryOptions = <TData = Awaited<ReturnType<typeof listFinancePlatforms>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFinancePlatforms>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFinancePlatformsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFinancePlatforms>>> = ({ signal }) => listFinancePlatforms({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFinancePlatforms>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFinancePlatformsQueryResult = NonNullable<Awaited<ReturnType<typeof listFinancePlatforms>>>
+export type ListFinancePlatformsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List platform accounts
+ */
+
+export function useListFinancePlatforms<TData = Awaited<ReturnType<typeof listFinancePlatforms>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFinancePlatforms>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFinancePlatformsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetWithdrawableFinanceUrl = () => {
+
+
+
+
+  return `/api/finance/withdrawable`
+}
+
+/**
+ * @summary Show explicitly withdrawable REAL funds only
+ */
+export const getWithdrawableFinance = async ( options?: Parameters<typeof customFetch>[1]): Promise<WithdrawableFinance> => {
+
+  return customFetch<WithdrawableFinance>(getGetWithdrawableFinanceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWithdrawableFinanceQueryKey = () => {
+    return [
+    `/api/finance/withdrawable`
+    ] as const;
+    }
+
+
+export const getGetWithdrawableFinanceQueryOptions = <TData = Awaited<ReturnType<typeof getWithdrawableFinance>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWithdrawableFinance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWithdrawableFinanceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWithdrawableFinance>>> = ({ signal }) => getWithdrawableFinance({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWithdrawableFinance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWithdrawableFinanceQueryResult = NonNullable<Awaited<ReturnType<typeof getWithdrawableFinance>>>
+export type GetWithdrawableFinanceQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Show explicitly withdrawable REAL funds only
+ */
+
+export function useGetWithdrawableFinance<TData = Awaited<ReturnType<typeof getWithdrawableFinance>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWithdrawableFinance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWithdrawableFinanceQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

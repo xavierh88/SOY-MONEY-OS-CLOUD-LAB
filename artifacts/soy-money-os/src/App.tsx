@@ -65,11 +65,18 @@ import {
   useGetMoneyLabSummary,
   useListMarketCycles,
   useStartMarketCycle,
+  useGetAutonomyStatus,
+  useListAutonomyCandidates,
+  useListHumanActions,
+  useGetFinanceSummary,
 } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import AutonomiaPage from '@/pages/AutonomiaPage';
+import AccionesPage from '@/pages/AccionesPage';
+import FinanzasPage from '@/pages/FinanzasPage';
 
 const queryClient = new QueryClient();
 
@@ -78,13 +85,16 @@ const navGroups = [
     label: 'Operación',
     items: [
       { href: '/', label: 'Vista ejecutiva', icon: LayoutDashboard },
+      { href: '/autonomia', label: 'Motor Autónomo', icon: Sparkles },
+      { href: '/acciones', label: 'Cola Humana', icon: ShieldCheck },
+      { href: '/finanzas', label: 'Finanzas Reales', icon: Database },
       { href: '/oportunidades', label: 'Oportunidades', icon: Radar },
-      { href: '/demand-proof', label: 'Prueba de demanda', icon: Target },
     ],
   },
   {
     label: 'Trazabilidad',
     items: [
+      { href: '/demand-proof', label: 'Prueba de demanda', icon: Target },
       { href: '/proyectos', label: 'Proyectos', icon: Layers3 },
       { href: '/ejecucion', label: 'Ejecución', icon: ActivityIcon },
       { href: '/resultados', label: 'Resultados', icon: BarChart3 },
@@ -94,36 +104,36 @@ const navGroups = [
   },
 ];
 
-function cx(...classes: Array<string | false | undefined>) {
+export function cx(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(' ');
 }
 
-function formatDate(date?: string | null) {
+export function formatDate(date?: string | null) {
   if (!date) return 'Sin fecha';
   return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(date));
 }
 
-function formatTime(date?: string | null) {
+export function formatTime(date?: string | null) {
   if (!date) return '—';
   return new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(date));
 }
 
-function statusTone(status?: string) {
+export function statusTone(status?: string) {
   const value = (status || '').toUpperCase();
-  if (value.includes('VERIFIED') || value === 'APPROVED' || value === 'COMPLETED' || value === 'ACTIVE' || value === 'HEALTHY') return 'status-green';
-  if (value.includes('UNVERIFIED') || value === 'PENDING' || value === 'RUNNING' || value === 'IN_PROGRESS') return 'status-amber';
-  if (value.includes('SEARCH') || value === 'REVIEW' || value === 'QUEUED') return 'status-blue';
+  if (value.includes('VERIFIED') || value === 'APPROVED' || value === 'COMPLETED' || value === 'ACTIVE' || value === 'HEALTHY' || value === 'ON' || value === 'REAL') return 'status-green';
+  if (value.includes('UNVERIFIED') || value === 'PENDING' || value === 'RUNNING' || value === 'IN_PROGRESS' || value === 'PAUSED' || value === 'POTENTIAL') return 'status-amber';
+  if (value.includes('SEARCH') || value === 'REVIEW' || value === 'QUEUED' || value === 'PAPER') return 'status-blue';
   if (value.includes('SIMULATION') || value === 'TEST') return 'status-violet';
-  if (value === 'FAILED' || value === 'REJECTED' || value === 'ERROR') return 'status-red';
+  if (value === 'FAILED' || value === 'REJECTED' || value === 'ERROR' || value === 'OFF') return 'status-red';
   return 'status-neutral';
 }
 
-function statusLabel(status?: string) {
+export function statusLabel(status?: string) {
   if (!status) return 'SIN DATOS';
   return status.replaceAll('_', ' ');
 }
 
-function DataState({ loading, error, empty, onRetry, children }: { loading?: boolean; error?: boolean; empty?: boolean; onRetry?: () => void; children: ReactNode }) {
+export function DataState({ loading, error, empty, onRetry, children }: { loading?: boolean; error?: boolean; empty?: boolean; onRetry?: () => void; children: ReactNode }) {
   if (loading) {
     return <div className="space-y-3" data-testid="state-loading"><div className="skeleton h-20 w-full" /><div className="skeleton h-20 w-full" /><div className="skeleton h-20 w-4/5" /></div>;
   }
@@ -136,7 +146,7 @@ function DataState({ loading, error, empty, onRetry, children }: { loading?: boo
   return <>{children}</>;
 }
 
-function Badge({ value, small = false }: { value?: string; small?: boolean }) {
+export function Badge({ value, small = false }: { value?: string; small?: boolean }) {
   return <span className={cx('status-badge', statusTone(value), small && 'text-[10px]')} data-testid={`status-${(value || 'sin-datos').toLowerCase()}`}>{statusLabel(value)}</span>;
 }
 
@@ -178,11 +188,11 @@ function Shell({ children }: { children: ReactNode }) {
   );
 }
 
-function PageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description?: string; action?: ReactNode }) {
+export function PageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description?: string; action?: ReactNode }) {
   return <div className="page-header animate-enter"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1>{description && <p>{description}</p>}</div>{action}</div>;
 }
 
-function MetricCard({ label, value, note, icon: Icon, tone = 'ink' }: { label: string; value: string | number; note: string; icon: typeof Gauge; tone?: string }) {
+export function MetricCard({ label, value, note, icon: Icon, tone = 'ink' }: { label: string; value: string | number; note: string; icon: any; tone?: string }) {
   return <div className={cx('metric-card animate-enter', `metric-${tone}`)}><div className="metric-top"><span>{label}</span><Icon size={17} /></div><strong data-testid={`metric-${label.toLowerCase().replaceAll(' ', '-')}`}>{value}</strong><small>{note}</small></div>;
 }
 
@@ -352,7 +362,7 @@ function CycleControl({ onCreated }: { onCreated?: () => void }) {
   );
 }
 
-function ActivityList({ activities, compact = false }: { activities?: Array<{ id?: number; executionId?: number; stage?: string; status?: string; message?: string; createdAt?: string }>; compact?: boolean }) {
+export function ActivityList({ activities, compact = false }: { activities?: Array<{ id?: number; executionId?: number; stage?: string; status?: string; message?: string; createdAt?: string }>; compact?: boolean }) {
   return <div className={cx('activity-list', compact && 'activity-compact')}>{(activities || []).slice(0, compact ? 5 : 30).map((activity, index) => <div className="activity-row" key={`${activity.id || index}-${activity.createdAt}`} data-testid={`row-activity-${activity.id || index}`}><div className={cx('activity-marker', statusTone(activity.status))}><span /></div><div className="activity-body"><div className="activity-meta"><strong>{activity.stage || 'Sistema'}</strong><span>{formatTime(activity.createdAt)}</span></div><p>{activity.message || 'Actividad registrada'}</p>{!compact && <Badge value={activity.status} small />}</div></div>)}</div>;
 }
 
@@ -360,12 +370,30 @@ function DashboardPage() {
   const dashboard = useGetDashboard();
   const approvals = useListApprovals();
   const opportunities = useListOpportunities();
+
+  const autonomy = useGetAutonomyStatus();
+  const candidates = useListAutonomyCandidates();
+  const humanActions = useListHumanActions();
+  const finance = useGetFinanceSummary();
+
   const queryClient = useQueryClient();
   const d = dashboard.data;
   const recent = d?.recentActivity || [];
+
+  const autonomyStatus = autonomy.data?.status || 'OFF';
+  const waitingHuman = (humanActions.data || []).filter(a => a.status === 'PENDING').length;
+  const candidatesCount = candidates.data?.length || 0;
+
   return <div><PageHeader eyebrow="Control ejecutivo / 01" title="El dinero está en las señales." description="Detecta, verifica y decide qué merece convertirse en una operación." action={<Link href="/oportunidades" className="button button-secondary" data-testid="link-see-opportunities">Abrir oportunidades <ArrowRight size={15} /></Link>} />
-    <div className="hero-strip animate-enter animate-enter-delay-1"><div><div className="hero-label"><span className="live-bar" /> MOTOR DE INTELIGENCIA ACTIVO</div><h2>De la hipótesis a la evidencia.<br /><em>Sin atajos.</em></h2></div><div className="hero-aside"><div className="hero-aside-value">{d?.systemStatus ? statusLabel(d.systemStatus) : 'MONITOREANDO'}</div><div>estado del sistema</div><div className="hero-grid-mark"><span /><span /><span /><span /></div></div></div>
-    <div className="metric-grid"><MetricCard label="Señales encontradas" value={d?.opportunitiesFound ?? '—'} note="en el universo explorado" icon={Radar} tone="lime" /><MetricCard label="Verificadas" value={d?.opportunitiesVerified ?? '—'} note="listas para decisión humana" icon={ShieldCheck} tone="blue" /><MetricCard label="Procesos activos" value={d?.activeProcesses ?? '—'} note={`${d?.failedProcesses ?? 0} fallidos en el periodo`} icon={ActivityIcon} tone="amber" /><MetricCard label="Aprobaciones" value={d?.pendingApprovals ?? approvals.data?.length ?? '—'} note="requieren criterio humano" icon={ClipboardCheck} tone="coral" /></div>
+    <div className="hero-strip animate-enter animate-enter-delay-1"><div><div className="hero-label"><span className="live-bar" style={{ backgroundColor: autonomyStatus === 'ON' ? 'hsl(var(--sidebar-primary))' : 'hsl(var(--destructive))' }} /> {autonomyStatus === 'ON' ? 'MOTOR AUTÓNOMO ACTIVO' : autonomyStatus === 'PAUSED' ? 'MOTOR EN PAUSA' : 'MOTOR APAGADO'}</div><h2>De la hipótesis a la evidencia.<br /><em>Sin atajos.</em></h2></div><div className="hero-aside"><div className="hero-aside-value">{d?.systemStatus ? statusLabel(d.systemStatus) : 'MONITOREANDO'}</div><div>estado del sistema</div><div className="hero-grid-mark"><span /><span /><span /><span /></div></div></div>
+
+    <div className="metric-grid mb-6">
+      <MetricCard label="Motor Autónomo" value={autonomyStatus} note={`${candidatesCount} candidatos en cola`} icon={Sparkles} tone={autonomyStatus === 'ON' ? 'lime' : autonomyStatus === 'PAUSED' ? 'amber' : 'coral'} />
+      <MetricCard label="Acciones Humanas" value={waitingHuman || '0'} note="requieren intervención" icon={ShieldCheck} tone={waitingHuman > 0 ? 'amber' : 'blue'} />
+      <MetricCard label="Dinero Real" value={`$${finance.data?.real?.toFixed(2) || '0.00'}`} note="Líquido verificado" icon={Database} tone="lime" />
+      <MetricCard label="Simulación" value={`$${finance.data?.paper?.toFixed(2) || '0.00'}`} note="Proyección Paper" icon={BarChart3} tone="blue" />
+    </div>
+
     <div className="dashboard-grid"><CycleControl onCreated={() => { queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); queryClient.invalidateQueries({ queryKey: getListOpportunitiesQueryKey() }); }} /><section className="panel activity-panel"><div className="panel-heading"><div><div className="eyebrow">Registro reciente</div><h3>Actividad del sistema</h3></div><Link href="/ejecucion" className="icon-link" data-testid="link-all-activity"><ArrowRight size={17} /></Link></div><DataState loading={dashboard.isLoading} error={!!dashboard.error} empty={!dashboard.isLoading && recent.length === 0} onRetry={() => void dashboard.refetch()}><ActivityList activities={recent} compact /></DataState></section></div>
     <div className="lower-grid"><section className="panel"><div className="panel-heading"><div><div className="eyebrow">Decisión humana</div><h3>Cola de aprobación</h3></div><Link href="/oportunidades" className="text-link" data-testid="link-approval-queue">Revisar cola <ArrowRight size={14} /></Link></div>{(approvals.data || []).slice(0, 3).map((approval) => <ApprovalRow key={approval.id} approval={approval} />)}{!approvals.isLoading && !approvals.data?.length && <div className="inline-empty">No hay checkpoints pendientes.</div>}</section><section className="panel signal-panel"><div className="panel-heading"><div><div className="eyebrow">Inventario de señales</div><h3>Últimas oportunidades</h3></div><Link href="/oportunidades" className="text-link" data-testid="link-opportunity-inventory">Ver inventario <ArrowRight size={14} /></Link></div>{(opportunities.data || []).slice(0, 3).map((opportunity) => <Link href={`/oportunidades/${opportunity.id}`} className="signal-row" key={opportunity.id} data-testid={`link-opportunity-${opportunity.id}`}><div className="signal-score">{opportunity.score}<small>/100</small></div><div><strong>{opportunity.name}</strong><span>{opportunity.sector} · {statusLabel(opportunity.proofStatus)}</span></div><ArrowRight size={15} /></Link>)}{!opportunities.isLoading && !opportunities.data?.length && <div className="inline-empty">La bandeja está lista para nuevas señales.</div>}</section></div>
   </div>;
@@ -568,7 +596,7 @@ function SettingsPage() {
 }
 
 function Router() {
-  return <Shell><ErrorBoundary resetKey={window.location.pathname}><Switch><Route path="/" component={DashboardPage} /><Route path="/oportunidades" component={OpportunitiesPage} /><Route path="/oportunidades/:id" component={OpportunityDetailPage} /><Route path="/demand-proof" component={DemandProofPage} /><Route path="/proyectos" component={ProjectsPage} /><Route path="/ejecucion" component={ExecutionPage} /><Route path="/resultados" component={ResultsPage} /><Route path="/aprendizaje" component={LearningPage} /><Route path="/money-lab" component={MoneyLabPage} /><Route path="/configuracion" component={SettingsPage} /><Route component={NotFound} /></Switch></ErrorBoundary></Shell>;
+  return <Shell><ErrorBoundary resetKey={window.location.pathname}><Switch><Route path="/" component={DashboardPage} /><Route path="/oportunidades" component={OpportunitiesPage} /><Route path="/oportunidades/:id" component={OpportunityDetailPage} /><Route path="/demand-proof" component={DemandProofPage} /><Route path="/proyectos" component={ProjectsPage} /><Route path="/ejecucion" component={ExecutionPage} /><Route path="/resultados" component={ResultsPage} /><Route path="/aprendizaje" component={LearningPage} /><Route path="/money-lab" component={MoneyLabPage} /><Route path="/autonomia" component={AutonomiaPage} /><Route path="/acciones" component={AccionesPage} /><Route path="/finanzas" component={FinanzasPage} /><Route path="/configuracion" component={SettingsPage} /><Route component={NotFound} /></Switch></ErrorBoundary></Shell>;
 }
 
 function App() {

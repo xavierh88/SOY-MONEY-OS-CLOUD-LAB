@@ -1,0 +1,1026 @@
+QUIERO IMPLEMENTAR AHORA LA SIGUIENTE FASE COMPLETA DE SOY MONEY OS:
+
+SOY MONEY OS — AUTONOMOUS MONETIZATION ENGINE V1
+
+IMPORTANTE:
+NO reconstruyas el proyecto desde cero.
+NO elimines ni rompas funciones existentes.
+NO cambies el diseño general salvo lo estrictamente necesario.
+NO rompas:
+- Windmill integration
+- Discovery
+- approvals
+- projects
+- evidence
+- results
+- learning
+- Money Lab
+- GitHub Actions integration
+- Autonomous Market Cycle V1
+- base de datos existente
+
+PRIMERO:
+1. Audita el proyecto actual.
+2. Identifica exactamente qué ya existe.
+3. Reutiliza tablas, endpoints, servicios y componentes.
+4. Haz backup/checkpoint.
+5. Implementa solamente lo que falta.
+
+========================
+OBJETIVO GENERAL
+========================
+
+SOY MONEY OS debe convertirse en un sistema autónomo orientado a descubrir oportunidades legales para generar ingresos, investigarlas, validarlas, desarrollarlas, probarlas, intentar monetizarlas cuando corresponda, medir resultados reales y aprender automáticamente.
+
+El objetivo NO es producir únicamente análisis o documentos.
+
+El ciclo completo esperado es:
+
+DISCOVER
+→ RESEARCH
+→ EVIDENCE
+→ DEDUPLICATION
+→ SCORE
+→ DEEP RESEARCH
+→ VALIDATION
+→ DEMAND PROOF
+→ PROJECT
+→ BUILD
+→ QA
+→ PREPARE OFFER
+→ CHANNEL SELECTION
+→ EXECUTION
+→ MONETIZATION ATTEMPT
+→ RESULT
+→ FINANCE
+→ LEARNING
+→ NEXT CYCLE
+
+Si no existe oportunidad suficientemente buena:
+
+NO_VALID_OPPORTUNITY
+
+y el sistema debe continuar investigando en siguientes ciclos.
+
+NUNCA debe inventar una oportunidad para llenar el dashboard.
+
+========================
+1. AUTONOMOUS DIRECTOR
+========================
+
+Crear un AUTONOMOUS DIRECTOR central.
+
+Debe decidir automáticamente:
+
+- qué categoría investigar;
+- cuándo investigar;
+- qué ciclos ejecutar;
+- qué oportunidades descartar;
+- cuáles investigar más;
+- cuáles enviar a validación;
+- qué proyectos pueden continuar;
+- cuáles están esperando acción humana;
+- cuáles necesitan Money Lab;
+- cuáles deben terminar como NO_VALID_OPPORTUNITY.
+
+El Director debe evitar que una oportunidad bloqueada detenga todo el sistema.
+
+Ejemplo:
+
+Project A = WAITING_HUMAN
+Project B = BUILDING
+Project C = RESEARCHING
+Project D = PAPER_TESTING
+Project E = MONETIZATION
+
+Todos deben poder avanzar independientemente.
+
+========================
+2. CATEGORÍAS DE INVESTIGACIÓN
+========================
+
+Crear rotación automática entre:
+
+BUSINESS
+DIGITAL_PRODUCTS
+SERVICES
+SAAS
+AUTOMATION
+AFFILIATE
+MARKET
+CRYPTO
+SPORTS
+OTHER_LEGAL_OPPORTUNITIES
+
+No ejecutar siempre la misma consulta genérica.
+
+Cada ciclo debe tener una misión concreta.
+
+Ejemplos:
+
+BUSINESS:
+Buscar necesidades reales que puedan convertirse en un servicio rentable con $0 de capital inicial.
+
+DIGITAL_PRODUCTS:
+Detectar problemas repetitivos que puedan resolverse mediante plantillas, herramientas, guías, software o productos digitales.
+
+SERVICES:
+Encontrar servicios B2B/B2C con demanda demostrable y posibilidad de obtener primer cliente con poco o cero capital.
+
+AUTOMATION:
+Detectar tareas empresariales repetitivas que puedan automatizarse y venderse.
+
+CRYPTO / MARKET:
+Research, backtesting, paper simulation y validación estadística solamente.
+
+SPORTS:
+Modelos estadísticos, probabilidades, backtesting histórico y paper betting solamente.
+
+NO ejecutar dinero real automáticamente en Market, Crypto o Sports.
+
+========================
+3. SCHEDULER AUTÓNOMO
+========================
+
+Crear scheduler configurable.
+
+Inicialmente ejecutar 5 ciclos por día aproximadamente:
+
+06:00
+10:00
+14:00
+18:00
+22:00
+
+Usar timezone configurable.
+
+No crear ciclos duplicados.
+
+Antes de iniciar un nuevo ciclo revisar:
+
+- ciclos activos;
+- proyectos activos;
+- bloqueos humanos;
+- categorías recientemente investigadas;
+- oportunidades previamente estudiadas;
+- aprendizaje histórico;
+- errores recientes.
+
+Crear controles:
+
+AUTONOMY_ON
+AUTONOMY_OFF
+PAUSE_NEW_CYCLES
+RESUME
+
+Endpoints:
+
+POST /api/autonomy/start
+POST /api/autonomy/stop
+POST /api/autonomy/pause
+POST /api/autonomy/resume
+GET  /api/autonomy/status
+
+========================
+4. DEDUPLICACIÓN
+========================
+
+Crear deduplicación profesional.
+
+Antes de crear una oportunidad comprobar:
+
+- título normalizado;
+- categoría;
+- problema;
+- mercado;
+- cliente objetivo;
+- fuente;
+- descripción semántica;
+- oportunidades anteriores similares.
+
+Crear:
+
+dedupe_hash
+similarity_score
+canonical_opportunity_id
+
+Si existe oportunidad equivalente:
+NO crear otra.
+Actualizar investigación existente cuando corresponda.
+
+========================
+5. OPPORTUNITY SCORING
+========================
+
+Crear score 0–100.
+
+Componentes recomendados:
+
+Demand                20
+Evidence quality      15
+Revenue potential     15
+Capital requirement   10
+Time to revenue       10
+Competition           10
+Automation potential  10
+Execution difficulty   5
+Risk                    5
+
+Estados:
+
+0–39:
+REJECTED
+
+40–59:
+RESEARCH_MORE
+
+60–74:
+CANDIDATE
+
+75–89:
+HIGH_PRIORITY
+
+90–100:
+EXCEPTIONAL
+
+IMPORTANTE:
+SCORE ALTO NO ES DEMAND PROOF.
+
+Mantener separados:
+SEARCH_EVIDENCE
+DEMAND_PROOF
+REAL_VERIFIED
+
+========================
+6. BUSINESS LAB
+========================
+
+Crear Business Lab.
+
+Debe investigar oportunidades de:
+
+- productos digitales;
+- servicios;
+- automatizaciones;
+- SaaS;
+- afiliados;
+- generación de leads;
+- contenido monetizable;
+- herramientas;
+- consultoría automatizable;
+- plantillas;
+- microproductos;
+- oportunidades B2B;
+- oportunidades B2C.
+
+Para cada candidato investigar:
+
+- problema;
+- cliente objetivo;
+- demanda;
+- competencia;
+- pricing;
+- canales;
+- costo de inicio;
+- tiempo estimado a ingreso;
+- dificultad;
+- automatización posible;
+- riesgos;
+- evidencias;
+- fuentes.
+
+Priorizar oportunidades que puedan iniciar con:
+
+STARTING_CAPITAL = 0
+
+Si capital = 0, no proponer como prioridad algo que exija inversión obligatoria.
+
+========================
+7. MONEY LAB
+========================
+
+MANTENER lo actual que ya funciona:
+
+GitHub:
+xavierh88/SOY-MONEY-OS-CLOUD-LAB
+
+Workflow:
+autonomous-market-cycle.yml
+
+Ya está comprobada la integración completa:
+
+Replit
+→ GitHub Actions
+→ result artifact
+→ Replit
+→ Money Lab
+
+No rehacer esto.
+
+Agregar al Director la capacidad de disparar Money Lab cuando corresponda.
+
+Market/Crypto/Sports:
+SOLO PAPER / RESEARCH / SIMULATION por defecto.
+
+Nunca:
+REAL_VERIFIED automático.
+Nunca ejecutar trades/bets reales automáticamente.
+
+========================
+8. HUMAN ACTION MANAGER
+========================
+
+Crear un Human Action Manager.
+
+El sistema debe continuar autónomamente hasta encontrar un bloqueo que realmente requiera al propietario.
+
+Tipos:
+
+LOGIN_REQUIRED
+ACCOUNT_CREATION_REQUIRED
+CAPTCHA_REQUIRED
+MFA_REQUIRED
+IDENTITY_VERIFICATION_REQUIRED
+CREDENTIAL_REQUIRED
+PAYMENT_METHOD_REQUIRED
+LEGAL_ACCEPTANCE_REQUIRED
+PLATFORM_APPROVAL_REQUIRED
+HUMAN_DECISION_REQUIRED
+FINANCIAL_AUTHORIZATION_REQUIRED
+
+Cuando ocurra:
+
+crear HUMAN_ACTION_REQUIRED
+
+Debe mostrar:
+
+- proyecto;
+- oportunidad;
+- plataforma;
+- motivo;
+- acción exacta requerida;
+- link si corresponde;
+- prioridad;
+- fecha;
+- estado.
+
+Estados:
+
+PENDING
+IN_PROGRESS
+COMPLETED
+EXPIRED
+CANCELLED
+
+Botón:
+
+YA LO COMPLETÉ
+
+Al completarlo:
+el proyecto continúa EXACTAMENTE desde el checkpoint donde quedó.
+
+NO reiniciar desde cero.
+
+Endpoints:
+
+GET  /api/human-actions
+GET  /api/human-actions/:id
+POST /api/human-actions/:id/complete
+
+========================
+9. PLATAFORMAS EXTERNAS
+========================
+
+Cuando una oportunidad requiera una plataforma externa:
+
+Si técnicamente y legalmente puede:
+
+- crear/configurar cuenta;
+- crear listing;
+- preparar producto;
+- preparar oferta;
+- conectar canal;
+- completar campos no sensibles;
+
+puede hacerlo automáticamente.
+
+NO intentar saltar:
+CAPTCHA
+MFA
+Identity verification
+Security controls
+KYC
+legal restrictions
+
+Si aparece uno:
+HUMAN_ACTION_REQUIRED.
+
+Credenciales:
+
+NUNCA guardar tokens/passwords en texto plano.
+Usar Secrets / OAuth / Credentials / vault.
+
+Nunca mostrar secretos en UI o logs.
+
+========================
+10. EXECUTION ENGINE
+========================
+
+Después de una oportunidad validada:
+
+PROJECT
+→ PLAN
+→ BUILD
+→ QA
+→ OFFER
+→ CHANNEL
+→ EXECUTION
+
+Debe poder crear:
+
+- producto digital;
+- landing draft;
+- copy;
+- pricing proposal;
+- sales assets;
+- outreach templates;
+- automation;
+- software prototype;
+- service package;
+- listing draft;
+- marketing draft.
+
+Debe ejecutar automáticamente acciones seguras cuando no requieran aprobación humana.
+
+No considerar PROJECT_COMPLETED como éxito económico.
+
+Debe distinguir:
+
+BUILD_COMPLETED
+READY_TO_TEST
+READY_TO_MONETIZE
+MONETIZATION_STARTED
+REVENUE_GENERATED
+NO_REVENUE
+FAILED
+
+========================
+11. MONETIZATION ENGINE
+========================
+
+El objetivo final de una oportunidad válida debe ser intentar monetizar.
+
+Pipeline:
+
+VALIDATED_OPPORTUNITY
+→ PRODUCT_OR_SERVICE
+→ OFFER
+→ CHANNEL
+→ ACCOUNT_CHECK
+→ HUMAN_ACTION_IF_REQUIRED
+→ EXECUTION
+→ LEAD_OR_SALE_ATTEMPT
+→ RESULT
+
+Registrar:
+
+leads
+responses
+qualified_leads
+sales
+revenue
+cost
+profit
+
+Nunca inventar ventas.
+
+========================
+12. FINANCE LEDGER
+========================
+
+Crear sistema financiero separado en 3 categorías:
+
+REAL
+PAPER
+POTENTIAL
+
+REAL:
+
+starting_capital
+authorized_capital
+real_revenue
+real_cost
+real_profit
+pending_balance
+available_balance
+withdrawable_balance
+
+PAPER:
+
+paper_starting_balance
+paper_current_balance
+paper_profit
+paper_loss
+paper_roi
+
+POTENTIAL:
+
+estimated_revenue
+pipeline_value
+expected_value
+
+REGLA ABSOLUTA:
+
+PAPER o POTENTIAL NUNCA aumenta REAL BALANCE.
+
+Ejemplo:
+
+REAL profit = $35
+
+PAPER profit = $640
+
+POTENTIAL pipeline = $850
+
+BALANCE REAL = $35
+
+No $1,525.
+
+Endpoints:
+
+GET /api/finance/ledger
+GET /api/finance/summary
+GET /api/finance/platforms
+GET /api/finance/withdrawable
+
+========================
+13. RETIROS
+========================
+
+Si una plataforma tiene dinero realmente disponible:
+
+SOY puede mostrar:
+
+AVAILABLE_TO_WITHDRAW
+
+plataforma
+monto
+moneda
+fecha
+
+Pero:
+
+NO retirar dinero automáticamente por defecto.
+NO mover dinero automáticamente.
+NO transferir a bancos automáticamente.
+
+Crear:
+
+FINANCIAL_AUTHORIZATION_REQUIRED
+
+antes de cualquier movimiento real.
+
+========================
+14. LEARNING ENGINE
+========================
+
+Después de cada ciclo/proyecto guardar:
+
+- qué se investigó;
+- fuentes;
+- score;
+- decisiones;
+- qué fue descartado;
+- qué avanzó;
+- qué produjo;
+- cuánto costó;
+- ingresos;
+- errores;
+- bloqueos;
+- qué estrategia funcionó;
+- qué estrategia no funcionó;
+- recomendaciones para siguiente ciclo.
+
+El Director debe usar estos datos para:
+
+- evitar repetir errores;
+- reducir duplicados;
+- mejorar priorización;
+- ajustar categorías;
+- mejorar investigación;
+- ajustar scores.
+
+========================
+15. ESTADOS GLOBALES
+========================
+
+Crear/normalizar estados:
+
+DISCOVERED
+RESEARCHING
+EVIDENCE_COLLECTED
+DEDUP_CHECK
+SCORED
+DEEP_RESEARCH
+VALIDATING
+DEMAND_PROOF_PENDING
+DEMAND_PROVEN
+CANDIDATE
+HIGH_PRIORITY
+HUMAN_REVIEW
+PROJECT_CREATED
+BUILDING
+QA_REVIEW
+READY_TO_MONETIZE
+MONETIZATION
+WAITING_HUMAN
+PAPER_TESTING
+PAPER_APPROVED
+REVENUE_GENERATED
+NO_REVENUE
+NO_VALID_OPPORTUNITY
+REJECTED
+FAILED
+COMPLETED
+
+========================
+16. DASHBOARD
+========================
+
+NO rediseñar completamente la UI.
+
+Actualizar Vista Ejecutiva.
+
+Añadir:
+
+AUTONOMOUS MODE
+ON / OFF
+
+Mostrar:
+
+Research cycles today
+Ideas investigated
+Rejected
+Researching
+Candidates
+Projects active
+Waiting human
+Paper testing
+Monetizing
+Real revenue
+Real profit
+
+Crear bloque:
+
+CURRENT ACTIVITY
+
+Ejemplos:
+
+Researching:
+AI automation services
+
+Paper testing:
+market strategy
+
+Building:
+digital product
+
+Waiting for you:
+platform identity verification
+
+Monetizing:
+service offer
+
+========================
+17. MENÚ
+========================
+
+Mantener:
+
+Vista ejecutiva
+Oportunidades
+Prueba de demanda
+Proyectos
+Ejecución
+Resultados
+Aprendizaje
+Money Lab
+Configuración
+
+Añadir dentro de las pantallas existentes donde sea lógico:
+
+Autonomy
+Human Actions
+Finance
+
+No crear menú caótico.
+
+========================
+18. AUTONOMOUS CYCLE MODEL
+========================
+
+Cada ciclo debe generar un ID único:
+
+cycle_id
+cycle_type
+category
+mission
+started_at
+completed_at
+status
+
+Registrar:
+
+searched
+found
+deduplicated
+rejected
+candidates
+validated
+projects_created
+human_actions
+revenue
+
+Si ningún candidato pasa:
+
+FINAL_RESULT = NO_VALID_OPPORTUNITY
+
+Esto debe considerarse resultado válido.
+
+========================
+19. ERROR HANDLING
+========================
+
+FAIL LOUDLY.
+
+Nunca esconder errores.
+
+Guardar:
+
+error_code
+component
+endpoint
+message
+attempt
+timestamp
+
+Máximo:
+3 retries
+
+Después:
+
+FAILED
+
+Un proyecto fallido no debe detener otros ciclos.
+
+========================
+20. IDEMPOTENCIA
+========================
+
+Todas las acciones externas y ciclos deben ser idempotentes.
+
+Usar identificadores únicos para:
+
+cycles
+projects
+github runs
+platform tasks
+financial events
+human actions
+
+Nunca crear doble:
+
+sale
+project
+cycle
+listing
+payment
+revenue record
+
+por reintento accidental.
+
+========================
+21. SEGURIDAD
+========================
+
+NUNCA:
+
+- mostrar tokens;
+- loggear tokens;
+- guardar passwords en DB en texto plano;
+- intentar bypass de CAPTCHA/MFA/security controls;
+- ejecutar gastos sin autorización;
+- ejecutar trades reales sin autorización;
+- ejecutar bets reales sin autorización;
+- marcar simulación como dinero real;
+- autoaprobar decisiones humanas sensibles.
+
+========================
+22. API
+========================
+
+Agregar/reutilizar:
+
+POST /api/autonomy/start
+POST /api/autonomy/stop
+POST /api/autonomy/pause
+POST /api/autonomy/resume
+GET  /api/autonomy/status
+
+POST /api/cycles/run
+GET  /api/cycles
+GET  /api/cycles/:id
+
+GET /api/candidates
+GET /api/candidates/:id
+
+GET /api/human-actions
+GET /api/human-actions/:id
+POST /api/human-actions/:id/complete
+
+GET /api/finance/ledger
+GET /api/finance/summary
+GET /api/finance/withdrawable
+
+GET /api/autonomy/activity
+GET /api/autonomy/learning
+
+Reutilizar endpoints existentes donde sea mejor.
+
+========================
+23. DATABASE
+========================
+
+No borrar tablas existentes.
+
+Crear migraciones seguras.
+
+Tablas sugeridas si hacen falta:
+
+autonomous_cycles
+opportunity_scores
+opportunity_dedupe
+human_actions
+finance_ledger
+platform_accounts
+monetization_attempts
+autonomy_state
+autonomy_learning
+
+Agregar índices e idempotency keys.
+
+========================
+24. PRUEBAS
+========================
+
+NO considerar terminado sin pruebas.
+
+Ejecutar:
+
+build
+typecheck
+database migrations
+backend tests
+frontend tests
+API tests
+GitHub integration regression
+Windmill regression
+Money Lab regression
+dedup test
+idempotency test
+finance separation test
+human checkpoint test
+resume test
+
+========================
+25. GOLDEN PATH FINAL
+========================
+
+Simular/probar:
+
+AUTONOMY ON
+→ Director selecciona categoría
+→ Research
+→ Evidence
+→ Dedup
+→ Score
+→ Validation
+→ Candidate
+→ Project
+→ Build
+→ QA
+→ Human checkpoint si corresponde
+→ Resume
+→ Monetization attempt
+→ Result
+→ Finance
+→ Learning
+→ Next cycle
+
+Además probar:
+
+NO_VALID_OPPORTUNITY
+
+y comprobar que el sistema continúa operando.
+
+========================
+26. IMPORTANTE PARA ESTA IMPLEMENTACIÓN
+========================
+
+NO actives todavía acciones financieras reales.
+
+NO actives real trading.
+
+NO actives real sports betting.
+
+NO hagas compras.
+
+NO retires fondos.
+
+NO publiques automáticamente en plataformas externas sensibles sin comprobar permisos.
+
+Sí puedes dejar toda la arquitectura lista.
+
+========================
+27. FORMA DE TRABAJAR
+========================
+
+Haz el trabajo completo tú.
+
+NO me hagas crear archivo por archivo.
+
+NO me pidas decisiones técnicas si puedes resolverlas correctamente.
+
+NO pares después de cada módulo.
+
+Trabaja por fases internas hasta completar toda la implementación posible.
+
+Si encuentras un error:
+diagnostica
+corrige
+retestea.
+
+No cambies cosas funcionales sin necesidad.
+
+========================
+28. REPORTE FINAL OBLIGATORIO
+========================
+
+Al terminar entrega:
+
+IMPLEMENTATION_STATUS
+
+ARCHITECTURE_COMPLETED
+
+FILES_CREATED
+
+FILES_MODIFIED
+
+DATABASE_MIGRATIONS
+
+ENDPOINTS_CREATED
+
+UI_COMPONENTS
+
+AUTONOMY_STATUS
+
+SCHEDULER_STATUS
+
+BUSINESS_LAB_STATUS
+
+MONEY_LAB_STATUS
+
+HUMAN_ACTION_MANAGER_STATUS
+
+FINANCE_LEDGER_STATUS
+
+LEARNING_ENGINE_STATUS
+
+TESTS_RUN
+
+TESTS_PASSED
+
+ERRORS_FOUND
+
+ERRORS_FIXED
+
+REGRESSIONS
+
+SECURITY_CHECK
+
+REMAINING_BLOCKERS
+
+HUMAN_ACTION_REQUIRED
+
+NEXT_EXACT_STEP
+
+Además:
+
+NO digas simplemente “terminado”.
+
+Quiero un porcentaje estimado real de implementación de:
+
+AUTONOMOUS MONETIZATION ENGINE V1
+
+y una lista exacta de lo que todavía impide considerarlo listo para operación autónoma.
+
+EMPIEZA AHORA.

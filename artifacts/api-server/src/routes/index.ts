@@ -4,6 +4,7 @@ import projectExecutionRouter from "./project-execution";
 import soyMoneyRouter from "./soy-money";
 import cyclesRouter from "./cycles";
 import moneyLabRouter from "./money-lab";
+import autonomyRouter from "./autonomy";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(projectExecutionRouter);
 router.use(soyMoneyRouter);
 router.use(cyclesRouter);
 router.use(moneyLabRouter);
+router.use(autonomyRouter);
 
 export default router;
