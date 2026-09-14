@@ -1,12 +1,16 @@
-name: SOY Quant Lab Cloud V1
+name: SOY Quant Lab Cloud V2
 
 on:
   workflow_dispatch:
     inputs:
       trials:
-        description: 'Optuna trials'
+        description: 'Optuna trials per symbol'
         required: false
         default: '120'
+      symbols:
+        description: 'Comma-separated public market symbols'
+        required: false
+        default: 'SPY,QQQ,BTC-USD,ETH-USD'
   schedule:
     - cron: '17 13 * * *'
 
@@ -18,9 +22,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  quant-smoke-test:
+  quant-public-research:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,9 +35,10 @@ jobs:
           cache: 'pip'
       - name: Install
         run: pip install -r requirements.txt
-      - name: Run SOY Quant Lab
+      - name: Run SOY Quant Lab V2
         env:
           SOY_TRIALS: ${{ inputs.trials || '120' }}
+          SOY_SYMBOLS: ${{ inputs.symbols || 'SPY,QQQ,BTC-USD,ETH-USD' }}
           SOY_SEED: '42'
         run: python src/quant_lab.py
       - name: Validate safety contract
@@ -44,12 +49,13 @@ jobs:
           assert d['real_verified'] is False
           assert d['financial_execution'] is False
           assert d['real_money_used'] is False
-          assert d['data_classification']=='SYNTHETIC_TEST_DATA'
-          print('SAFETY CONTRACT: PASS')
+          assert d['data_classification']=='PUBLIC_HISTORICAL_MARKET_DATA'
+          assert d['evidence_status']=='RESEARCH_ONLY_NOT_REAL_VERIFIED'
+          print('SAFETY CONTRACT V2: PASS')
           PY
-      - name: Upload result
+      - name: Upload research result
         uses: actions/upload-artifact@v4
         with:
-          name: soy-quant-lab-result
+          name: soy-quant-lab-v2-result
           path: results/latest.json
           retention-days: 30
