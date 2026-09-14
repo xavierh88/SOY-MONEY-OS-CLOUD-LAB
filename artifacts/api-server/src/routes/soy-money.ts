@@ -364,11 +364,17 @@ router.post("/approvals/:id/decision", async (req, res): Promise<void> => {
         .where(eq(opportunitiesTable.id, existing.opportunityId));
       const [opportunity] = await tx.select().from(opportunitiesTable).where(eq(opportunitiesTable.id, existing.opportunityId));
       if (opportunity) {
-        const [project] = await tx.insert(projectsTable).values({
-          opportunityId: opportunity.id,
-          name: opportunity.name,
-          status: "PLANNED",
-        }).onConflictDoNothing({ target: projectsTable.opportunityId }).returning();
+        const [existingProject] = await tx.select({ id: projectsTable.id })
+          .from(projectsTable)
+          .where(eq(projectsTable.opportunityId, opportunity.id))
+          .limit(1);
+        const [project] = existingProject
+          ? []
+          : await tx.insert(projectsTable).values({
+              opportunityId: opportunity.id,
+              name: opportunity.name,
+              status: "PLANNED",
+            }).returning();
         if (project) {
           await tx.insert(learningTable).values({
             title: "Gate humano aplicado",

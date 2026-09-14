@@ -1,1 +1,2 @@
 - [Evidence gates](soy-money-os.md) — keep hypotheses, simulations, and verified demand distinct; only REAL_VERIFIED can unlock later gates.
+- [Project cardinality](project-cardinality.md) — historical production data can contain multiple projects per opportunity; do not require uniqueness without reconciliation.

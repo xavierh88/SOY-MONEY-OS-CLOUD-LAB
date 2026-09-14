@@ -28,15 +28,20 @@ assert.equal(approvals.status, 200);
 const approval = approvals.body.find((item) => item.opportunityId === opportunityId);
 assert.ok(approval);
 
-const approvalDecision = await post<JsonObject>(`/approvals/${String(approval.id)}/decision`, {
-  decision: "approved",
-});
-assert.equal(approvalDecision.status, 200);
-assert.equal(approvalDecision.body.status, "APPROVED");
+const [approvalDecisionA, approvalDecisionB] = await Promise.all([
+  post<JsonObject>(`/approvals/${String(approval.id)}/decision`, { decision: "approved" }),
+  post<JsonObject>(`/approvals/${String(approval.id)}/decision`, { decision: "approved" }),
+]);
+assert.equal(approvalDecisionA.status, 200);
+assert.equal(approvalDecisionB.status, 200);
+assert.equal(approvalDecisionA.body.status, "APPROVED");
+assert.equal(approvalDecisionB.body.status, "APPROVED");
 
 const projects = await request<JsonObject[]>("/projects");
 assert.equal(projects.status, 200);
-const project = projects.body.find((item) => item.opportunityId === opportunityId);
+const matchingProjects = projects.body.filter((item) => item.opportunityId === opportunityId);
+assert.equal(matchingProjects.length, 1);
+const [project] = matchingProjects;
 assert.ok(project);
 const projectId = project.id;
 assert.equal(typeof projectId, "number");

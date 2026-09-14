@@ -119,9 +119,6 @@ export const projectsTable = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     ...timestamps,
   },
-  (table) => ({
-    opportunityProjectUnique: uniqueIndex("soy_projects_opportunity_unique").on(table.opportunityId),
-  }),
 );
 
 export const demandProofTable = pgTable("soy_demand_proof", {
