@@ -1,0 +1,71 @@
+Ahora ejecuta una PRUEBA END-TO-END REAL Y CONTROLADA de la integración que acabamos de publicar.
+
+OBJETIVO:
+Comprobar que SOY MONEY OS puede iniciar desde Replit el workflow de GitHub Actions “SOY Autonomous Market Cycle V1”, recibir/consultar su ejecución y reflejar correctamente el resultado en Money Lab.
+
+HAZLO TÚ AUTOMÁTICAMENTE. No me pidas ejecutar manualmente GitHub Actions salvo que exista un bloqueo real.
+
+PASOS OBLIGATORIOS:
+
+1. Verifica primero que GITHUB_TOKEN está disponible únicamente en backend/Secrets. No lo muestres ni lo registres en logs.
+
+2. Desde el backend de SOY MONEY OS dispara UNA SOLA ejecución del workflow:
+   autonomous-market-cycle.yml
+   del repositorio:
+   xavierh88/SOY-MONEY-OS-CLOUD-LAB
+   branch: main
+
+3. Usa un identificador único para esta prueba para evitar duplicados.
+
+4. Confirma mediante GitHub API que el workflow fue aceptado y localiza el run generado.
+
+5. Espera/consulta su estado hasta que termine, con timeout y máximo 3 reintentos ante errores de API.
+
+6. Si termina SUCCESS:
+   - recupera el resultado/artifact correspondiente;
+   - procésalo sin inventar información;
+   - guarda en SOY MONEY OS únicamente los datos reales devueltos por el workflow;
+   - actualiza Money Lab y el historial del ciclo.
+
+7. Mantén estrictamente separadas estas categorías:
+   REAL_VERIFIED
+   SEARCH_EVIDENCE
+   TEST_SIMULATION
+   NO_VALID_OPPORTUNITY
+
+   Nunca conviertas datos de mercado, backtesting, paper trading o simulaciones en dinero/ganancia real.
+
+8. NO ejecutes operaciones financieras reales, compras, ventas, apuestas, transferencias ni gastos.
+
+9. Si el ciclo no encuentra una oportunidad que supere los criterios de validación, registra explícitamente NO_VALID_OPPORTUNITY. No fabriques una oportunidad para llenar el dashboard.
+
+10. Comprueba al final:
+   - exactamente 1 ciclo creado;
+   - sin registros duplicados;
+   - GitHub run identificado;
+   - estado final del run;
+   - artifact/result obtenido o explicación exacta si no existe;
+   - Money Lab actualizado;
+   - historial actualizado;
+   - cero errores de consola/backend relacionados con esta integración.
+
+NO rediseñes la interfaz.
+NO cambies arquitectura que ya funciona.
+NO crees otro workflow.
+NO hagas auto-aprobaciones humanas.
+NO publiques ni vendas nada.
+
+Al terminar dame un reporte corto con:
+TEST_ID
+GITHUB_RUN_ID
+GITHUB_STATUS
+CYCLE_ID
+RESULT_CLASSIFICATION
+MARKETS_ANALYZED
+CANDIDATES_FOUND
+MONEY_LAB_UPDATED
+DUPLICATES_CREATED
+ERRORS
+FINAL_RESULT
+
+Si encuentras un error, diagnostica y corrige únicamente el problema necesario, vuelve a probar una sola vez y reporta exactamente qué corregiste.
