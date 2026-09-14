@@ -1,0 +1,63 @@
+name: SOY Quant Lab Cloud V3 Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: 'Candidates from V2'
+        required: false
+        default: 'QQQ'
+      cost_bps:
+        description: 'Round-turn cost/slippage assumption in bps'
+        required: false
+        default: '10'
+      monte_carlo_runs:
+        description: 'Monte Carlo simulations'
+        required: false
+        default: '1000'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: soy-quant-validation-v3
+  cancel-in-progress: false
+
+jobs:
+  rigorous-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Run V3 validation
+        env:
+          SOY_SYMBOLS: ${{ inputs.symbols || 'QQQ' }}
+          SOY_COST_BPS: ${{ inputs.cost_bps || '10' }}
+          SOY_MC_RUNS: ${{ inputs.monte_carlo_runs || '1000' }}
+          SOY_SEED: '42'
+        run: python src/validation_engine.py
+      - name: Validate safety contract
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('results/validation_v3.json'))
+          assert d['real_verified'] is False
+          assert d['financial_execution'] is False
+          assert d['real_money_used'] is False
+          assert d['evidence_status']=='RESEARCH_SIMULATION_NOT_REAL_VERIFIED'
+          print('V3 SAFETY CONTRACT: PASS')
+          PY
+      - name: Upload V3 result
+        uses: actions/upload-artifact@v4
+        with:
+          name: soy-quant-validation-v3-result
+          path: results/validation_v3.json
+          retention-days: 30
