@@ -12,6 +12,7 @@ tags:
     description: Health operations
   - name: dashboard
   - name: opportunities
+  - name: evidence
   - name: pipeline
   - name: approvals
   - name: projects
@@ -92,6 +93,38 @@ paths:
                 $ref: "#/components/schemas/OpportunityDetail"
         "404":
           $ref: "#/components/responses/NotFound"
+  /evidence:
+    post:
+      operationId: createEvidence
+      tags: [evidence]
+      summary: Receive external evidence for an existing opportunity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceInput"
+      responses:
+        "201":
+          description: Stored evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evidence"
+        "400":
+          description: Invalid evidence payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Duplicate evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /pipeline/start:
     post:
       operationId: startPipeline
@@ -289,6 +322,21 @@ components:
         contradictions: { type: array, items: { type: string } }
         gaps: { type: array, items: { type: string } }
         proofType: { type: string }
+    EvidenceInput:
+      type: object
+      required: [opportunityId, source, url, claim, collectedAt, proofType, verificationStatus]
+      properties:
+        opportunityId: { type: integer }
+        source: { type: string, minLength: 1 }
+        url: { type: string, format: uri, minLength: 1 }
+        claim: { type: string, minLength: 1 }
+        collectedAt: { type: string, format: date-time }
+        proofType:
+          type: string
+          enum: [SEARCH_EVIDENCE]
+        verificationStatus:
+          type: string
+          enum: [NOT_VERIFIED]
     OpportunityDetail:
       allOf:
         - $ref: "#/components/schemas/Opportunity"

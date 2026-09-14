@@ -1,0 +1,96 @@
+Continúa únicamente con el trabajo pendiente de integración SOY MONEY OS ↔ Windmill.
+
+NO rediseñes la interfaz.
+NO cambies la arquitectura actual.
+NO elimines ni modifiques endpoints existentes innecesariamente.
+
+OBJETIVO INMEDIATO:
+Terminar, verificar y publicar correctamente:
+
+POST /api/evidence
+
+Este endpoint debe permitir que Windmill envíe a SOY MONEY OS la evidencia obtenida mediante búsquedas web reales.
+
+REQUISITOS:
+
+1. POST /api/evidence debe aceptar evidencia externa proveniente de Windmill.
+
+2. Debe asociar cada evidencia con una oportunidad existente.
+
+3. Debe soportar los campos del contrato actual, incluyendo según corresponda:
+- opportunityId
+- source
+- url
+- claim
+- collectedAt
+- proofType = SEARCH_EVIDENCE
+- verificationStatus = NOT_VERIFIED
+
+4. SEGURIDAD Y VERACIDAD:
+- SEARCH_EVIDENCE NO significa REAL_VERIFIED.
+- Nunca convertir automáticamente SEARCH_EVIDENCE en REAL_VERIFIED.
+- Rechazar cualquier intento externo de marcar evidencia como REAL_VERIFIED.
+- No convertir automáticamente esta evidencia en Demand Proof.
+- No aprobar automáticamente checkpoints humanos.
+
+5. DUPLICADOS:
+Implementar/verificar protección contra evidencia duplicada.
+Si el contrato actual utiliza HTTP 409 para duplicados, mantener ese comportamiento.
+
+6. ERRORES:
+Debe manejar correctamente:
+- oportunidad inexistente;
+- payload inválido;
+- duplicados;
+- intento de REAL_VERIFIED;
+- errores de persistencia.
+
+PRUEBAS OBLIGATORIAS:
+
+A. POST válido → éxito.
+B. Evidencia realmente persistida en base de datos.
+C. La evidencia aparece posteriormente asociada a la oportunidad.
+D. Duplicado → rechazo/control correcto.
+E. opportunityId inexistente → error controlado.
+F. intento REAL_VERIFIED → rechazado.
+G. typecheck completo → PASS.
+H. tests automatizados → PASS.
+
+MUY IMPORTANTE:
+
+La URL pública actual es:
+
+https://soy-money-os--xavierhernand29.replit.app
+
+Después de terminar el código, asegúrate de que el deployment público quede actualizado.
+
+Prueba específicamente desde la URL PÚBLICA:
+
+POST /api/evidence
+
+Actualmente Windmill recibe:
+
+404 Cannot POST /api/evidence
+
+NO declares terminado mientras la URL pública siga devolviendo ese 404.
+
+Una vez publicado, realiza una prueba real contra el deployment público y confirma que Windmill ya podrá escribir evidencia.
+
+NO avances todavía a nuevas funciones del ecosistema.
+Primero necesitamos cerrar y demostrar esta integración de extremo a extremo.
+
+AL FINAL RESPÓNDEME EXACTAMENTE CON:
+
+1. PASS o FAIL.
+2. Confirmación de que POST /api/evidence existe públicamente.
+3. Body JSON exacto que debe enviar Windmill.
+4. Campos obligatorios.
+5. Ejemplo de respuesta exitosa.
+6. Ejemplo de respuesta de duplicado.
+7. Resultado de los tests.
+8. Confirmación de persistencia en base de datos.
+9. Confirmación de que SEARCH_EVIDENCE permanece NOT_VERIFIED.
+10. Confirmación de que el deployment público fue actualizado.
+11. Cualquier cambio que Windmill necesite hacer en el código que ya tenemos.
+
+No continúes con otra etapa hasta demostrar que esta integración funciona.

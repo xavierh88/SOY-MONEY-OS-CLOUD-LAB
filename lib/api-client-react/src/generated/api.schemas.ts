@@ -63,6 +63,33 @@ export interface Evidence {
   proofType: string;
 }
 
+export type EvidenceInputProofType = typeof EvidenceInputProofType[keyof typeof EvidenceInputProofType];
+
+
+export const EvidenceInputProofType = {
+  SEARCH_EVIDENCE: 'SEARCH_EVIDENCE',
+} as const;
+
+export type EvidenceInputVerificationStatus = typeof EvidenceInputVerificationStatus[keyof typeof EvidenceInputVerificationStatus];
+
+
+export const EvidenceInputVerificationStatus = {
+  NOT_VERIFIED: 'NOT_VERIFIED',
+} as const;
+
+export interface EvidenceInput {
+  opportunityId: number;
+  /** @minLength 1 */
+  source: string;
+  /** @minLength 1 */
+  url: string;
+  /** @minLength 1 */
+  claim: string;
+  collectedAt: string;
+  proofType: EvidenceInputProofType;
+  verificationStatus: EvidenceInputVerificationStatus;
+}
+
 export type OpportunityDetail = Opportunity & {
   evidence: Evidence[];
 };

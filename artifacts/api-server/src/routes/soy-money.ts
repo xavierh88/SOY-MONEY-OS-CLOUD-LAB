@@ -13,6 +13,8 @@ import {
   resultsTable,
 } from "@workspace/db";
 import {
+  CreateEvidenceBody,
+  CreateEvidenceResponse,
   CreateOpportunityBody,
   CreateOpportunityResponse,
   DecideApprovalBody,
@@ -93,6 +95,64 @@ router.get("/opportunities/:id", async (req, res): Promise<void> => {
   }
   const evidence = await db.select().from(evidenceTable).where(eq(evidenceTable.opportunityId, opportunity.id)).orderBy(desc(evidenceTable.collectedAt));
   res.json(GetOpportunityResponse.parse({ ...opportunity, evidence }));
+});
+
+router.post("/evidence", async (req, res): Promise<void> => {
+  const parsed = CreateEvidenceBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { opportunityId, source, url, claim, collectedAt, proofType, verificationStatus } = parsed.data;
+  const [opportunity] = await db
+    .select({ id: opportunitiesTable.id })
+    .from(opportunitiesTable)
+    .where(eq(opportunitiesTable.id, opportunityId));
+
+  if (!opportunity) {
+    res.status(404).json({ error: "Opportunity not found" });
+    return;
+  }
+
+  const [duplicate] = await db
+    .select({ id: evidenceTable.id })
+    .from(evidenceTable)
+    .where(and(
+      eq(evidenceTable.opportunityId, opportunityId),
+      eq(evidenceTable.source, source),
+      eq(evidenceTable.url, url),
+      eq(evidenceTable.claim, claim),
+    ))
+    .limit(1);
+
+  if (duplicate) {
+    res.status(409).json({ error: "Evidence already exists for this opportunity, source, URL and claim" });
+    return;
+  }
+
+  try {
+    const [evidence] = await db.insert(evidenceTable).values({
+      opportunityId,
+      source,
+      url,
+      claim,
+      collectedAt,
+      proofType,
+      verificationStatus,
+      contradictions: [],
+      gaps: [],
+    }).returning();
+
+    res.status(201).json(CreateEvidenceResponse.parse(evidence));
+  } catch (error: unknown) {
+    const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+    if (code === "23505") {
+      res.status(409).json({ error: "Evidence already exists for this opportunity, source, URL and claim" });
+      return;
+    }
+    throw error;
+  }
 });
 
 router.post("/pipeline/start", async (req, res): Promise<void> => {

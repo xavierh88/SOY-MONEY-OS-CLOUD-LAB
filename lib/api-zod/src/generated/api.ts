@@ -150,6 +150,38 @@ export const GetOpportunityResponse = zod.object({
 
 
 /**
+ * @summary Receive external evidence for an existing opportunity
+ */
+
+
+
+
+
+export const CreateEvidenceBody = zod.object({
+  "opportunityId": zod.number().int(),
+  "source": zod.string().min(1),
+  "url": zod.string().url().min(1),
+  "claim": zod.string().min(1),
+  "collectedAt": zod.coerce.date(),
+  "proofType": zod.enum(['SEARCH_EVIDENCE']),
+  "verificationStatus": zod.enum(['NOT_VERIFIED'])
+})
+
+export const CreateEvidenceResponse = zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "source": zod.string(),
+  "url": zod.string(),
+  "collectedAt": zod.coerce.date(),
+  "claim": zod.string(),
+  "verificationStatus": zod.string(),
+  "contradictions": zod.array(zod.string()),
+  "gaps": zod.array(zod.string()),
+  "proofType": zod.string()
+})
+
+
+/**
  * @summary Start a research pipeline
  */
 export const startPipelineBodyQueryMin = 2;

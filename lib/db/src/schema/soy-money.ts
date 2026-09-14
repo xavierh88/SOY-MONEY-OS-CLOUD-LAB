@@ -6,6 +6,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 
@@ -33,18 +34,29 @@ export const opportunitiesTable = pgTable("soy_opportunities", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const evidenceTable = pgTable("soy_evidence", {
-  id: serial("id").primaryKey(),
-  opportunityId: integer("opportunity_id").notNull().references(() => opportunitiesTable.id),
-  source: text("source").notNull(),
-  url: text("url").notNull(),
-  collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
-  claim: text("claim").notNull(),
-  verificationStatus: text("verification_status").notNull(),
-  contradictions: text("contradictions").array().notNull().default([]),
-  gaps: text("gaps").array().notNull().default([]),
-  proofType: text("proof_type").notNull(),
-});
+export const evidenceTable = pgTable(
+  "soy_evidence",
+  {
+    id: serial("id").primaryKey(),
+    opportunityId: integer("opportunity_id").notNull().references(() => opportunitiesTable.id),
+    source: text("source").notNull(),
+    url: text("url").notNull(),
+    collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
+    claim: text("claim").notNull(),
+    verificationStatus: text("verification_status").notNull(),
+    contradictions: text("contradictions").array().notNull().default([]),
+    gaps: text("gaps").array().notNull().default([]),
+    proofType: text("proof_type").notNull(),
+  },
+  (table) => ({
+    evidenceDedupe: uniqueIndex("soy_evidence_dedupe").on(
+      table.opportunityId,
+      table.source,
+      table.url,
+      table.claim,
+    ),
+  }),
+);
 
 export const executionsTable = pgTable("soy_executions", {
   id: serial("id").primaryKey(),

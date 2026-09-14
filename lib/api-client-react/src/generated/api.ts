@@ -25,6 +25,9 @@ import type {
   ApprovalDecisionInput,
   Dashboard,
   DemandProof,
+  Error,
+  Evidence,
+  EvidenceInput,
   HealthStatus,
   LearningInsight,
   NotFoundResponse,
@@ -460,6 +463,94 @@ export function useGetOpportunity<TData = Awaited<ReturnType<typeof getOpportuni
 
 
 
+
+export const getCreateEvidenceUrl = () => {
+
+
+
+
+  return `/api/evidence`
+}
+
+/**
+ * @summary Receive external evidence for an existing opportunity
+ */
+export const createEvidence = async (evidenceInput: EvidenceInput, options?: Parameters<typeof customFetch>[1]): Promise<Evidence> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Evidence>(getCreateEvidenceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(evidenceInput)
+  }
+);}
+
+
+
+
+
+export const getCreateEvidenceMutationKey = () => ['createEvidence'] as const;
+
+export const getCreateEvidenceMutationOptions = <TError = ErrorType<Error | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEvidence>>, TError,CreateEvidenceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEvidence>>, TError,CreateEvidenceMutationVariables, TContext> => {
+
+const mutationKey = getCreateEvidenceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEvidence>>, CreateEvidenceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createEvidence(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof createEvidence>>>
+    export type CreateEvidenceMutationBody = BodyType<EvidenceInput>
+    export type CreateEvidenceMutationError = ErrorType<Error | NotFoundResponse>
+    export type CreateEvidenceMutationVariables = {data: BodyType<EvidenceInput>}
+
+    /**
+ * @summary Receive external evidence for an existing opportunity
+ */
+export const useCreateEvidence = <TError = ErrorType<Error | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEvidence>>, TError,CreateEvidenceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEvidence>>,
+        TError,
+        CreateEvidenceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateEvidenceMutationOptions(options));
+    }
 
 export const getStartPipelineUrl = () => {
 
