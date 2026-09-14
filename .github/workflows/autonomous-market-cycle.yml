@@ -1,0 +1,74 @@
+name: SOY Autonomous Market Cycle V1
+
+on:
+  workflow_dispatch:
+    inputs:
+      trials:
+        description: 'Optuna trials per symbol'
+        required: false
+        default: '80'
+      symbols:
+        description: 'Comma-separated symbols'
+        required: false
+        default: 'SPY,QQQ,IWM,DIA,TLT,GLD,BTC-USD,ETH-USD,SOL-USD,EURUSD=X,GBPUSD=X'
+      monte_carlo_runs:
+        description: 'Monte Carlo runs for V3 validation'
+        required: false
+        default: '500'
+      cost_bps:
+        description: 'Trading cost/slippage assumption in bps'
+        required: false
+        default: '10'
+  schedule:
+    - cron: '0 13 * * *'
+    - cron: '0 17 * * *'
+    - cron: '0 21 * * *'
+    - cron: '0 1 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: soy-autonomous-market-cycle
+  cancel-in-progress: false
+
+jobs:
+  autonomous-market-cycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Run unified V2 to V3 cycle
+        env:
+          SOY_TRIALS: ${{ inputs.trials || '80' }}
+          SOY_SYMBOLS: ${{ inputs.symbols || 'SPY,QQQ,IWM,DIA,TLT,GLD,BTC-USD,ETH-USD,SOL-USD,EURUSD=X,GBPUSD=X' }}
+          SOY_MC_RUNS: ${{ inputs.monte_carlo_runs || '500' }}
+          SOY_COST_BPS: ${{ inputs.cost_bps || '10' }}
+          SOY_SEED: '42'
+        run: python src/autonomous_cycle.py
+      - name: Validate safety contract
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('results/autonomous_cycle.json'))
+          assert d['real_verified'] is False
+          assert d['financial_execution'] is False
+          assert d['real_money_used'] is False
+          assert d['evidence_status']=='RESEARCH_SIMULATION_NOT_REAL_VERIFIED'
+          assert d['gate'] in ['PAPER_RESEARCH_AVAILABLE','NO_VALID_OPPORTUNITY']
+          print('AUTONOMOUS CYCLE SAFETY CONTRACT: PASS')
+          PY
+      - name: Upload autonomous cycle result
+        uses: actions/upload-artifact@v4
+        with:
+          name: soy-autonomous-market-cycle-result
+          path: results/autonomous_cycle.json
+          retention-days: 30
