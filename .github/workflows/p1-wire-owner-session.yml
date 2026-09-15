@@ -1,0 +1,46 @@
+name: P1 wire owner session
+on:
+  push:
+    branches: [p1-completion]
+    paths: ['.github/workflows/p1-wire-owner-session.yml']
+permissions:
+  contents: write
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: p1-completion
+      - name: Wire authenticated owner identity and sign out
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('artifacts/soy-money-os/src/App.tsx')
+          s = p.read_text()
+          old_clerk = "import { ClerkProvider, Show, SignIn, SignUp, useClerk } from '@clerk/react';"
+          new_clerk = "import { ClerkProvider, Show, SignIn, SignUp, useClerk, useUser } from '@clerk/react';"
+          old_icon = "  Layers3,\n  LayoutDashboard,\n  Menu,"
+          new_icon = "  Layers3,\n  LayoutDashboard,\n  LogOut,\n  Menu,"
+          old_operator = '<div className="operator"><div className="avatar">AM</div><div><strong>Analista principal</strong><small>Control de oportunidades</small></div><ChevronDown size={14} /></div>'
+          new_operator = '{e2eFixtureMode ? <FixtureOwnerSession /> : <ClerkOwnerSession />}'
+          anchor = 'function Shell({ children }: { children: ReactNode }) {'
+          session_components = '''function ownerInitials(name: string) {\n  const parts = name.trim().split(/\\s+/).filter(Boolean);\n  return (parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : name.slice(0, 2)).toUpperCase();\n}\nfunction FixtureOwnerSession() { return <div className="operator" data-testid="owner-session"><div className="avatar">QA</div><div><strong>Propietario de prueba</strong><small>Sesión E2E local</small></div></div>; }\nfunction ClerkOwnerSession() {\n  const { user, isLoaded } = useUser();\n  const { signOut } = useClerk();\n  const name = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress || 'Propietario';\n  const detail = user?.primaryEmailAddress?.emailAddress || 'Sesión autenticada';\n  const handleSignOut = async () => { queryClient.clear(); await signOut({ redirectUrl: `${basePath || ''}/` }); };\n  return <div className="operator" data-testid="owner-session"><div className="avatar">{isLoaded ? ownerInitials(name) : '…'}</div><div className="min-w-0"><strong className="block truncate" data-testid="owner-name">{isLoaded ? name : 'Cargando sesión'}</strong><small className="block truncate" data-testid="owner-email">{isLoaded ? detail : 'Verificando identidad'}</small></div><button type="button" className="button button-quiet button-small" onClick={() => void handleSignOut()} disabled={!isLoaded} title="Cerrar sesión" aria-label="Cerrar sesión" data-testid="button-sign-out"><LogOut size={14} /></button></div>;\n}\n\n'''
+          for expected, label in [(old_clerk,'Clerk import'), (old_icon,'icon import'), (old_operator,'operator markup'), (anchor,'Shell anchor')]:
+              if expected not in s:
+                  raise SystemExit(f'Expected {label} not found')
+          s = s.replace(old_clerk, new_clerk, 1)
+          s = s.replace(old_icon, new_icon, 1)
+          s = s.replace(old_operator, new_operator, 1)
+          s = s.replace(anchor, session_components + anchor, 1)
+          p.write_text(s)
+          PY
+          git diff --check
+          git diff -- artifacts/soy-money-os/src/App.tsx
+      - name: Commit owner session wiring
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/soy-money-os/src/App.tsx
+          git commit -m 'Show authenticated owner identity and sign out'
+          git push origin HEAD:p1-completion
