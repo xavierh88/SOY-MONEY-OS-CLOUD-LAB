@@ -1,0 +1,97 @@
+name: P1 wire session errors
+on:
+  push:
+    branches: [p1-completion]
+    paths: ['.github/workflows/p1-wire-session-errors.yml']
+permissions:
+  contents: write
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: p1-completion
+      - name: Wire safe session and service error handling
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('lib/api-client-react/src/custom-fetch.ts')
+          s = p.read_text()
+          anchor = '''  if (!response.ok) {
+    const errorData = await parseErrorBody(response, method);
+    throw new ApiError(response, errorData, requestInfo);
+  }
+'''
+          replacement = '''  if (!response.ok) {
+    const errorData = await parseErrorBody(response, method);
+    const apiError = new ApiError(response, errorData, requestInfo);
+
+    // Web owner-session handling is intentionally fail-closed. A 401 means
+    // the authenticated session is no longer valid, so return to sign-in
+    // instead of leaving stale privileged data visible. Never do this in
+    // non-browser runtimes (shared client is also used outside the web app).
+    if (response.status === 401 && typeof window !== "undefined") {
+      try {
+        window.sessionStorage.setItem("soy-money-session-expired", "1");
+        const base = window.location.pathname.includes("/user-portal")
+          ? window.location.pathname.split("/user-portal")[0]
+          : "";
+        window.location.assign(`${base}/sign-in` || "/sign-in");
+      } catch {
+        // Navigation/storage failure must not hide the authoritative API error.
+      }
+    }
+
+    throw apiError;
+  }
+'''
+          if anchor not in s:
+              raise SystemExit('customFetch error anchor not found')
+          p.write_text(s.replace(anchor, replacement, 1))
+
+          t = Path('artifacts/soy-money-os/tests/e2e/soy-money-os.spec.ts')
+          q = t.read_text()
+          test_anchor = "test('desktop and mobile layouts retain navigation access'"
+          if test_anchor not in q:
+              raise SystemExit('E2E insertion anchor not found')
+          new_tests = r'''test('session expiry and owner API failures fail closed with visible states', async ({ page }) => {
+  await page.goto('/sign-in');
+  await page.getByTestId('button-e2e-sign-in').click();
+
+  await page.route('**/api/dashboard', async (route) => {
+    await route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'Owner access required', code: 'OWNER_FORBIDDEN', correlationId: 'e2e-403' }) });
+  });
+  await page.goto('/user-portal');
+  await expect(page.getByTestId('state-error')).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByText(/HTTP 403/)).toBeVisible();
+  await page.unroute('**/api/dashboard');
+
+  await page.route('**/api/dashboard', async (route) => {
+    await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Service unavailable', code: 'SERVICE_UNAVAILABLE', correlationId: 'e2e-503' }) });
+  });
+  await page.goto('/user-portal');
+  await expect(page.getByTestId('state-error')).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByText(/HTTP 503/)).toBeVisible();
+  await page.unroute('**/api/dashboard');
+
+  await page.route('**/api/dashboard', async (route) => {
+    await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'Session expired', code: 'SESSION_EXPIRED', correlationId: 'e2e-401' }) });
+  });
+  await page.goto('/user-portal');
+  await expect(page).toHaveURL(/\/sign-in$/, { timeout: 12_000 });
+  await expect(page.evaluate(() => sessionStorage.getItem('soy-money-session-expired'))).resolves.toBe('1');
+});
+
+'''
+          q = q.replace(test_anchor, new_tests + test_anchor, 1)
+          t.write_text(q)
+          PY
+          git diff --check
+      - name: Commit session error handling
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/api-client-react/src/custom-fetch.ts artifacts/soy-money-os/tests/e2e/soy-money-os.spec.ts
+          git commit -m 'Handle expired owner sessions and API access failures'
+          git push origin HEAD:p1-completion
