@@ -549,11 +549,11 @@ const clerkAppearance = {
 };
 
 function SignInPage() {
-  return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4"><SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /></div>;
+  return <><Show when="signed-in"><Redirect to="/user-portal" /></Show><Show when="signed-out"><div className="flex min-h-[100dvh] items-center justify-center bg-background px-4"><SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /></div></Show></>;
 }
 
 function SignUpPage() {
-  return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4"><SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} /></div>;
+  return <><Show when="signed-in"><Redirect to="/user-portal" /></Show><Show when="signed-out"><div className="flex min-h-[100dvh] items-center justify-center bg-background px-4"><SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} /></div></Show></>;
 }
 
 function HomePage() {
