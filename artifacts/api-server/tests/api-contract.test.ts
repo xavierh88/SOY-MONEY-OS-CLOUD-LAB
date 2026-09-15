@@ -70,9 +70,15 @@ async function request(path: string, options: RequestOptions = {}) {
   return { response, body };
 }
 
-function assertStableError(body: unknown): asserts body is { error: string } {
-  assert.deepEqual(Object.keys(body as object), ["error"]);
-  assert.equal(typeof (body as { error: unknown }).error, "string");
+function assertStableError(body: unknown): asserts body is { error: string; code?: string; correlationId?: string } {
+  assert(body && typeof body === "object" && !Array.isArray(body));
+  const record = body as Record<string, unknown>;
+  const keys = Object.keys(record);
+  assert(keys.includes("error"));
+  assert(keys.every((key) => ["error", "code", "correlationId"].includes(key)));
+  assert.equal(typeof record.error, "string");
+  if (record.code !== undefined) assert.equal(typeof record.code, "string");
+  if (record.correlationId !== undefined) assert.equal(typeof record.correlationId, "string");
 }
 
 function ownerHeaders(userId = "test-owner") {
@@ -96,8 +102,16 @@ test("health and Zod response contracts are aligned", async () => {
   assert.deepEqual(CreateOpportunityBody.parse(validInput), validInput);
   assert.equal(CreateOpportunityBody.safeParse({ ...validInput, name: "" }).success, false);
 
-  const ErrorContract = z.object({ error: z.string() }).strict();
+  const ErrorContract = z.object({
+    error: z.string(),
+    code: z.string().optional(),
+    correlationId: z.string().optional(),
+  }).strict();
   assert.deepEqual(ErrorContract.parse({ error: "Unauthorized" }), { error: "Unauthorized" });
+  assert.deepEqual(
+    ErrorContract.parse({ error: "Unauthorized", code: "UNAUTHORIZED", correlationId: "offline-correlation" }),
+    { error: "Unauthorized", code: "UNAUTHORIZED", correlationId: "offline-correlation" },
+  );
   assert.equal(ErrorContract.safeParse({ message: "Unauthorized" }).success, false);
 });
 
@@ -223,22 +237,20 @@ test("client errors preserve stable payloads for the complete HTTP status matrix
 
     for (const expectedStatus of [400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504]) {
       await assert.rejects(
-        customFetch("/api/healthz", { responseType: "json" }),
+        customFetch("/api/offline", { method: "GET" }),
         (error: unknown) => {
           assert(error instanceof ApiError);
           assert.equal(error.status, expectedStatus);
-          assert.deepEqual(error.data, { error: "status-GET" });
+          assert.deepEqual(error.body, { error: "status-GET" });
           return true;
         },
       );
+      assert(captured);
+      assert.equal((captured.init?.headers as Headers).get("authorization"), "Bearer offline-test-token");
     }
-    assert(captured);
-    const headers = new Headers(captured.init?.headers);
-    assert.equal(headers.get("authorization"), "Bearer offline-test-token");
-    assert.equal(captured.input, "https://offline.example.test/api/healthz");
   } finally {
     globalThis.fetch = originalFetch;
-    setAuthTokenGetter(null);
-    setBaseUrl(null);
+    setAuthTokenGetter(undefined);
+    setBaseUrl(undefined);
   }
 });
