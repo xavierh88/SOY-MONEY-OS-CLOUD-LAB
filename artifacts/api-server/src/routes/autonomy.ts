@@ -193,8 +193,12 @@ export async function runSafeAutonomousCycle(input: {
     updatedAt: now,
   }).where(eq(autonomyStateTable.id, currentState.id));
 
-  const opportunities = await db.select().from(opportunitiesTable)
-    .orderBy(desc(opportunitiesTable.updatedAt)).limit(100);
+  const opportunities = (await db.select().from(opportunitiesTable)
+    .orderBy(desc(opportunitiesTable.updatedAt)).limit(100))
+    .filter((opportunity) =>
+    opportunity.status !== "EXPIRED"
+    && (!opportunity.expiresAt || opportunity.expiresAt.getTime() > now.getTime())
+  );
   const matching = deduplicateOpportunities(opportunities).filter((opportunity) => {
     if (category === "OTHER_LEGAL_OPPORTUNITIES") return true;
     const haystack = `${opportunity.sector} ${opportunity.name} ${opportunity.description}`.toUpperCase();
@@ -394,6 +398,10 @@ router.post("/human-actions/:id/complete", async (req, res): Promise<void> => {
       res.status(409).json({ error: "Human action does not match the linked cycle branch" });
       return;
     }
+    if (linkedCycle.state !== "WAITING_HUMAN" || linkedCycle.checkpoint !== action.checkpoint) {
+      res.status(409).json({ error: "Human action is stale for the linked cycle checkpoint" });
+      return;
+    }
   }
   const result = await db.transaction(async (tx) => {
     const [completed] = await tx.update(humanActionsTable).set({
@@ -404,7 +412,7 @@ router.post("/human-actions/:id/complete", async (req, res): Promise<void> => {
     }).where(and(eq(humanActionsTable.id, id), eq(humanActionsTable.status, "PENDING"))).returning();
     if (!completed) return action;
     if (action.cycleId) {
-      await tx.update(autonomousCyclesTable).set({
+      const [movedCycle] = await tx.update(autonomousCyclesTable).set({
         state: approved ? "RESUME_PENDING" : "WAITING_HUMAN",
         stage: approved ? "RESUME_PENDING" : "HUMAN_REJECTED",
         checkpoint: action.checkpoint,
@@ -412,7 +420,12 @@ router.post("/human-actions/:id/complete", async (req, res): Promise<void> => {
           ? `Human action completed. Checkpoint ${action.checkpoint} is ready for the workflow runner to resume.`
           : `Human action rejected. Cycle remains blocked at checkpoint ${action.checkpoint}.`,
         updatedAt: new Date(),
-      }).where(eq(autonomousCyclesTable.id, action.cycleId));
+      }).where(and(
+        eq(autonomousCyclesTable.id, action.cycleId),
+        eq(autonomousCyclesTable.state, "WAITING_HUMAN"),
+        eq(autonomousCyclesTable.checkpoint, action.checkpoint),
+      )).returning({ id: autonomousCyclesTable.id });
+      if (!movedCycle) throw new Error("Human action lost its linked cycle checkpoint");
       await appendLifecycleEvent({
         eventKey: lifecycleKey("human_action", action.id, completed.status),
         sourceType: "human_action", sourceId: action.id, eventType: "HUMAN_ACTION_COMPLETED",

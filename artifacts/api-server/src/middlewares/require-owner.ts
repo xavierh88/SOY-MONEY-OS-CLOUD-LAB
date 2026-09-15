@@ -14,8 +14,8 @@ declare global {
 /**
  * Authenticate with Clerk and authorize the single persisted SOY MONEY owner.
  *
- * The first signed-in user claims the singleton atomically with a unique
- * database insert. No request header or client-supplied owner value is used.
+ * Only the trusted configured Clerk identity may claim or use the singleton.
+ * No request header or client-supplied owner value is used.
  */
 export async function requireOwner(
   req: Request,
@@ -47,39 +47,44 @@ export async function requireOwner(
     return;
   }
 
-  const [claimed] = await db
-    .insert(ownerBindingTable)
-    .values({
-      id: "default",
-      singletonKey: "default",
-      clerkUserId: userId,
-    })
-    .onConflictDoNothing({ target: ownerBindingTable.singletonKey })
-    .returning({ clerkUserId: ownerBindingTable.clerkUserId });
+  try {
+    const [claimed] = await db
+      .insert(ownerBindingTable)
+      .values({
+        id: "default",
+        singletonKey: "default",
+        clerkUserId: userId,
+      })
+      .onConflictDoNothing({ target: ownerBindingTable.singletonKey })
+      .returning({ clerkUserId: ownerBindingTable.clerkUserId });
 
-  if (claimed?.clerkUserId === userId) {
+    if (claimed?.clerkUserId === userId) {
+      req.userId = userId;
+      next();
+      return;
+    }
+
+    const [owner] = await db
+      .select({ clerkUserId: ownerBindingTable.clerkUserId })
+      .from(ownerBindingTable)
+      .where(
+        and(
+          eq(ownerBindingTable.singletonKey, "default"),
+          eq(ownerBindingTable.clerkUserId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!owner || owner.clerkUserId !== configuredOwnerId) {
+      req.log.warn("Owner authorization rejected non-owner identity");
+      res.status(403).json({ error: "Owner access required" });
+      return;
+    }
+
     req.userId = userId;
     next();
-    return;
+  } catch (error) {
+    req.log.error({ err: error }, "Owner authorization storage unavailable");
+    res.status(503).json({ error: "Owner authorization unavailable" });
   }
-
-  const [owner] = await db
-    .select({ clerkUserId: ownerBindingTable.clerkUserId })
-    .from(ownerBindingTable)
-    .where(
-      and(
-        eq(ownerBindingTable.singletonKey, "default"),
-        eq(ownerBindingTable.clerkUserId, userId),
-      ),
-    )
-    .limit(1);
-
-  if (!owner || owner.clerkUserId !== configuredOwnerId) {
-    req.log.warn("Owner authorization rejected non-owner identity");
-    res.status(403).json({ error: "Owner access required" });
-    return;
-  }
-
-  req.userId = userId;
-  next();
 }

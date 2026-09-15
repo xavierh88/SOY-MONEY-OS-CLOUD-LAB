@@ -1,0 +1,654 @@
+SOY MONEY OS — FINAL ARCHITECTURE + WINDMILL AUDIT + GOLDEN PATH READINESS
+
+OBJETIVO
+
+Realiza la AUDITORÍA FINAL del ecosistema completo SOY MONEY OS antes de desbloquear el Motor Autónomo.
+
+IMPORTANTE:
+NO activar autonomía.
+NO cambiar AUTONOMY_EXECUTION_LOCKED=true.
+NO ejecutar dinero real.
+NO trading real.
+NO apuestas reales.
+NO compras.
+NO pagos.
+NO retiros.
+NO publicaciones reales.
+NO campañas reales.
+NO modificar GitHub Actions ni Windmill salvo que encuentres un defecto y primero lo reportes.
+NO eliminar flows, datos o componentes existentes.
+NO hacer cambios destructivos.
+NO declarar READY_FOR_AUTONOMY hasta terminar toda la auditoría.
+
+La auditoría anterior terminó con:
+
+READY_FOR_FINAL_AUDIT = YES
+
+y confirmó:
+
+- Oportunidades: 8
+- Proyectos: 4
+- Money Lab cycles: 2
+- Money Lab candidates: 22
+- Lifecycle events append-only: 30
+- Human Actions pendientes: 0
+- Owner binding: 1
+- Autonomía: OFF
+- E2E fixtures restantes: 0
+- GitHub regression: PASS
+- Windmill regression: PASS read-only
+- Security: PASS
+- E2E Human Action / Resume: PASS
+- Duplicate checks: PASS
+
+Ahora necesito determinar si TODA LA ARQUITECTURA está realmente preparada para la prueba Golden Path final y posteriormente para autonomía controlada.
+
+==================================================
+FASE 1 — INVENTARIO REAL DE ARQUITECTURA
+==================================================
+
+Inspecciona el proyecto actual y crea un inventario REAL de:
+
+REPLIT
+- frontend
+- backend
+- API
+- database
+- workers
+- scheduler
+- authentication
+- owner authorization
+- lifecycle
+- opportunity engine
+- scoring
+- dedupe
+- expiration
+- projects
+- execution
+- results
+- learning
+- finance
+- Human Actions
+- Money Lab
+- autonomous engine
+
+WINDMILL
+- flows configurados
+- paths
+- propósito de cada flow
+- qué endpoints utiliza
+- quién lo invoca
+- qué devuelve
+- si sigue siendo necesario
+- si está activo
+- si está archivado
+- si tiene equivalente nuevo en Replit
+- si existe duplicación funcional
+
+GITHUB
+- repositorio configurado
+- workflows utilizados
+- propósito
+- integración con Replit
+- artifacts/resultados
+- idempotencia
+- Money Lab ingestion
+
+Crear un mapa:
+
+USER
+→ REPLIT UI
+→ REPLIT API
+→ DIRECTOR
+→ DISCOVERY
+→ WINDMILL
+→ EVIDENCE
+→ VALIDATION
+→ OPPORTUNITY
+→ PROJECT
+→ EXECUTION
+→ HUMAN CHECKPOINTS
+→ GITHUB/MONEY LAB cuando corresponda
+→ RESULT
+→ FINANCE
+→ LEARNING
+
+Debe basarse en código/configuración real.
+
+NO inventar conexiones.
+
+==================================================
+FASE 2 — AUDITORÍA PROFUNDA DE WINDMILL
+==================================================
+
+Auditar especialmente Windmill.
+
+Flows conocidos:
+
+Discovery:
+u/xavierhernandez1988/foremost_flow
+
+Continuation:
+u/xavierhernandez1988/contrasty_flow
+
+Verificar en READ-ONLY:
+
+1. que existen;
+2. están activos;
+3. no están archivados;
+4. propósito actual;
+5. inputs;
+6. outputs;
+7. endpoints Replit llamados;
+8. estados producidos;
+9. manejo de errores;
+10. retries;
+11. idempotencia;
+12. checkpoints humanos;
+13. relación con Opportunity;
+14. relación con Project;
+15. relación con Result/Learning;
+16. si Replit realmente los llama actualmente;
+17. si alguna funcionalidad fue reemplazada por workers nuevos de Replit;
+18. si existe duplicación;
+19. si existe riesgo de dos motores ejecutando la misma transición;
+20. si existen flows antiguos configurados que ya no deberían formar parte del Golden Path.
+
+NO borrar flows.
+
+Clasificar cada flow encontrado:
+
+KEEP
+KEEP_BUT_REFACTOR_LATER
+LEGACY_UNUSED
+DUPLICATED
+BROKEN
+UNKNOWN
+
+Para cada clasificación explicar POR QUÉ.
+
+==================================================
+FASE 3 — SINGLE SOURCE OF TRUTH
+==================================================
+
+Determinar quién es autoridad para cada dominio.
+
+Necesito una matriz:
+
+DOMAIN | SOURCE OF TRUTH | EXECUTOR | OBSERVER
+
+Ejemplos:
+
+Opportunity
+Project
+Human Action
+Lifecycle
+Market Candidate
+Finance
+Result
+Learning
+Autonomy State
+
+No debe existir ambigüedad entre:
+
+Replit
+Windmill
+GitHub
+
+Una entidad debe tener una autoridad persistente clara.
+
+Detectar:
+
+dual writes
+race conditions
+duplicate execution
+stale states
+orphan records
+split-brain state
+
+==================================================
+FASE 4 — AUDITORÍA DEL GOLDEN PATH
+==================================================
+
+Revisar si actualmente existe un camino completo:
+
+DISCOVERY
+→ RESEARCH
+→ EVIDENCE
+→ DEDUPE
+→ SCORE
+→ VALIDATION
+→ DECISION
+
+Si no existe oportunidad válida:
+
+NO_VALID_OPPORTUNITY
+→ HISTORY
+→ LEARNING
+→ END
+
+Si existe:
+
+CANDIDATE
+→ PROJECT_CREATED
+→ BUILDING
+→ QA_REVIEW
+→ READY_TO_MONETIZE
+→ MONETIZATION ATTEMPT
+→ RESULT
+→ FINANCE
+→ LEARNING
+→ COMPLETED
+
+Cuando necesita humano:
+
+WAITING_HUMAN
+→ HUMAN ACTION
+→ OWNER DECISION
+→ RESUME_PENDING
+→ CONTINUE SAME PROJECT
+
+Cuando expira:
+
+ACTIVE
+→ EXPIRED
+→ NON_EXECUTABLE
+→ HISTORY
+→ LEARNING
+
+Para MARKET / CRYPTO / SPORTS:
+
+DISCOVERY
+→ PAPER RESEARCH
+→ CANDIDATE
+→ VALIDATION
+→ PAPER_TESTING
+→ PAPER_RESULT
+→ LEARNING
+
+SIN ejecución financiera real.
+
+==================================================
+FASE 5 — OBSERVABILIDAD
+==================================================
+
+Verificar que el propietario pueda VER realmente:
+
+- oportunidad
+- categoría
+- evidencia
+- score
+- decisión
+- vigencia
+- expiración
+- proyecto relacionado
+- fase del proyecto
+- acciones realizadas
+- próxima acción
+- agente/proceso responsable
+- Human Action
+- resultado
+- REAL / PAPER / POTENTIAL
+- aprendizaje
+- lifecycle completo
+
+Verificar especialmente:
+
+Money Lab candidates individuales.
+
+Los 22 candidatos normalizados deben poder recuperarse desde API/read model.
+
+Si la UI todavía no los muestra correctamente, reportarlo como blocker de observabilidad.
+
+==================================================
+FASE 6 — AUTONOMY ENGINE
+==================================================
+
+Auditar SIN ENCENDERLO.
+
+Comprobar:
+
+AUTONOMY_EXECUTION_LOCKED=true
+persisted autonomy=OFF
+
+Revisar:
+
+scheduler
+category rotation
+cycle creation
+missions
+dedupe
+scoring
+research
+project selection
+parallel projects
+WAITING_HUMAN isolation
+expiration
+learning
+failure handling
+max retries
+idempotency
+
+Determinar si al desbloquearlo posteriormente podría ejecutar:
+
+aproximadamente 5 ciclos/día configurables
+
+sin duplicar oportunidades/proyectos.
+
+NO desbloquear todavía.
+
+==================================================
+FASE 7 — ZERO-CAPITAL BUSINESS ENGINE
+==================================================
+
+Verificar que el sistema pueda priorizar:
+
+STARTING_CAPITAL=0
+
+y evaluar oportunidades:
+
+services
+digital products
+automation
+SaaS
+affiliate
+lead generation
+content
+templates
+microproducts
+B2B
+B2C
+other legal opportunities
+
+Comprobar que una oportunidad pueda convertirse realmente en un proyecto observable.
+
+No ejecutar ventas reales durante esta auditoría.
+
+==================================================
+FASE 8 — MONEY LAB / GITHUB
+==================================================
+
+Auditar en READ-ONLY la integración ya probada:
+
+Replit
+→ GitHub Actions
+→ Autonomous Market Cycle
+→ artifact
+→ Replit ingestion
+→ Money Lab candidate records
+
+Confirmar:
+
+no real money
+no financial execution
+no REAL_VERIFIED automático
+
+Verificar que:
+
+market opportunities tengan timestamps,
+vigencia,
+expiration,
+classification,
+paper result,
+history.
+
+==================================================
+FASE 9 — FINANCE
+==================================================
+
+Auditar:
+
+REAL
+PAPER/SIMULATED
+POTENTIAL
+
+Confirmar que jamás se mezclan.
+
+REAL balance solamente puede cambiar mediante evidencia real válida.
+
+PAPER nunca incrementa REAL.
+
+POTENTIAL nunca incrementa REAL.
+
+Verificar ledger y summary.
+
+No crear movimientos financieros reales.
+
+==================================================
+FASE 10 — SECURITY
+==================================================
+
+Verificar nuevamente:
+
+Clerk
+owner binding
+401
+403
+503 fail-closed
+cookies
+API protection
+control endpoints
+finance endpoints
+autonomy endpoints
+Human Actions
+
+Buscar cualquier endpoint que pueda:
+
+activar autonomía
+ejecutar proyecto
+aprobar
+crear movimiento financiero
+iniciar ciclo
+
+sin autorización del propietario.
+
+Si existe → CRITICAL BLOCKER.
+
+==================================================
+FASE 11 — FAILURE MODES
+==================================================
+
+Auditar escenarios:
+
+Windmill unavailable
+GitHub unavailable
+API timeout
+artifact missing
+duplicate callback
+duplicate click
+expired opportunity
+worker restart
+Replit restart
+scheduler restart
+Human Action unresolved
+invalid state transition
+database error
+
+El sistema debe:
+
+fail loudly
+persist error
+preserve state
+avoid duplicate execution
+retry máximo 3 cuando corresponda
+permitir recuperación.
+
+==================================================
+FASE 12 — LEGACY CLEANUP PLAN
+==================================================
+
+NO eliminar nada.
+
+Identificar solamente:
+
+legacy flows
+legacy endpoints
+unused tables
+duplicated workers
+obsolete compatibility layers
+dead code
+
+Clasificar:
+
+SAFE_TO_KEEP
+DEPRECATE_LATER
+MUST_FIX_BEFORE_AUTONOMY
+
+==================================================
+FASE 13 — GOLDEN PATH READINESS TEST
+==================================================
+
+NO ejecutar todavía una operación monetaria real.
+
+Puedes utilizar fixtures controlados y datos simulados claramente etiquetados.
+
+Validar:
+
+Opportunity
+→ Evidence
+→ Score
+→ Decision
+→ Project
+→ QA
+→ Human checkpoint si aplica
+→ Resume
+→ Result
+→ Finance PAPER/POTENTIAL
+→ Learning
+→ Complete
+
+Y paralelamente comprobar:
+
+Market cycle
+→ Candidate
+→ Paper validation
+→ History/Learning
+
+No dejar fixtures mutables.
+
+No autoaprobar checkpoints humanos.
+
+==================================================
+FASE 14 — NO CAMBIOS OCULTOS
+==================================================
+
+Esta fase es principalmente AUDITORÍA.
+
+Si encuentras un defecto:
+
+clasificarlo primero:
+
+CRITICAL
+HIGH
+MEDIUM
+LOW
+
+Puedes corregir automáticamente solamente:
+
+- defectos reproducibles;
+- cambios seguros;
+- sin modificar reglas de negocio;
+- sin activar autonomía;
+- sin operaciones externas reales;
+- sin eliminar información.
+
+Documentar cada corrección.
+
+==================================================
+REPORTE FINAL OBLIGATORIO
+==================================================
+
+Devuelve exactamente estas secciones:
+
+FINAL_AUDIT_STATUS
+
+ARCHITECTURE_MAP
+
+REPLIT_STATUS
+
+WINDMILL_STATUS
+
+WINDMILL_FLOW_INVENTORY
+
+GITHUB_STATUS
+
+SINGLE_SOURCE_OF_TRUTH_MATRIX
+
+GOLDEN_PATH_STATUS
+
+OBSERVABILITY_STATUS
+
+MONEY_LAB_STATUS
+
+BUSINESS_ENGINE_STATUS
+
+HUMAN_ACTION_STATUS
+
+EXPIRATION_STATUS
+
+FINANCE_STATUS
+
+LEARNING_STATUS
+
+AUTONOMY_ENGINE_STATUS
+
+SECURITY_STATUS
+
+FAILURE_RECOVERY_STATUS
+
+LEGACY_COMPONENTS
+
+CRITICAL_BLOCKERS
+
+HIGH_BLOCKERS
+
+MEDIUM_ISSUES
+
+LOW_ISSUES
+
+SAFE_FIXES_APPLIED
+
+TEST_RESULTS
+
+REGRESSIONS
+
+DUPLICATES_FOUND
+
+READY_FOR_GOLDEN_PATH_TEST = YES/NO
+
+READY_TO_UNLOCK_AUTONOMY = YES/NO
+
+READY_TO_ENABLE_AUTONOMY = YES/NO
+
+NEXT_EXACT_ACTION
+
+==================================================
+REGLA FINAL
+==================================================
+
+NO uses “COMPLETED” como sinónimo de que el sistema está listo.
+
+Solo indicar:
+
+READY_TO_UNLOCK_AUTONOMY = YES
+
+si:
+
+- no existen CRITICAL blockers;
+- no existen HIGH blockers;
+- Golden Path es coherente;
+- Single Source of Truth está definida;
+- Windmill no compite con Replit;
+- GitHub no ejecuta dinero real;
+- Human Actions funcionan;
+- expiration funciona;
+- finance separation funciona;
+- observabilidad es suficiente;
+- idempotencia está comprobada.
+
+Aun si READY_TO_UNLOCK_AUTONOMY = YES:
+
+NO desbloquearla.
+NO activarla.
+
+La activación se hará posteriormente mediante una orden explícita del propietario.

@@ -3,3 +3,4 @@
 - [Market Lab evidence boundary](market-lab-evidence.md) — GitHub quantitative cycles remain research simulation; PAPER_APPROVED must never become REAL_VERIFIED.
 - [Autonomy safety boundary](autonomy-safety.md) — autonomy stays OFF by default; scoring, human checkpoints, and finance modes cannot imply external execution or verified revenue.
 - [Owner provisioning](owner-provisioning.md) — owner access must match a trusted configured Clerk identity; never let the first authenticated visitor claim ownership.
+- [Windmill callback boundary](windmill-callback-auth.md) — active flows cannot call owner-only APIs without explicit machine auth and externally correlated idempotency.
