@@ -46,7 +46,7 @@ export default function AccionesPage() {
             </div>
           </div>
           
-          <DataState loading={isLoading} error={!!error} empty={!isLoading && pendingActions.length === 0} onRetry={() => void refetch()}>
+          <DataState loading={isLoading} error={!!error} errorDetail={error instanceof Error ? error.message : undefined} empty={!isLoading && pendingActions.length === 0} onRetry={() => void refetch()}>
             <div className="opportunity-list">
               {pendingActions.map(action => (
                 <div key={action.id} className="opportunity-card" style={{ borderColor: 'hsl(var(--sidebar-primary))' }}>

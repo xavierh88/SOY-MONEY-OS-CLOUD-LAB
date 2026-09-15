@@ -146,12 +146,12 @@ export function statusLabel(status?: string) {
   return status.replaceAll('_', ' ');
 }
 
-export function DataState({ loading, error, empty, onRetry, children }: { loading?: boolean; error?: boolean; empty?: boolean; onRetry?: () => void; children: ReactNode }) {
+export function DataState({ loading, error, errorDetail, empty, onRetry, children }: { loading?: boolean; error?: boolean; errorDetail?: string; empty?: boolean; onRetry?: () => void; children: ReactNode }) {
   if (loading) {
     return <div className="space-y-3" data-testid="state-loading"><div className="skeleton h-20 w-full" /><div className="skeleton h-20 w-full" /><div className="skeleton h-20 w-4/5" /></div>;
   }
   if (error) {
-    return <div className="empty-state" data-testid="state-error"><CircleAlert size={22} /><strong>No se pudo cargar este registro</strong><span>El origen no respondió. Conservamos la interfaz lista para reintentar.</span>{onRetry && <button className="button button-secondary mt-3" onClick={onRetry} data-testid="button-retry">Reintentar</button>}</div>;
+    return <div className="empty-state" data-testid="state-error"><CircleAlert size={22} /><strong>No se pudo cargar este registro</strong><span>{errorDetail || 'El origen no respondió. Conservamos la interfaz lista para reintentar.'}</span>{onRetry && <button className="button button-secondary mt-3" onClick={onRetry} data-testid="button-retry">Reintentar</button>}</div>;
   }
   if (empty) {
     return <div className="empty-state" data-testid="state-empty"><Database size={22} /><strong>Sin señales todavía</strong><span>Cuando el sistema encuentre actividad, aparecerá aquí con su trazabilidad completa.</span></div>;
