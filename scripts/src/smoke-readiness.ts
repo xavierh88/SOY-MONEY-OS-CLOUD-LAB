@@ -36,7 +36,12 @@ try {
     headers: { "x-test-clerk-user-id": "smoke-test-owner" },
   });
   assert.equal(missing.status, 404);
-  assert.deepEqual(await missing.json(), { error: "Not found" });
+  const missingBody = await missing.json() as Record<string, unknown>;
+  assert.equal(missingBody.error, "Not found");
+  assert.equal(missingBody.code, "HTTP_404");
+  assert.equal(typeof missingBody.correlationId, "string");
+  assert((missingBody.correlationId as string).length > 0);
+  assert.deepEqual(Object.keys(missingBody).sort(), ["code", "correlationId", "error"]);
 } finally {
   if (server) {
     await new Promise<void>((resolve, reject) =>
@@ -45,4 +50,4 @@ try {
   }
 }
 
-console.log("Smoke/readiness passed: healthz is ready and unknown routes are stable");
+console.log("Smoke/readiness passed: healthz is ready and unknown routes expose correlated stable errors");
