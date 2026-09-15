@@ -1,0 +1,70 @@
+FINAL SYSTEM READINESS AUDIT — SOY MONEY OS
+
+No programes nuevas funciones y no hagas reparaciones preventivas. Primero audita el sistema completo tal como quedó después de los Golden Path tests y Money Lab PAPER + expiration PASS.
+
+Quiero determinar si SOY MONEY OS está realmente preparado para pasar de pruebas aisladas a operación autónoma controlada.
+
+Revisa de extremo a extremo:
+
+1. Autonomous Director / Scheduler
+Confirma que puede iniciar ciclos automáticamente según la programación configurada, rotar categorías, evitar ejecuciones duplicadas, manejar retries máximo 3 y continuar aunque otro proyecto esté esperando intervención humana.
+
+2. Opportunity Discovery
+Confirma qué categorías están realmente implementadas y funcionales hoy: BUSINESS, DIGITAL_PRODUCTS, SERVICES, SAAS, AUTOMATION, AFFILIATE, MARKET, CRYPTO, SPORTS y otras legales. Distingue IMPLEMENTED / PARTIAL / NOT_IMPLEMENTED. No confundas diseño/documentación con código funcionando.
+
+3. Research y evidencia
+Confirma que cada oportunidad puede investigar múltiples fuentes reales, conservar URLs/evidencia, deduplicar, puntuar y rechazar correctamente con NO_VALID_OPPORTUNITY. Identifica exactamente qué proveedores/herramientas reales utiliza.
+
+4. Project creation and execution
+Verifica que una oportunidad seleccionada pueda convertirse realmente en proyecto y recorrer BUILD → QA → READY_TO_MONETIZE → monetization attempt → RESULT → LEARNING. Distingue claramente qué pasos producen trabajo/productos reales y cuáles actualmente son solamente registros/simulaciones/placeholders.
+
+5. Human Action Manager
+Verifica checkpoints, aprobación/rechazo, bloqueo solamente de la rama afectada, reanudación desde el mismo checkpoint, CAPTCHA/MFA/KYC/terms/payment restrictions e idempotencia.
+
+6. Money Lab
+Considera aprobadas las pruebas ya realizadas de exact GitHub tracking, artifact ingestion, normalización, PAPER monitoring e expiration. Comprueba que esas implementaciones están en main y no fueron afectadas posteriormente.
+
+7. Finance
+Confirma separación REAL/PAPER/POTENTIAL y que PAPER/POTENTIAL jamás incrementan balance REAL. REAL debe permanecer 0 salvo transacciones reales verificadas.
+
+8. Learning loop
+Verifica si learning realmente afecta decisiones/ciclos futuros o solamente almacena registros. Si todavía no realimenta scoring/selección, clasifícalo PARTIAL.
+
+9. Control Tower / Dashboard
+Comprueba que el propietario puede observar oportunidades, proyectos, tareas actuales, Human Actions, Money Lab, resultados, Finance y lifecycle sin entrar en PostgreSQL/GitHub/Windmill.
+
+10. Windmill
+Mantén Windmill LEGACY_UNUSED. Confirma que ninguna ruta activa depende accidentalmente de él y que no existe doble orquestación.
+
+11. External dependencies
+Enumera cada dependencia externa necesaria para operación real: GitHub, APIs, scrapers, modelos IA, credenciales, servicios externos, etc. Indica CONNECTED / WORKING / UNTESTED / BLOCKED.
+
+12. Deployment
+Determina si Preview/main y la versión pública están sincronizadas o si todavía falta Republish.
+
+No actives autonomía todavía. Mantén AUTONOMY_EXECUTION_LOCKED=true y autonomy=OFF. No ejecutes pagos, trading, apuestas, campañas, publicaciones ni operaciones financieras reales.
+
+Al finalizar entrégame una matriz:
+COMPONENT | IMPLEMENTED | TESTED E2E | REAL OR SIMULATED | BLOCKER | SEVERITY
+
+y concluye exactamente con:
+
+SOFTWARE_COMPLETENESS_PERCENT = X%
+
+AUTONOMOUS_RESEARCH_READY = YES/NO
+
+AUTONOMOUS_PROJECT_EXECUTION_READY = YES/NO
+
+HUMAN_CHECKPOINT_SYSTEM_READY = YES/NO
+
+MONEY_LAB_PAPER_READY = YES/NO
+
+DASHBOARD_OPERATION_READY = YES/NO
+
+PUBLIC_DEPLOYMENT_CURRENT = YES/NO
+
+READY_FOR_FINAL_GOLDEN_PATH = YES/NO
+
+READY_FOR_CONTROLLED_AUTONOMY = YES/NO
+
+Si existen bloqueos, ordénalos CRITICAL → HIGH → MEDIUM → LOW y especifica la reparación mínima necesaria. No crees tareas ni cambies código durante esta auditoría.
