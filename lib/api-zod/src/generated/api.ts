@@ -59,6 +59,14 @@ export const ListOpportunitiesResponseItem = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
   "detectedAt": zod.coerce.date().nullable(),
   "validFrom": zod.coerce.date().nullable(),
   "validUntil": zod.coerce.date().nullable(),
@@ -110,6 +118,14 @@ export const CreateOpportunityResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
   "detectedAt": zod.coerce.date().nullable(),
   "validFrom": zod.coerce.date().nullable(),
   "validUntil": zod.coerce.date().nullable(),
@@ -145,6 +161,14 @@ export const GetOpportunityResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
   "detectedAt": zod.coerce.date().nullable(),
   "validFrom": zod.coerce.date().nullable(),
   "validUntil": zod.coerce.date().nullable(),
@@ -165,9 +189,170 @@ export const GetOpportunityResponse = zod.object({
   "verificationStatus": zod.string(),
   "contradictions": zod.array(zod.string()),
   "gaps": zod.array(zod.string()),
-  "proofType": zod.string()
+  "proofType": zod.string(),
+  "evidenceRef": zod.string().nullish(),
+  "independenceKey": zod.string().nullish(),
+  "freshnessScore": zod.number().nullish()
 }))
 }))
+
+
+/**
+ * @summary Research a category using free public sources
+ */
+export const researchDiscoveryBodyQueryMax = 240;
+
+export const researchDiscoveryBodyIdempotencyKeyMax = 240;
+
+
+
+export const ResearchDiscoveryBody = zod.object({
+  "category": zod.enum(['BUSINESS', 'DIGITAL_PRODUCTS', 'SERVICES', 'SAAS', 'AUTOMATION', 'AFFILIATE', 'OTHER_LEGAL_OPPORTUNITIES', 'SPORTS']),
+  "query": zod.string().max(researchDiscoveryBodyQueryMax).optional(),
+  "idempotencyKey": zod.string().max(researchDiscoveryBodyIdempotencyKeyMax).optional()
+})
+
+export const ResearchDiscoveryResponse = zod.object({
+  "run": zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "category": zod.string(),
+  "query": zod.string(),
+  "status": zod.string(),
+  "sourceCount": zod.number().int(),
+  "independentSourceCount": zod.number().int(),
+  "acceptedCount": zod.number().int(),
+  "rejectionReason": zod.string().nullish(),
+  "scoreBreakdown": zod.record(zod.string(), zod.number()),
+  "startedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "opportunities": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "sector": zod.string(),
+  "problem": zod.string(),
+  "targetCustomer": zod.string(),
+  "proposedSolution": zod.string(),
+  "monetizationMethod": zod.string(),
+  "score": zod.number().int(),
+  "estimatedCost": zod.number(),
+  "difficulty": zod.string(),
+  "risk": zod.string(),
+  "timeToRevenue": zod.string(),
+  "status": zod.string(),
+  "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})).optional(),
+  "findings": zod.array(zod.record(zod.string(), zod.unknown())),
+  "accepted": zod.boolean().optional(),
+  "error": zod.record(zod.string(), zod.unknown()).nullish()
+})
+
+
+/**
+ * @summary List durable discovery research runs
+ */
+export const ListDiscoveryResearchResponseItem = zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "category": zod.string(),
+  "query": zod.string(),
+  "status": zod.string(),
+  "sourceCount": zod.number().int(),
+  "independentSourceCount": zod.number().int(),
+  "acceptedCount": zod.number().int(),
+  "rejectionReason": zod.string().nullish(),
+  "scoreBreakdown": zod.record(zod.string(), zod.number()),
+  "startedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListDiscoveryResearchResponse = zod.array(ListDiscoveryResearchResponseItem)
+
+
+/**
+ * @summary Get a research run and its findings
+ */
+export const GetDiscoveryResearchParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetDiscoveryResearchResponse = zod.object({
+  "run": zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "category": zod.string(),
+  "query": zod.string(),
+  "status": zod.string(),
+  "sourceCount": zod.number().int(),
+  "independentSourceCount": zod.number().int(),
+  "acceptedCount": zod.number().int(),
+  "rejectionReason": zod.string().nullish(),
+  "scoreBreakdown": zod.record(zod.string(), zod.number()),
+  "startedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "opportunities": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "sector": zod.string(),
+  "problem": zod.string(),
+  "targetCustomer": zod.string(),
+  "proposedSolution": zod.string(),
+  "monetizationMethod": zod.string(),
+  "score": zod.number().int(),
+  "estimatedCost": zod.number(),
+  "difficulty": zod.string(),
+  "risk": zod.string(),
+  "timeToRevenue": zod.string(),
+  "status": zod.string(),
+  "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})).optional(),
+  "findings": zod.array(zod.record(zod.string(), zod.unknown())),
+  "accepted": zod.boolean().optional(),
+  "error": zod.record(zod.string(), zod.unknown()).nullish()
+})
 
 
 /**
@@ -204,7 +389,10 @@ export const ListEvidenceResponseItem = zod.object({
   "verificationStatus": zod.string(),
   "contradictions": zod.array(zod.string()),
   "gaps": zod.array(zod.string()),
-  "proofType": zod.string()
+  "proofType": zod.string(),
+  "evidenceRef": zod.string().nullish(),
+  "independenceKey": zod.string().nullish(),
+  "freshnessScore": zod.number().nullish()
 })
 export const ListEvidenceResponse = zod.array(ListEvidenceResponseItem)
 
@@ -237,7 +425,10 @@ export const CreateEvidenceResponse = zod.object({
   "verificationStatus": zod.string(),
   "contradictions": zod.array(zod.string()),
   "gaps": zod.array(zod.string()),
-  "proofType": zod.string()
+  "proofType": zod.string(),
+  "evidenceRef": zod.string().nullish(),
+  "independenceKey": zod.string().nullish(),
+  "freshnessScore": zod.number().nullish()
 })
 
 
@@ -270,6 +461,14 @@ export const StartPipelineResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
   "detectedAt": zod.coerce.date().nullable(),
   "validFrom": zod.coerce.date().nullable(),
   "validUntil": zod.coerce.date().nullable(),
@@ -335,6 +534,10 @@ export const DecideApprovalResponse = zod.object({
 export const ListProjectsResponseItem = zod.object({
   "id": zod.number().int(),
   "opportunityId": zod.number().int(),
+  "originCandidateId": zod.number().int().nullish(),
+  "originOpportunityId": zod.number().int().nullish(),
+  "originCycleId": zod.number().int().nullish(),
+  "creationIdempotencyKey": zod.string().nullish(),
   "name": zod.string(),
   "status": zod.string(),
   "qaStatus": zod.string().nullish(),
@@ -364,6 +567,10 @@ export const GetProjectResponse = zod.object({
   "project": zod.object({
   "id": zod.number().int(),
   "opportunityId": zod.number().int(),
+  "originCandidateId": zod.number().int().nullish(),
+  "originOpportunityId": zod.number().int().nullish(),
+  "originCycleId": zod.number().int().nullish(),
+  "creationIdempotencyKey": zod.string().nullish(),
   "name": zod.string(),
   "status": zod.string(),
   "qaStatus": zod.string().nullish(),
@@ -399,6 +606,10 @@ export const GetProjectResponse = zod.object({
   "outcome": zod.string(),
   "status": zod.string(),
   "revenue": zod.number(),
+  "cost": zod.number().nullable(),
+  "profit": zod.number().nullable(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "financeIdempotencyKey": zod.string().nullable(),
   "realRevenue": zod.boolean(),
   "createdAt": zod.coerce.date()
 }),zod.null()]),
@@ -421,7 +632,7 @@ export const StartProjectBuildParams = zod.object({
 })
 
 export const StartProjectBuildBody = zod.object({
-  "deliverableType": zod.enum(['DIGITAL_PRODUCT', 'SERVICE', 'LANDING_PAGE', 'REPORT', 'AUTOMATION', 'CONSULTING_OFFER', 'CONTENT_PRODUCT', 'OTHER']),
+  "deliverableType": zod.enum(['DIGITAL_PRODUCT', 'SERVICE', 'LANDING_PAGE', 'SITE_MVP', 'SERVICE_PACKAGE', 'AUTOMATION', 'PROTOTYPE', 'REPORT', 'CONSULTING_OFFER', 'CONTENT_PRODUCT', 'OTHER']),
   "buildNotes": zod.string().optional()
 })
 
@@ -501,6 +712,10 @@ export const RecordProjectResultResponse = zod.object({
   "outcome": zod.string(),
   "status": zod.string(),
   "revenue": zod.number(),
+  "cost": zod.number().nullable(),
+  "profit": zod.number().nullable(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "financeIdempotencyKey": zod.string().nullable(),
   "realRevenue": zod.boolean(),
   "createdAt": zod.coerce.date()
 })
@@ -545,6 +760,10 @@ export const CompleteProjectResponse = zod.object({
   "project": zod.object({
   "id": zod.number().int(),
   "opportunityId": zod.number().int(),
+  "originCandidateId": zod.number().int().nullish(),
+  "originOpportunityId": zod.number().int().nullish(),
+  "originCycleId": zod.number().int().nullish(),
+  "creationIdempotencyKey": zod.string().nullish(),
   "name": zod.string(),
   "status": zod.string(),
   "qaStatus": zod.string().nullish(),
@@ -601,6 +820,10 @@ export const ListResultsResponseItem = zod.object({
   "outcome": zod.string(),
   "status": zod.string(),
   "revenue": zod.number(),
+  "cost": zod.number().nullable(),
+  "profit": zod.number().nullable(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "financeIdempotencyKey": zod.string().nullable(),
   "realRevenue": zod.boolean(),
   "createdAt": zod.coerce.date()
 })
@@ -785,6 +1008,7 @@ export const StartMarketCycleResponse = zod.object({
   "dispatchKey": zod.string(),
   "status": zod.string(),
   "source": zod.string(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
   "marketsAnalyzed": zod.number().int(),
   "candidatesFound": zod.number().int(),
   "paperApproved": zod.number().int(),
@@ -816,6 +1040,7 @@ export const GetMarketCycleStatusResponse = zod.object({
   "dispatchKey": zod.string(),
   "status": zod.string(),
   "source": zod.string(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
   "marketsAnalyzed": zod.number().int(),
   "candidatesFound": zod.number().int(),
   "paperApproved": zod.number().int(),
@@ -833,6 +1058,133 @@ export const GetMarketCycleStatusResponse = zod.object({
 
 
 /**
+ * Creates only durable PAPER/POTENTIAL records and a pending owner checkpoint. This endpoint never approves an action, publishes, spends money, or calls an external provider.
+ * @summary Prepare a controlled, zero-capital Golden Path checkpoint
+ */
+export const prepareControlledGoldenPathBodyIdempotencyKeyMax = 200;
+
+
+
+export const PrepareControlledGoldenPathBody = zod.object({
+  "idempotencyKey": zod.string().max(prepareControlledGoldenPathBodyIdempotencyKeyMax).optional().describe('Repeating this key returns the same durable preparation.')
+})
+
+export const PrepareControlledGoldenPathResponse = zod.object({
+  "cycleId": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "projectId": zod.number().int(),
+  "actionId": zod.number().int(),
+  "decisionId": zod.number().int(),
+  "state": zod.enum(['WAITING_HUMAN']),
+  "checkpoint": zod.string(),
+  "nextInstruction": zod.string(),
+  "fixtureKey": zod.string(),
+  "safe": zod.literal(true)
+})
+
+
+/**
+ * Read-only status; it never resumes or approves the checkpoint.
+ * @summary Read a controlled Golden Path checkpoint
+ */
+export const GetControlledGoldenPathStatusParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetControlledGoldenPathStatusResponse = zod.object({
+  "cycle": zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "slotKey": zod.string().nullish(),
+  "category": zod.string(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "checkpoint": zod.string(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "selectedCandidateId": zod.number().int().nullish(),
+  "score": zod.number().int().nullish(),
+  "message": zod.string(),
+  "errorCode": zod.string().nullish(),
+  "retryCount": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "opportunity": zod.union([zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "sector": zod.string(),
+  "problem": zod.string(),
+  "targetCustomer": zod.string(),
+  "proposedSolution": zod.string(),
+  "monetizationMethod": zod.string(),
+  "score": zod.number().int(),
+  "estimatedCost": zod.number(),
+  "difficulty": zod.string(),
+  "risk": zod.string(),
+  "timeToRevenue": zod.string(),
+  "status": zod.string(),
+  "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()]),
+  "project": zod.union([zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "originCandidateId": zod.number().int().nullish(),
+  "originOpportunityId": zod.number().int().nullish(),
+  "originCycleId": zod.number().int().nullish(),
+  "creationIdempotencyKey": zod.string().nullish(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "qaStatus": zod.string().nullish(),
+  "qaScore": zod.number().int().nullish(),
+  "qaIssues": zod.array(zod.string()),
+  "qaRecommendations": zod.array(zod.string()),
+  "qaCheckedAt": zod.coerce.date().nullish(),
+  "sellPackage": zod.record(zod.string(), zod.unknown()).nullish(),
+  "publicationExecuted": zod.boolean(),
+  "marketingExecuted": zod.boolean(),
+  "saleExecuted": zod.boolean(),
+  "financialExecution": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()]),
+  "humanActions": zod.array(zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "cycleId": zod.number().int().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "actionType": zod.string(),
+  "checkpoint": zod.string(),
+  "status": zod.string(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "nextInstruction": zod.string()
+})
+
+
+/**
  * @summary List persisted market cycles
  */
 export const ListMarketCyclesResponseItem = zod.object({
@@ -843,6 +1195,7 @@ export const ListMarketCyclesResponseItem = zod.object({
   "dispatchKey": zod.string(),
   "status": zod.string(),
   "source": zod.string(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
   "marketsAnalyzed": zod.number().int(),
   "candidatesFound": zod.number().int(),
   "paperApproved": zod.number().int(),
@@ -875,6 +1228,7 @@ export const GetMarketCycleResponse = zod.object({
   "dispatchKey": zod.string(),
   "status": zod.string(),
   "source": zod.string(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
   "marketsAnalyzed": zod.number().int(),
   "candidatesFound": zod.number().int(),
   "paperApproved": zod.number().int(),
@@ -904,6 +1258,7 @@ export const GetMoneyLabSummaryResponse = zod.object({
   "dispatchKey": zod.string(),
   "status": zod.string(),
   "source": zod.string(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
   "marketsAnalyzed": zod.number().int(),
   "candidatesFound": zod.number().int(),
   "paperApproved": zod.number().int(),
@@ -1011,6 +1366,45 @@ export const GetAutonomyStatusResponse = zod.object({
   "lastSlotKey": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * Machine-to-machine callback boundary. The provider must send the service identity, allowlisted operation, dispatch identifier, current timestamp, SHA-256 hash of the exact request bytes, and an HMAC-SHA256 signature. This endpoint does not use owner authentication and never starts an external job.
+ * @summary Receive an authenticated, replay-safe service transition
+ */
+export const receiveServiceCallbackHeaderXDispatchIdMin = 8;
+export const receiveServiceCallbackHeaderXDispatchIdMax = 200;
+
+
+export const receiveServiceCallbackHeaderXDispatchIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+export const receiveServiceCallbackHeaderXBodySha256RegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const ReceiveServiceCallbackHeader = zod.object({
+  "X-Service-Id": zod.enum(['windmill']).describe('Allowlisted machine service identity.'),
+  "X-Service-Operation": zod.enum(['windmill.callback', 'windmill.job.completed', 'windmill.job.failed']),
+  "X-Service-Timestamp": zod.string().describe('Unix seconds or milliseconds, within five minutes of server time.'),
+  "X-Dispatch-Id": zod.string().min(receiveServiceCallbackHeaderXDispatchIdMin).max(receiveServiceCallbackHeaderXDispatchIdMax).regex(receiveServiceCallbackHeaderXDispatchIdRegExp),
+  "X-Body-Sha256": zod.string().regex(receiveServiceCallbackHeaderXBodySha256RegExp).describe('Lowercase SHA-256 hex digest of the exact JSON request bytes.'),
+  "X-Service-Signature": zod.string().describe('HMAC-SHA256 hex over timestamp.method.path.dispatch_id.body_hash.'),
+  "X-Service-Method": zod.enum(['POST']).optional(),
+  "X-Service-Path": zod.enum(['/api/service/v1/callback']).optional()
+})
+
+export const ReceiveServiceCallbackBody = zod.object({
+  "dispatch_id": zod.string(),
+  "transition": zod.string().optional(),
+  "status": zod.string(),
+  "job_id": zod.string().optional(),
+  "run_id": zod.string().optional(),
+  "result": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+export const ReceiveServiceCallbackResponse = zod.object({
+  "accepted": zod.literal(true),
+  "replay": zod.boolean(),
+  "receiptId": zod.number().int()
 })
 
 
@@ -1162,6 +1556,14 @@ export const ListCandidatesResponseItem = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
   "detectedAt": zod.coerce.date().nullable(),
   "validFrom": zod.coerce.date().nullable(),
   "validUntil": zod.coerce.date().nullable(),
@@ -1176,7 +1578,7 @@ export const ListCandidatesResponseItem = zod.object({
   "scoreIsDemandProof": zod.literal(false),
   "normalizedHash": zod.string(),
   "demandProofStatus": zod.string().optional()
-})
+}).describe('Existing business opportunity candidate, distinct from a normalized Market Lab candidate.')
 export const ListCandidatesResponse = zod.array(ListCandidatesResponseItem)
 
 
@@ -1204,6 +1606,14 @@ export const GetCandidateResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
   "detectedAt": zod.coerce.date().nullable(),
   "validFrom": zod.coerce.date().nullable(),
   "validUntil": zod.coerce.date().nullable(),
@@ -1218,7 +1628,7 @@ export const GetCandidateResponse = zod.object({
   "scoreIsDemandProof": zod.literal(false),
   "normalizedHash": zod.string(),
   "demandProofStatus": zod.string().optional()
-})
+}).describe('Existing business opportunity candidate, distinct from a normalized Market Lab candidate.')
 
 
 /**
@@ -1241,6 +1651,14 @@ export const ListAutonomyCandidatesResponseItem = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
   "detectedAt": zod.coerce.date().nullable(),
   "validFrom": zod.coerce.date().nullable(),
   "validUntil": zod.coerce.date().nullable(),
@@ -1255,7 +1673,7 @@ export const ListAutonomyCandidatesResponseItem = zod.object({
   "scoreIsDemandProof": zod.literal(false),
   "normalizedHash": zod.string(),
   "demandProofStatus": zod.string().optional()
-})
+}).describe('Existing business opportunity candidate, distinct from a normalized Market Lab candidate.')
 export const ListAutonomyCandidatesResponse = zod.array(ListAutonomyCandidatesResponseItem)
 
 
@@ -1283,6 +1701,14 @@ export const GetAutonomyCandidateResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
   "detectedAt": zod.coerce.date().nullable(),
   "validFrom": zod.coerce.date().nullable(),
   "validUntil": zod.coerce.date().nullable(),
@@ -1297,7 +1723,7 @@ export const GetAutonomyCandidateResponse = zod.object({
   "scoreIsDemandProof": zod.literal(false),
   "normalizedHash": zod.string(),
   "demandProofStatus": zod.string().optional()
-})
+}).describe('Existing business opportunity candidate, distinct from a normalized Market Lab candidate.')
 
 
 /**
@@ -1481,6 +1907,7 @@ export const GetControlTowerOverviewResponse = zod.object({
   "dispatchKey": zod.string(),
   "status": zod.string(),
   "source": zod.string(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
   "marketsAnalyzed": zod.number().int(),
   "candidatesFound": zod.number().int(),
   "paperApproved": zod.number().int(),
@@ -1547,6 +1974,539 @@ export const GetControlTowerTimelineResponse = zod.array(GetControlTowerTimeline
 
 
 /**
+ * Read-only reconstruction of the durable chain. It correlates the cycle with candidate decisions, opportunity/evidence, project/execution, human checkpoints, learning/results/finance, lifecycle history, external dispatches, and outbox records. This GET does not create or resume work, approve an action, call a provider, or mutate history.
+ * @summary Read the persisted Golden Path chain for one autonomous cycle
+ */
+
+
+
+export const GetControlTowerGoldenPathParams = zod.object({
+  "cycleId": zod.coerce.number().int().min(1)
+})
+
+export const getControlTowerGoldenPathResponseCandidatesItemSourceIndexMin = 0;
+
+export const getControlTowerGoldenPathResponseExternalDispatchesItemAttemptCountMin = 0;
+
+
+
+export const GetControlTowerGoldenPathResponse = zod.object({
+  "cycle": zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "slotKey": zod.string().nullish(),
+  "category": zod.string(),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "checkpoint": zod.string(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "selectedCandidateId": zod.number().int().nullish(),
+  "score": zod.number().int().nullish(),
+  "message": zod.string(),
+  "errorCode": zod.string().nullish(),
+  "retryCount": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "currentState": zod.string(),
+  "currentAction": zod.string().nullable(),
+  "nextAction": zod.string().nullable(),
+  "responsibleActor": zod.enum(['OWNER', 'AUTONOMY_WORKER', 'SYSTEM']),
+  "state": zod.string(),
+  "stage": zod.string(),
+  "checkpoint": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable(),
+  "stateDetails": zod.object({
+  "state": zod.string(),
+  "stage": zod.string(),
+  "checkpoint": zod.string(),
+  "message": zod.string()
+}),
+  "timestamps": zod.object({
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable(),
+  "lastHumanActionAt": zod.coerce.date().nullable(),
+  "lastLifecycleEventAt": zod.coerce.date().nullable()
+}),
+  "errors": zod.array(zod.record(zod.string(), zod.unknown())),
+  "error": zod.record(zod.string(), zod.unknown()).nullable(),
+  "financeMode": zod.union([zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),zod.null()]),
+  "financeModes": zod.array(zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n')),
+  "safeFlags": zod.object({
+  "externalCalls": zod.boolean(),
+  "realMoney": zod.boolean(),
+  "autoApproval": zod.literal(false),
+  "externalCallsAllowed": zod.literal(false),
+  "realMoneyAllowed": zod.literal(false)
+}),
+  "safe": zod.object({
+  "externalCalls": zod.boolean(),
+  "realMoney": zod.boolean(),
+  "autoApproval": zod.literal(false),
+  "externalCallsAllowed": zod.literal(false),
+  "realMoneyAllowed": zod.literal(false)
+}),
+  "isSafe": zod.boolean(),
+  "candidateDecisions": zod.array(zod.object({
+  "id": zod.number().int(),
+  "decisionKey": zod.string(),
+  "candidateType": zod.enum(['MONEY_LAB_CANDIDATE', 'OPPORTUNITY_CANDIDATE']),
+  "candidateRef": zod.string().nullish(),
+  "candidateId": zod.number().int().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "autonomousCycleId": zod.number().int().nullish(),
+  "decision": zod.enum(['SELECTED_PENDING_OWNER', 'APPROVED', 'REJECTED', 'BLOCKED', 'OPPORTUNITY_CANDIDATE']),
+  "decisionReason": zod.string().nullish(),
+  "score": zod.number().nullish(),
+  "confidence": zod.number().nullish(),
+  "risk": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "decidedBy": zod.string().nullish(),
+  "nextAction": zod.string().nullish(),
+  "metadata": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).describe('Generic durable decision whose link is explicit. MONEY_LAB_CANDIDATE uses candidateId; OPPORTUNITY_CANDIDATE uses opportunityId and never reuses a Market Lab candidate identifier.\n')),
+  "candidates": zod.array(zod.object({
+  "sourceIndex": zod.number().int().min(getControlTowerGoldenPathResponseCandidatesItemSourceIndexMin),
+  "id": zod.string(),
+  "raw": zod.record(zod.string(), zod.unknown()),
+  "symbol": zod.string().nullable(),
+  "gate": zod.string().nullable(),
+  "classification": zod.string().nullable(),
+  "strategyKind": zod.string().nullable(),
+  "metrics": zod.record(zod.string(), zod.unknown()),
+  "assetType": zod.string().nullish(),
+  "market": zod.string().nullish(),
+  "signal": zod.string().nullish(),
+  "score": zod.number().nullish(),
+  "confidence": zod.number().nullish(),
+  "risk": zod.string().nullish(),
+  "detectedAt": zod.coerce.date().nullish(),
+  "validFrom": zod.coerce.date().nullish(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).optional().describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "status": zod.string().nullish(),
+  "decision": zod.string().nullish(),
+  "evidenceReference": zod.string().nullish(),
+  "learningReference": zod.string().nullish(),
+  "sourceCycleId": zod.number().int().nullish(),
+  "githubRunId": zod.string().nullish(),
+  "dispatchId": zod.string().nullish(),
+  "cycleTimestamp": zod.coerce.date().nullable(),
+  "guardrails": zod.object({
+  "realMoneyUsed": zod.literal(false),
+  "financialExecution": zod.literal(false),
+  "realVerified": zod.literal(false)
+}),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "detailsAvailable": zod.boolean(),
+  "provenance": zod.object({
+  "sourceType": zod.string(),
+  "sourceId": zod.string(),
+  "sourceIndex": zod.number().int()
+}),
+  "inSample": zod.record(zod.string(), zod.unknown()).nullable(),
+  "validation": zod.record(zod.string(), zod.unknown()).nullable(),
+  "bestParams": zod.record(zod.string(), zod.unknown()).nullable(),
+  "outOfSample": zod.record(zod.string(), zod.unknown()).nullable()
+})),
+  "opportunity": zod.union([zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "sector": zod.string(),
+  "problem": zod.string(),
+  "targetCustomer": zod.string(),
+  "proposedSolution": zod.string(),
+  "monetizationMethod": zod.string(),
+  "score": zod.number().int(),
+  "estimatedCost": zod.number(),
+  "difficulty": zod.string(),
+  "risk": zod.string(),
+  "timeToRevenue": zod.string(),
+  "status": zod.string(),
+  "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()]),
+  "evidence": zod.array(zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "source": zod.string(),
+  "url": zod.string(),
+  "collectedAt": zod.coerce.date(),
+  "claim": zod.string(),
+  "verificationStatus": zod.string(),
+  "contradictions": zod.array(zod.string()),
+  "gaps": zod.array(zod.string()),
+  "proofType": zod.string(),
+  "evidenceRef": zod.string().nullish(),
+  "independenceKey": zod.string().nullish(),
+  "freshnessScore": zod.number().nullish()
+})),
+  "project": zod.union([zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "originCandidateId": zod.number().int().nullish(),
+  "originOpportunityId": zod.number().int().nullish(),
+  "originCycleId": zod.number().int().nullish(),
+  "creationIdempotencyKey": zod.string().nullish(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "qaStatus": zod.string().nullish(),
+  "qaScore": zod.number().int().nullish(),
+  "qaIssues": zod.array(zod.string()),
+  "qaRecommendations": zod.array(zod.string()),
+  "qaCheckedAt": zod.coerce.date().nullish(),
+  "sellPackage": zod.record(zod.string(), zod.unknown()).nullish(),
+  "publicationExecuted": zod.boolean(),
+  "marketingExecuted": zod.boolean(),
+  "saleExecuted": zod.boolean(),
+  "financialExecution": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()]),
+  "projects": zod.array(zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "originCandidateId": zod.number().int().nullish(),
+  "originOpportunityId": zod.number().int().nullish(),
+  "originCycleId": zod.number().int().nullish(),
+  "creationIdempotencyKey": zod.string().nullish(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "qaStatus": zod.string().nullish(),
+  "qaScore": zod.number().int().nullish(),
+  "qaIssues": zod.array(zod.string()),
+  "qaRecommendations": zod.array(zod.string()),
+  "qaCheckedAt": zod.coerce.date().nullish(),
+  "sellPackage": zod.record(zod.string(), zod.unknown()).nullish(),
+  "publicationExecuted": zod.boolean(),
+  "marketingExecuted": zod.boolean(),
+  "saleExecuted": zod.boolean(),
+  "financialExecution": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "execution": zod.union([zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "projectId": zod.number().int(),
+  "status": zod.string(),
+  "currentStage": zod.string(),
+  "deliverableType": zod.string().nullable(),
+  "deliverable": zod.record(zod.string(), zod.unknown()).nullable(),
+  "buildNotes": zod.string().nullable(),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+}),zod.null()]),
+  "executions": zod.array(zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "projectId": zod.number().int(),
+  "status": zod.string(),
+  "currentStage": zod.string(),
+  "deliverableType": zod.string().nullable(),
+  "deliverable": zod.record(zod.string(), zod.unknown()).nullable(),
+  "buildNotes": zod.string().nullable(),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})),
+  "activities": zod.array(zod.object({
+  "id": zod.number().int(),
+  "executionId": zod.number().int(),
+  "stage": zod.string(),
+  "status": zod.string(),
+  "message": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "humanActions": zod.array(zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "cycleId": zod.number().int().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "actionType": zod.string(),
+  "checkpoint": zod.string(),
+  "status": zod.string(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "resume": zod.object({
+  "available": zod.boolean(),
+  "instruction": zod.string().nullable(),
+  "action": zod.union([zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "cycleId": zod.number().int().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "actionType": zod.string(),
+  "checkpoint": zod.string(),
+  "status": zod.string(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()]),
+  "lifecycle": zod.array(zod.object({
+  "id": zod.number().int(),
+  "eventKey": zod.string(),
+  "sourceType": zod.string(),
+  "sourceId": zod.string(),
+  "eventType": zod.string(),
+  "status": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "cycleId": zod.number().int().nullish(),
+  "marketCycleId": zod.number().int().nullish(),
+  "actionId": zod.number().int().nullish(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date()
+}))
+}),
+  "resumeLifecycle": zod.array(zod.object({
+  "id": zod.number().int(),
+  "eventKey": zod.string(),
+  "sourceType": zod.string(),
+  "sourceId": zod.string(),
+  "eventType": zod.string(),
+  "status": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "cycleId": zod.number().int().nullish(),
+  "marketCycleId": zod.number().int().nullish(),
+  "actionId": zod.number().int().nullish(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date()
+})),
+  "monetizationAttempt": zod.union([zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "platformAccountId": zod.number().int().nullish(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "kind": zod.string(),
+  "status": zod.string(),
+  "amount": zod.number(),
+  "channel": zod.string().nullish(),
+  "offer": zod.string().nullish(),
+  "startedAt": zod.coerce.date().nullish(),
+  "completedAt": zod.coerce.date().nullish(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "evidence": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()]),
+  "monetizationAttempts": zod.array(zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "platformAccountId": zod.number().int().nullish(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "kind": zod.string(),
+  "status": zod.string(),
+  "amount": zod.number(),
+  "channel": zod.string().nullish(),
+  "offer": zod.string().nullish(),
+  "startedAt": zod.coerce.date().nullish(),
+  "completedAt": zod.coerce.date().nullish(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "evidence": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "result": zod.union([zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int(),
+  "resultType": zod.string(),
+  "outcome": zod.string(),
+  "status": zod.string(),
+  "revenue": zod.number(),
+  "cost": zod.number().nullable(),
+  "profit": zod.number().nullable(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "financeIdempotencyKey": zod.string().nullable(),
+  "realRevenue": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}),zod.null()]),
+  "results": zod.array(zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int(),
+  "resultType": zod.string(),
+  "outcome": zod.string(),
+  "status": zod.string(),
+  "revenue": zod.number(),
+  "cost": zod.number().nullable(),
+  "profit": zod.number().nullable(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "financeIdempotencyKey": zod.string().nullable(),
+  "realRevenue": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})),
+  "finance": zod.array(zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "accountId": zod.number().int().nullish(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']),
+  "entryType": zod.string(),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "description": zod.string(),
+  "sourceType": zod.string().nullish(),
+  "sourceId": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "financeEntries": zod.array(zod.object({
+  "id": zod.number().int(),
+  "idempotencyKey": zod.string(),
+  "accountId": zod.number().int().nullish(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']),
+  "entryType": zod.string(),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "description": zod.string(),
+  "sourceType": zod.string().nullish(),
+  "sourceId": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "learning": zod.union([zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int().nullish(),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date()
+}),zod.null()]),
+  "learningRecords": zod.array(zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int().nullish(),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "autonomyLearning": zod.array(zod.object({
+  "id": zod.number().int(),
+  "cycleId": zod.number().int().nullish(),
+  "category": zod.string(),
+  "signal": zod.string(),
+  "observation": zod.string(),
+  "scoreDelta": zod.number().int(),
+  "metadata": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "lifecycleTimeline": zod.array(zod.object({
+  "id": zod.number().int(),
+  "eventKey": zod.string(),
+  "sourceType": zod.string(),
+  "sourceId": zod.string(),
+  "eventType": zod.string(),
+  "status": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "cycleId": zod.number().int().nullish(),
+  "marketCycleId": zod.number().int().nullish(),
+  "actionId": zod.number().int().nullish(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date()
+})),
+  "externalDispatches": zod.array(zod.object({
+  "id": zod.number().int(),
+  "dispatchId": zod.string(),
+  "provider": zod.string(),
+  "operation": zod.string(),
+  "entityType": zod.string(),
+  "entityId": zod.string().nullish(),
+  "cycleId": zod.number().int().nullish(),
+  "marketCycleId": zod.number().int().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
+  "payloadHash": zod.string(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['CREATED', 'DISPATCHING', 'ACCEPTED', 'RUNNING', 'COMPLETED', 'FAILED', 'RECONCILING', 'CANCELLED']),
+  "attemptCount": zod.number().int().min(getControlTowerGoldenPathResponseExternalDispatchesItemAttemptCountMin),
+  "externalJobId": zod.string().nullish(),
+  "externalRunId": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "dispatchedAt": zod.coerce.date().nullish(),
+  "acknowledgedAt": zod.coerce.date().nullish(),
+  "completedAt": zod.coerce.date().nullish(),
+  "lastError": zod.string().nullish(),
+  "nextRetryAt": zod.coerce.date().nullish(),
+  "resultReference": zod.string().nullish(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish()
+}).describe('Durable external work reservation created before any provider request.')),
+  "outbox": zod.array(zod.object({
+  "id": zod.number().int(),
+  "eventKey": zod.string(),
+  "eventType": zod.string(),
+  "aggregateType": zod.string(),
+  "aggregateId": zod.string(),
+  "dispatchId": zod.number().int().nullish(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "status": zod.string(),
+  "attemptCount": zod.number().int(),
+  "availableAt": zod.coerce.date(),
+  "lockedAt": zod.coerce.date().nullish(),
+  "deliveredAt": zod.coerce.date().nullish(),
+  "lastError": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "outboxStatus": zod.array(zod.object({
+  "id": zod.number().int(),
+  "eventKey": zod.string(),
+  "eventType": zod.string(),
+  "aggregateType": zod.string(),
+  "aggregateId": zod.string(),
+  "dispatchId": zod.number().int().nullish(),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "status": zod.string(),
+  "attemptCount": zod.number().int(),
+  "availableAt": zod.coerce.date(),
+  "lockedAt": zod.coerce.date().nullish(),
+  "deliveredAt": zod.coerce.date().nullish(),
+  "lastError": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+}).describe('Read-only persisted chain for an autonomous cycle. Null means that stage has not been persisted or is not linked to this cycle; arrays preserve the recorded history and are not inferred as execution.\n')
+
+
+/**
  * @summary Read a complete persisted business opportunity control-tower model
  */
 export const GetControlTowerOpportunityParams = zod.object({
@@ -1570,6 +2530,14 @@ export const GetControlTowerOpportunityResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "source": zod.string(),
+  "sourceUrl": zod.string().url().nullable(),
+  "category": zod.string(),
+  "titleClaim": zod.string().nullable(),
+  "evidenceRefs": zod.array(zod.string()),
+  "fingerprint": zod.string().nullable(),
+  "researchStatus": zod.string(),
+  "demandConfidence": zod.number(),
   "detectedAt": zod.coerce.date().nullable(),
   "validFrom": zod.coerce.date().nullable(),
   "validUntil": zod.coerce.date().nullable(),
@@ -1592,7 +2560,10 @@ export const GetControlTowerOpportunityResponse = zod.object({
   "verificationStatus": zod.string(),
   "contradictions": zod.array(zod.string()),
   "gaps": zod.array(zod.string()),
-  "proofType": zod.string()
+  "proofType": zod.string(),
+  "evidenceRef": zod.string().nullish(),
+  "independenceKey": zod.string().nullish(),
+  "freshnessScore": zod.number().nullish()
 })),
   "metadata": zod.union([zod.object({
   "id": zod.number().int(),
@@ -1620,6 +2591,10 @@ export const GetControlTowerOpportunityResponse = zod.object({
   "projects": zod.array(zod.object({
   "id": zod.number().int(),
   "opportunityId": zod.number().int(),
+  "originCandidateId": zod.number().int().nullish(),
+  "originOpportunityId": zod.number().int().nullish(),
+  "originCycleId": zod.number().int().nullish(),
+  "creationIdempotencyKey": zod.string().nullish(),
   "name": zod.string(),
   "status": zod.string(),
   "qaStatus": zod.string().nullish(),
@@ -1642,6 +2617,10 @@ export const GetControlTowerOpportunityResponse = zod.object({
   "outcome": zod.string(),
   "status": zod.string(),
   "revenue": zod.number(),
+  "cost": zod.number().nullable(),
+  "profit": zod.number().nullable(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "financeIdempotencyKey": zod.string().nullable(),
   "realRevenue": zod.boolean(),
   "createdAt": zod.coerce.date()
 })),
@@ -1680,6 +2659,10 @@ export const GetControlTowerProjectResponse = zod.object({
   "project": zod.object({
   "id": zod.number().int(),
   "opportunityId": zod.number().int(),
+  "originCandidateId": zod.number().int().nullish(),
+  "originOpportunityId": zod.number().int().nullish(),
+  "originCycleId": zod.number().int().nullish(),
+  "creationIdempotencyKey": zod.string().nullish(),
   "name": zod.string(),
   "status": zod.string(),
   "qaStatus": zod.string().nullish(),
@@ -1744,6 +2727,10 @@ export const GetControlTowerProjectResponse = zod.object({
   "outcome": zod.string(),
   "status": zod.string(),
   "revenue": zod.number(),
+  "cost": zod.number().nullable(),
+  "profit": zod.number().nullable(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "financeIdempotencyKey": zod.string().nullable(),
   "realRevenue": zod.boolean(),
   "createdAt": zod.coerce.date()
 }),zod.null()]),
@@ -1778,6 +2765,22 @@ export const ListMarketCycleCandidatesResponseItem = zod.object({
   "classification": zod.string().nullable(),
   "strategyKind": zod.string().nullable(),
   "metrics": zod.record(zod.string(), zod.unknown()),
+  "assetType": zod.string().nullish(),
+  "market": zod.string().nullish(),
+  "signal": zod.string().nullish(),
+  "score": zod.number().nullish(),
+  "confidence": zod.number().nullish(),
+  "risk": zod.string().nullish(),
+  "detectedAt": zod.coerce.date().nullish(),
+  "validFrom": zod.coerce.date().nullish(),
+  "mode": zod.enum(['REAL', 'PAPER', 'POTENTIAL']).optional().describe('Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.\n'),
+  "status": zod.string().nullish(),
+  "decision": zod.string().nullish(),
+  "evidenceReference": zod.string().nullish(),
+  "learningReference": zod.string().nullish(),
+  "sourceCycleId": zod.number().int().nullish(),
+  "githubRunId": zod.string().nullish(),
+  "dispatchId": zod.string().nullish(),
   "cycleTimestamp": zod.coerce.date().nullable(),
   "guardrails": zod.object({
   "realMoneyUsed": zod.literal(false),

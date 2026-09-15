@@ -28,6 +28,7 @@ tags:
   - name: control-tower
   - name: candidate-decisions
   - name: service-callbacks
+  - name: discovery
 security:
   - ClerkOwner: []
 paths:
@@ -104,6 +105,55 @@ paths:
                 $ref: "#/components/schemas/OpportunityDetail"
         "404":
           $ref: "#/components/responses/NotFound"
+  /discovery/research:
+    post:
+      operationId: researchDiscovery
+      tags: [discovery]
+      summary: Research a category using free public sources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscoveryResearchInput"
+      responses:
+        "201":
+          description: Research completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveryResearchResponse"
+        "422":
+          description: No corroborated opportunity
+    get:
+      operationId: listDiscoveryResearch
+      tags: [discovery]
+      summary: List durable discovery research runs
+      responses:
+        "200":
+          description: Research runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DiscoveryResearchRun" }
+  /discovery/research/{id}:
+    get:
+      operationId: getDiscoveryResearch
+      tags: [discovery]
+      summary: Get a research run and its findings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Research run and findings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveryResearchResponse"
   /opportunities/{id}/approval:
     get:
       operationId: getOpportunityApproval
@@ -1337,7 +1387,7 @@ components:
       required: [error]
     Opportunity:
       type: object
-      required: [id, name, description, sector, problem, targetCustomer, proposedSolution, monetizationMethod, score, estimatedCost, difficulty, risk, timeToRevenue, status, proofStatus, detectedAt, validFrom, validUntil, expiresAt, expirationReason, expiredAt, expirationOutcome, createdAt, updatedAt]
+      required: [id, name, description, sector, problem, targetCustomer, proposedSolution, monetizationMethod, score, estimatedCost, difficulty, risk, timeToRevenue, status, proofStatus, source, sourceUrl, category, titleClaim, evidenceRefs, fingerprint, researchStatus, demandConfidence, detectedAt, validFrom, validUntil, expiresAt, expirationReason, expiredAt, expirationOutcome, createdAt, updatedAt]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -1354,6 +1404,14 @@ components:
         timeToRevenue: { type: string }
         status: { type: string }
         proofStatus: { type: string }
+        source: { type: string }
+        sourceUrl: { type: ["string", "null"], format: uri }
+        category: { type: string }
+        titleClaim: { type: ["string", "null"] }
+        evidenceRefs: { type: array, items: { type: string } }
+        fingerprint: { type: ["string", "null"] }
+        researchStatus: { type: string }
+        demandConfidence: { type: number }
         detectedAt: { type: ["string", "null"], format: date-time }
         validFrom: { type: ["string", "null"], format: date-time }
         validUntil: { type: ["string", "null"], format: date-time }
@@ -1363,6 +1421,44 @@ components:
         expirationOutcome: { type: ["string", "null"] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    DiscoveryResearchInput:
+      type: object
+      required: [category]
+      properties:
+        category:
+          type: string
+          enum: [BUSINESS, DIGITAL_PRODUCTS, SERVICES, SAAS, AUTOMATION, AFFILIATE, OTHER_LEGAL_OPPORTUNITIES, SPORTS]
+        query: { type: string, maxLength: 240 }
+        idempotencyKey: { type: string, maxLength: 240 }
+    DiscoveryResearchRun:
+      type: object
+      required: [id, idempotencyKey, category, query, status, sourceCount, independentSourceCount, acceptedCount, scoreBreakdown, startedAt, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        idempotencyKey: { type: string }
+        category: { type: string }
+        query: { type: string }
+        status: { type: string }
+        sourceCount: { type: integer }
+        independentSourceCount: { type: integer }
+        acceptedCount: { type: integer }
+        rejectionReason: { type: ["string", "null"] }
+        scoreBreakdown: { type: object, additionalProperties: { type: number } }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    DiscoveryResearchResponse:
+      type: object
+      required: [run, findings]
+      properties:
+        run: { $ref: "#/components/schemas/DiscoveryResearchRun" }
+        opportunities:
+          type: array
+          items: { $ref: "#/components/schemas/Opportunity" }
+        findings: { type: array, items: { type: object, additionalProperties: true } }
+        accepted: { type: boolean }
+        error: { type: ["object", "null"], additionalProperties: true }
     OpportunityMetadata:
       type: object
       required: [id, opportunityId, normalizedName, normalizedProblem, normalizedTarget, normalizedSolution, contentHash, similarityFingerprint, scoreBreakdown, demandProofStatus, createdAt, updatedAt]
@@ -1404,6 +1500,9 @@ components:
         contradictions: { type: array, items: { type: string } }
         gaps: { type: array, items: { type: string } }
         proofType: { type: string }
+        evidenceRef: { type: ["string", "null"] }
+        independenceKey: { type: ["string", "null"] }
+        freshnessScore: { type: ["number", "null"] }
     OpportunityApproval:
       type: object
       required: [approvalId, opportunityId, status, decision, createdAt, updatedAt]
@@ -1547,7 +1646,7 @@ components:
       properties:
         deliverableType:
           type: string
-          enum: [DIGITAL_PRODUCT, SERVICE, LANDING_PAGE, REPORT, AUTOMATION, CONSULTING_OFFER, CONTENT_PRODUCT, OTHER]
+          enum: [DIGITAL_PRODUCT, SERVICE, LANDING_PAGE, SITE_MVP, SERVICE_PACKAGE, AUTOMATION, PROTOTYPE, REPORT, CONSULTING_OFFER, CONTENT_PRODUCT, OTHER]
         buildNotes: { type: string }
     BuildStageResponse:
       type: object

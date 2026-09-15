@@ -22,6 +22,17 @@ export interface Opportunity {
   timeToRevenue: string;
   status: string;
   proofStatus: string;
+  source: string;
+  /** @nullable */
+  sourceUrl: string | null;
+  category: string;
+  /** @nullable */
+  titleClaim: string | null;
+  evidenceRefs: string[];
+  /** @nullable */
+  fingerprint: string | null;
+  researchStatus: string;
+  demandConfidence: number;
   /** @nullable */
   detectedAt: Date | null;
   /** @nullable */

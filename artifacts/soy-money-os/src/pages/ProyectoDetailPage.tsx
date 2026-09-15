@@ -1,5 +1,5 @@
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, CheckCircle2, CircleAlert, FileSearch, ActivityIcon } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, CircleAlert, FileSearch, ActivityIcon, ShieldAlert } from 'lucide-react';
 import { useGetControlTowerProject } from '@workspace/api-client-react';
 import { PageHeader, DataState, Badge, formatDate, cx } from '@/App';
 
@@ -50,18 +50,21 @@ export default function ProyectoDetailPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {d.gates.map((gate) => (
-                    <div key={gate.key} className={cx('flex items-center justify-between p-3 border rounded', gate.completed ? 'bg-secondary border-border' : 'border-border/50')}>
-                      <div className="flex items-center gap-3">
-                        {gate.completed ? <CheckCircle2 size={16} className="text-[hsl(145_43%_41%)]" /> : <CircleAlert size={16} className="text-muted-foreground" />}
-                        <div>
-                          <strong className="text-sm">{gate.key}</strong>
-                          <span className="block text-xs text-muted-foreground">Estado: {gate.status}</span>
+                  {d.gates.map((gate) => {
+                    const isBlocked = gate.status === 'BLOCKED';
+                    return (
+                      <div key={gate.key} className={cx('flex items-center justify-between p-3 border rounded', gate.completed ? 'bg-secondary border-border' : isBlocked ? 'border-amber-500/50 bg-amber-500/5' : 'border-border/50')}>
+                        <div className="flex items-center gap-3">
+                          {gate.completed ? <CheckCircle2 size={16} className="text-[hsl(145_43%_41%)]" /> : isBlocked ? <ShieldAlert size={16} className="text-amber-500" /> : <CircleAlert size={16} className="text-muted-foreground" />}
+                          <div>
+                            <strong className="text-sm">{gate.key}</strong>
+                            <span className="block text-xs text-muted-foreground">Estado: {gate.status}</span>
+                          </div>
                         </div>
+                        {gate.completedAt && <span className="text-xs text-muted-foreground">{formatDate(gate.completedAt)}</span>}
                       </div>
-                      {gate.completedAt && <span className="text-xs text-muted-foreground">{formatDate(gate.completedAt)}</span>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
 
@@ -69,12 +72,14 @@ export default function ProyectoDetailPage() {
                 <div className="panel-heading">
                   <div>
                     <div className="eyebrow">Validación</div>
-                    <h3>Control de Calidad (QA)</h3>
+                    <h3>Control de Calidad Funcional</h3>
                   </div>
                 </div>
                 {d.project.qaScore !== null && d.project.qaScore !== undefined ? (
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="text-4xl font-serif text-accent">{d.project.qaScore}/100</div>
+                    <div className={cx("text-4xl font-serif", d.project.qaScore >= 80 ? "text-[hsl(145_43%_41%)]" : d.project.qaScore >= 50 ? "text-amber-500" : "text-destructive")}>
+                      {d.project.qaScore}/100
+                    </div>
                     <div className="text-sm text-muted-foreground">Puntuación automatizada de calidad.</div>
                   </div>
                 ) : (
@@ -83,7 +88,7 @@ export default function ProyectoDetailPage() {
 
                 {d.project.qaIssues && d.project.qaIssues.length > 0 && (
                   <div className="mb-4">
-                    <strong className="text-xs mb-2 block text-destructive">Problemas Detectados</strong>
+                    <strong className="text-xs mb-2 block text-destructive">Blockers Detectados (Human Action Needed)</strong>
                     <ul className="list-disc list-inside text-xs space-y-1 text-muted-foreground pl-4">
                       {d.project.qaIssues.map((i, idx) => <li key={idx}>{i}</li>)}
                     </ul>
@@ -130,21 +135,34 @@ export default function ProyectoDetailPage() {
                   <div className="panel-heading">
                     <div>
                       <div className="eyebrow">Entregables</div>
-                      <h3>Artefactos del Proyecto</h3>
+                      <h3>Artefactos del Proyecto (Manifests)</h3>
                     </div>
                   </div>
                   {d.artifacts.length > 0 ? (
                     <div className="flex flex-col gap-4">
                       {d.artifacts.map((a, i) => (
-                        <div key={i} className="p-4 border border-border rounded bg-card">
-                          <div className="flex items-center gap-2 mb-3">
-                            <FileSearch size={16} className="text-accent" />
-                            <strong className="text-sm">{a.kind}</strong>
-                            <Badge value={a.sourceId} small />
+                        <div key={i} className="p-3 border border-border rounded bg-card">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <FileSearch size={16} className="text-accent" />
+                              <strong className="text-sm font-mono text-accent">{a.kind}</strong>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-[10px] bg-secondary px-2 py-1 rounded font-mono text-muted-foreground" title="Referencia / Hash">REF: {a.sourceId.substring(0, 16)}</span>
+                            </div>
                           </div>
-                          <pre className="text-xs font-mono bg-secondary p-3 rounded overflow-x-auto whitespace-pre-wrap">
-                            {JSON.stringify(a.data, null, 2)}
-                          </pre>
+                          <div className="bg-secondary/50 rounded p-3 overflow-x-auto">
+                            {Object.entries(a.data as any).map(([k, v]) => (
+                              <div key={k} className="mb-2 last:mb-0">
+                                <span className="text-[10px] text-muted-foreground uppercase">{k}</span>
+                                {typeof v === 'string' ? (
+                                  <div className="text-xs font-mono mt-0.5 break-all whitespace-pre-wrap">{v}</div>
+                                ) : (
+                                  <pre className="text-xs font-mono mt-0.5 text-muted-foreground whitespace-pre-wrap break-all">{JSON.stringify(v, null, 2)}</pre>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -175,7 +193,28 @@ export default function ProyectoDetailPage() {
                   )}
                 </section>
 
-                <section className="panel">
+                {d.project.sellPackage && (
+                  <section className="panel mt-6">
+                    <div className="panel-heading">
+                      <div>
+                        <div className="eyebrow">Go-to-Market</div>
+                        <h3>Preparación de Monetización</h3>
+                      </div>
+                    </div>
+                    <div className="bg-secondary/50 rounded p-4">
+                      {Object.entries(d.project.sellPackage as any).map(([k, v]) => (
+                        <div key={k} className="mb-3 last:mb-0">
+                          <span className="text-[10px] text-muted-foreground uppercase">{k}</span>
+                          <div className="text-xs font-mono mt-1 whitespace-pre-wrap">
+                            {typeof v === 'string' ? v : JSON.stringify(v, null, 2)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                <section className="panel mt-6">
                   <div className="panel-heading">
                     <div>
                       <div className="eyebrow">Memoria</div>

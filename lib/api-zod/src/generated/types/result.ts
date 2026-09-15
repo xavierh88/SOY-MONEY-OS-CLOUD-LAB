@@ -5,6 +5,7 @@
  * SOY MONEY OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { FinanceMode } from './financeMode';
 
 export interface Result {
   id: number;
@@ -13,6 +14,13 @@ export interface Result {
   outcome: string;
   status: string;
   revenue: number;
+  /** @nullable */
+  cost: number | null;
+  /** @nullable */
+  profit: number | null;
+  mode: FinanceMode;
+  /** @nullable */
+  financeIdempotencyKey: string | null;
   realRevenue: boolean;
   createdAt: Date;
 }

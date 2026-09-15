@@ -34,6 +34,15 @@ export const opportunitiesTable = pgTable("soy_opportunities", {
   timeToRevenue: text("time_to_revenue").notNull().default("UNASSESSED"),
   status: text("status").notNull().default("DISCOVERED"),
   proofStatus: text("proof_status").notNull().default("SEARCH_EVIDENCE"),
+  /** Discovery provenance. These fields are nullable/defaulted for legacy rows. */
+  source: text("source").notNull().default("UNKNOWN"),
+  sourceUrl: text("source_url"),
+  category: text("category").notNull().default("OTHER_LEGAL_OPPORTUNITIES"),
+  titleClaim: text("title_claim"),
+  evidenceRefs: jsonb("evidence_refs").$type<string[]>().notNull().default([]),
+  fingerprint: text("fingerprint"),
+  researchStatus: text("research_status").notNull().default("UNRESEARCHED"),
+  demandConfidence: real("demand_confidence").notNull().default(0),
   detectedAt: timestamp("detected_at", { withTimezone: true }),
   validFrom: timestamp("valid_from", { withTimezone: true }),
   validUntil: timestamp("valid_until", { withTimezone: true }),
@@ -58,6 +67,9 @@ export const evidenceTable = pgTable(
     contradictions: text("contradictions").array().notNull().default([]),
     gaps: text("gaps").array().notNull().default([]),
     proofType: text("proof_type").notNull(),
+    evidenceRef: text("evidence_ref"),
+    independenceKey: text("independence_key"),
+    freshnessScore: real("freshness_score"),
   },
   (table) => ({
     evidenceDedupe: uniqueIndex("soy_evidence_dedupe").on(

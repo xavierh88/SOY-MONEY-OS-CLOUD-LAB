@@ -28,3 +28,4 @@ export * from "./external-dispatches";
 export * from "./outbox";
 export * from "./service-receipts";
 export * from "./candidate-decisions";
+export * from "./discovery";

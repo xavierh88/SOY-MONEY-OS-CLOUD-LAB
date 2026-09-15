@@ -6,6 +6,7 @@ import {
   approvalsTable,
   evidenceTable,
   executionsTable,
+  humanActionsTable,
   learningTable,
   opportunitiesTable,
   projectsTable,
@@ -29,13 +30,24 @@ import {
   StartProjectBuildResponse,
 } from "@workspace/api-zod";
 import { appendLifecycleEvent, lifecycleKey } from "../lib/lifecycle";
-import { appendGoldenPathEvent, recordCanonicalFinance } from "../lib/golden-path";
+import {
+  appendGoldenPathEvent,
+  createHumanActionRequired,
+  getProjectResumeInstruction,
+  recordCanonicalFinance,
+} from "../lib/golden-path";
+import {
+  buildProjectArtifact,
+  isSafeProjectType,
+  validateProjectArtifact,
+} from "../lib/project-artifacts";
 
 const router: IRouter = Router();
 
 const downstreamStates = [
   "QA_REVIEW",
   "QA_PASS",
+  "WAITING_HUMAN",
   "SELL_READY",
   "RESULT_RECORDED",
   "LEARNING_RECORDED",
@@ -111,6 +123,33 @@ router.get("/projects/:id", async (req, res): Promise<void> => {
   }));
 });
 
+/**
+ * Returns a completed human checkpoint as a pure resume instruction.  It does
+ * not execute publication, payment, credentials, or any other external work.
+ */
+router.get("/projects/:id/resume", async (req, res): Promise<void> => {
+  const params = GetProjectParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const project = await getProject(params.data.id);
+  if (!project) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+  const instruction = await getProjectResumeInstruction(db, project.id);
+  if (!instruction) {
+    res.status(409).json({
+      error: "No completed human action is available for this project checkpoint",
+      projectId: project.id,
+      sameProject: true,
+    });
+    return;
+  }
+  res.json(instruction);
+});
+
 router.post("/projects/:id/start", async (req, res): Promise<void> => {
   const params = StartProjectBuildParams.safeParse(req.params);
   const body = StartProjectBuildBody.safeParse(req.body);
@@ -130,7 +169,7 @@ router.post("/projects/:id/start", async (req, res): Promise<void> => {
   }
 
   const existingExecution = await getExecution(project.id);
-  if (project.status !== "PLANNED") {
+  if (project.status !== "PLANNED" && project.status !== "NEEDS_FIX") {
     if (existingExecution && downstreamStates.includes(project.status as typeof downstreamStates[number])) {
       res.json(StartProjectBuildResponse.parse({
         status: "BUILD_ALREADY_COMPLETED",
@@ -163,8 +202,22 @@ router.post("/projects/:id/start", async (req, res): Promise<void> => {
     res.status(409).json({ error: "Project requires explicit human approval before build" });
     return;
   }
+  if (!isSafeProjectType(body.data.deliverableType)) {
+    res.status(400).json({
+      error: "Only zero-capital safe project types may be built: LANDING_PAGE, SITE_MVP, DIGITAL_PRODUCT, SERVICE_PACKAGE, AUTOMATION, PROTOTYPE",
+    });
+    return;
+  }
 
   const searchEvidenceCount = evidence.filter((item) => item.proofType === "SEARCH_EVIDENCE").length;
+  const artifact = await buildProjectArtifact({
+    projectId: project.id,
+    type: body.data.deliverableType,
+    title: project.name,
+    problem: opportunity.problem,
+    targetCustomer: opportunity.targetCustomer,
+    solution: opportunity.proposedSolution,
+  });
   const deliverable = {
     title: project.name,
     type: body.data.deliverableType,
@@ -191,6 +244,13 @@ router.post("/projects/:id/start", async (req, res): Promise<void> => {
       "No se realizó publicación, venta ni campaña",
       "La evidencia NOT_VERIFIED no fue convertida a REAL_VERIFIED",
     ],
+    artifactManifest: artifact.manifest,
+    artifactManifestPath: artifact.manifestPath,
+    artifactManifestHash: artifact.manifestHash,
+    artifactFiles: artifact.manifest.files.map((file) => ({
+      path: `${artifact.manifest.root}/${file.path}`,
+      sha256: file.sha256,
+    })),
   };
   const now = new Date();
 
@@ -199,22 +259,34 @@ router.post("/projects/:id/start", async (req, res): Promise<void> => {
     execution = await db.transaction(async (tx) => {
     const [transitionedProject] = await tx.update(projectsTable)
       .set({ status: "BUILDING", updatedAt: now })
-      .where(and(eq(projectsTable.id, project.id), eq(projectsTable.status, "PLANNED")))
+      .where(and(
+        eq(projectsTable.id, project.id),
+        eq(projectsTable.status, project.status),
+      ))
       .returning({ id: projectsTable.id });
     if (!transitionedProject) {
       throw Object.assign(new Error("Project state changed"), { code: "PROJECT_STATE_CHANGED" });
     }
-    const [createdExecution] = await tx.insert(executionsTable).values({
-      opportunityId: project.opportunityId,
-      projectId: project.id,
-      status: "BUILDING",
-      currentStage: "BUILD",
-      deliverableType: body.data.deliverableType,
-      deliverable,
-      buildNotes: body.data.buildNotes ?? "MVP estructurado generado a partir de la oportunidad aprobada.",
-      startedAt: now,
-      updatedAt: now,
-    }).returning();
+    const [createdExecution] = existingExecution
+      ? await tx.update(executionsTable).set({
+        status: "BUILDING",
+        currentStage: "BUILD",
+        deliverableType: body.data.deliverableType,
+        deliverable,
+        buildNotes: body.data.buildNotes ?? "Artefacto zero-capital regenerado tras QA.",
+        updatedAt: now,
+      }).where(eq(executionsTable.id, existingExecution.id)).returning()
+      : await tx.insert(executionsTable).values({
+        opportunityId: project.opportunityId,
+        projectId: project.id,
+        status: "BUILDING",
+        currentStage: "BUILD",
+        deliverableType: body.data.deliverableType,
+        deliverable,
+        buildNotes: body.data.buildNotes ?? "MVP estructurado generado a partir de la oportunidad aprobada.",
+        startedAt: now,
+        updatedAt: now,
+      }).returning();
     await tx.insert(activitiesTable).values({
       executionId: createdExecution.id,
       stage: "PROJECT_BUILD_STARTED",
@@ -254,10 +326,14 @@ router.post("/projects/:id/start", async (req, res): Promise<void> => {
   }
 
   await appendLifecycleEvent({
-    eventKey: lifecycleKey("execution", execution.id, "BUILD_COMPLETED"),
+    eventKey: `${lifecycleKey("execution", execution.id, "BUILD_COMPLETED")}:${artifact.manifestHash}`,
     sourceType: "execution", sourceId: execution.id, eventType: "PROJECT_BUILD_COMPLETED",
     status: execution.status, opportunityId: project.opportunityId, projectId: project.id,
-    payload: { currentStage: execution.currentStage },
+    payload: {
+      currentStage: execution.currentStage,
+      artifactManifestHash: artifact.manifestHash,
+      artifactManifestPath: artifact.manifestPath,
+    },
   });
   res.status(201).json(StartProjectBuildResponse.parse({
     status: "BUILD_COMPLETED",
@@ -303,18 +379,16 @@ router.post("/projects/:id/qa", async (req, res): Promise<void> => {
     res.status(409).json({ error: "Project has no persisted build deliverable" });
     return;
   }
-  const requiredFields = [
-    "title", "type", "problem", "targetCustomer", "solution", "valueProposition",
-    "deliverables", "implementationPlan", "proposedPrice", "assumptions", "limitations",
-  ];
-  const issues = requiredFields
-    .filter((field) => !(field in execution.deliverable!))
-    .map((field) => `Missing deliverable field: ${field}`);
-  const qaScore = Math.max(0, 100 - issues.length * 10);
-  const qaStatus = qaScore >= 80 ? "PASS" : "NEEDS_FIX";
+  const artifactQa = await validateProjectArtifact(execution.deliverable.artifactManifest);
+  const issues = artifactQa.issues;
+  const qaScore = artifactQa.score;
+  const qaStatus = artifactQa.valid && issues.length === 0 ? "PASS" : "NEEDS_FIX";
   const recommendations = issues.length === 0
-    ? ["Mantener revisión humana antes de cualquier publicación o venta."]
-    : ["Completar los campos faltantes y volver a ejecutar QA."];
+    ? [
+      "QA funcional verificado: archivos, integridad/hash, validación segura, enlaces locales y seguridad básica.",
+      "Mantener revisión humana antes de cualquier publicación o venta.",
+    ]
+    : ["Corregir o regenerar el artefacto y volver a ejecutar QA; no puede pasar a SELL_READY."];
   const checkedAt = new Date();
   const nextProjectStatus = qaStatus === "PASS" ? "QA_PASS" : "NEEDS_FIX";
   const nextStage = qaStatus === "PASS" ? "SELL_READY" : "BUILD";
@@ -365,10 +439,16 @@ router.post("/projects/:id/qa", async (req, res): Promise<void> => {
   }
 
   await appendLifecycleEvent({
-    eventKey: lifecycleKey("project", project.id, "QA_COMPLETED"),
+    eventKey: `${lifecycleKey("project", project.id, "QA_COMPLETED")}:${execution.deliverable.artifactManifestHash ?? "legacy"}`,
     sourceType: "project", sourceId: project.id, eventType: "PROJECT_QA_COMPLETED",
     status: nextProjectStatus, opportunityId: project.opportunityId, projectId: project.id,
-    payload: { qaStatus, qaScore, issues },
+    payload: {
+      qaStatus,
+      qaScore,
+      issues,
+      functionalChecks: artifactQa.checks,
+      artifactManifestHash: execution.deliverable.artifactManifestHash ?? null,
+    },
   });
   res.json(ReviewProjectQaResponse.parse({
     status: `QA_${qaStatus}`,
@@ -395,12 +475,12 @@ router.post("/projects/:id/sell-ready", async (req, res): Promise<void> => {
     return;
   }
   if (project.status !== "QA_PASS") {
-    if (project.sellPackage && ["SELL_READY", "RESULT_RECORDED", "LEARNING_RECORDED", "COMPLETED"].includes(project.status)) {
+    if (project.sellPackage && ["WAITING_HUMAN", "SELL_READY", "RESULT_RECORDED", "LEARNING_RECORDED", "COMPLETED"].includes(project.status)) {
       res.json(PrepareProjectSellReadyResponse.parse({
         status: "SELL_READY_ALREADY_PREPARED",
         projectId: project.id,
         opportunityId: project.opportunityId,
-        nextStage: "RESULT",
+        nextStage: project.status === "WAITING_HUMAN" ? "MONETIZATION_REVIEW" : "RESULT",
         sellPackage: project.sellPackage,
       }));
       return;
@@ -426,17 +506,39 @@ router.post("/projects/:id/sell-ready", async (req, res): Promise<void> => {
     solution: opportunity.proposedSolution,
     valueProposition: deliverable.valueProposition,
     offer: deliverable.deliverables,
+    recommendedPrice: {
+      amount: deliverable.proposedPrice,
+      currency: "USD",
+      rationale: "Rango inicial reversible, pendiente de validación humana y prueba real de disposición a pagar.",
+    },
     proposedPrice: deliverable.proposedPrice,
-    pricingRationale: "Precio pendiente de validación humana y prueba real de disposición a pagar.",
+    pricingRationale: "Precio recomendado pendiente de validación humana; no es una transacción.",
+    description: `Oferta para ${opportunity.targetCustomer}: ${opportunity.proposedSolution}`,
+    assets: deliverable.artifactFiles ?? [],
+    listingDraft: {
+      title: project.name,
+      description: `Borrador no publicado para resolver ${opportunity.problem}.`,
+      status: "DRAFT",
+      publicationExecuted: false,
+    },
     salesCopy: `Conoce una propuesta enfocada en ${opportunity.problem}. Requiere validación antes de publicarse.`,
     landingPageCopy: {
       headline: project.name,
       problem: opportunity.problem,
       solution: opportunity.proposedSolution,
+      prepared: true,
+      publicationExecuted: false,
     },
-    marketingPlan: ["Validar mensaje con revisión humana", "Diseñar un experimento no pagado antes de escalar"],
-    recommendedChannels: ["Entrevistas directas", "Landing page de prueba no publicada"],
+    marketingPlan: ["Validar mensaje con revisión humana", "Diseñar un experimento orgánico no pagado antes de escalar"],
+    recommendedChannels: ["Entrevistas directas", "Landing page preparada no publicada", "Canal orgánico recomendado"],
+    channelStrategy: "Validación directa y orgánica, sin anuncios pagados ni publicación automática.",
     callToAction: "Solicitar revisión humana antes de publicar.",
+    humanActionRequired: {
+      actionType: "HUMAN_ACTION_REQUIRED",
+      blockers: ["ACCOUNT", "CAPTCHA", "MFA", "KYC", "TERMS", "CREDENTIALS", "PUBLICATION", "PAYMENT"],
+      publicationExecuted: false,
+      paymentExecuted: false,
+    },
     risks: ["No existe venta real registrada", "La evidencia de búsqueda sigue sin verificación real"],
     assumptions: deliverable.assumptions,
     publicationExecuted: false,
@@ -447,9 +549,23 @@ router.post("/projects/:id/sell-ready", async (req, res): Promise<void> => {
   const now = new Date();
 
   const sellReadyPersisted = await db.transaction(async (tx) => {
+    const humanAction = await createHumanActionRequired(tx, {
+      projectId: project.id,
+      opportunityId: project.opportunityId,
+      checkpoint: "MONETIZATION_REVIEW",
+      blockers: ["ACCOUNT", "CAPTCHA", "MFA", "KYC", "TERMS", "CREDENTIALS", "PUBLICATION", "PAYMENT"],
+      payload: { reversible: true, noPublication: true, noPayment: true },
+    });
+    const persistedSellPackage = {
+      ...sellPackage,
+      humanActionRequired: {
+        ...sellPackage.humanActionRequired,
+        actionId: humanAction.id,
+      },
+    };
     const [transitionedProject] = await tx.update(projectsTable).set({
-      status: "SELL_READY",
-      sellPackage,
+      status: "WAITING_HUMAN",
+      sellPackage: persistedSellPackage,
       publicationExecuted: false,
       marketingExecuted: false,
       saleExecuted: false,
@@ -461,15 +577,15 @@ router.post("/projects/:id/sell-ready", async (req, res): Promise<void> => {
       return false;
     }
     await tx.update(executionsTable)
-      .set({ status: "SELL_READY", currentStage: "RESULT", updatedAt: now })
+      .set({ status: "WAITING_HUMAN", currentStage: "MONETIZATION_REVIEW", updatedAt: now })
       .where(eq(executionsTable.id, execution.id));
     await tx.insert(activitiesTable).values({
       executionId: execution.id,
       stage: "PROJECT_SELL_READY",
-      status: "COMPLETED",
-      message: "Paquete comercial preparado sin publicación, marketing, venta ni ejecución financiera.",
+      status: "WAITING_HUMAN",
+      message: "Paquete comercial preparado; el proyecto queda bloqueado para revisión humana antes de continuar.",
     });
-    return true;
+    return persistedSellPackage;
   });
   if (!sellReadyPersisted) {
     const current = await getProject(project.id);
@@ -478,8 +594,8 @@ router.post("/projects/:id/sell-ready", async (req, res): Promise<void> => {
         status: "SELL_READY_ALREADY_PREPARED",
         projectId: current.id,
         opportunityId: current.opportunityId,
-        nextStage: "RESULT",
-        sellPackage: current.sellPackage,
+        nextStage: current.status === "WAITING_HUMAN" ? "MONETIZATION_REVIEW" : "RESULT",
+         sellPackage: current.sellPackage,
       }));
       return;
     }
@@ -488,17 +604,23 @@ router.post("/projects/:id/sell-ready", async (req, res): Promise<void> => {
   }
 
   await appendLifecycleEvent({
-    eventKey: lifecycleKey("project", project.id, "SELL_READY"),
-    sourceType: "project", sourceId: project.id, eventType: "PROJECT_SELL_READY",
-    status: "SELL_READY", opportunityId: project.opportunityId, projectId: project.id,
-    payload: { publicationExecuted: false, saleExecuted: false, financialExecution: false },
+    eventKey: lifecycleKey("project", project.id, "MONETIZATION_PREPARED"),
+    sourceType: "project", sourceId: project.id, eventType: "PROJECT_MONETIZATION_PREPARED",
+    status: "WAITING_HUMAN", opportunityId: project.opportunityId, projectId: project.id,
+    payload: {
+      checkpoint: "MONETIZATION_REVIEW",
+      publicationExecuted: false,
+      saleExecuted: false,
+      financialExecution: false,
+    },
   });
+  const preparedSellPackage = sellReadyPersisted || sellPackage;
   res.json(PrepareProjectSellReadyResponse.parse({
-    status: "SELL_READY",
+    status: "HUMAN_ACTION_REQUIRED",
     projectId: project.id,
     opportunityId: project.opportunityId,
-    nextStage: "RESULT",
-    sellPackage,
+    nextStage: "MONETIZATION_REVIEW",
+    sellPackage: preparedSellPackage,
   }));
 });
 
@@ -514,7 +636,7 @@ router.post("/projects/:id/result", async (req, res): Promise<void> => {
     return;
   }
   const existingResult = await getResult(project.id);
-  if (project.status !== "SELL_READY") {
+  if (project.status !== "WAITING_HUMAN") {
     if (existingResult?.resultType === "MVP_PREPARED" && ["RESULT_RECORDED", "LEARNING_RECORDED", "COMPLETED"].includes(project.status)) {
       res.json(RecordProjectResultResponse.parse({
         status: "RESULT_ALREADY_RECORDED",
@@ -525,7 +647,24 @@ router.post("/projects/:id/result", async (req, res): Promise<void> => {
       }));
       return;
     }
-    invalidState(res, project.status, "SELL_READY");
+    invalidState(res, project.status, "WAITING_HUMAN");
+    return;
+  }
+  const [completedReview] = await db.select().from(humanActionsTable)
+    .where(and(
+      eq(humanActionsTable.projectId, project.id),
+      eq(humanActionsTable.checkpoint, "MONETIZATION_REVIEW"),
+      eq(humanActionsTable.status, "COMPLETED"),
+    ))
+    .orderBy(desc(humanActionsTable.completedAt))
+    .limit(1);
+  if (!completedReview) {
+    res.status(409).json({
+      error: "HUMAN_ACTION_REQUIRED",
+      projectId: project.id,
+      checkpoint: "MONETIZATION_REVIEW",
+      sameProject: true,
+    });
     return;
   }
   const execution = await getExecution(project.id);
@@ -537,7 +676,7 @@ router.post("/projects/:id/result", async (req, res): Promise<void> => {
   const result = await db.transaction(async (tx) => {
     const [transitionedProject] = await tx.update(projectsTable)
       .set({ status: "RESULT_RECORDED", updatedAt: now })
-      .where(and(eq(projectsTable.id, project.id), eq(projectsTable.status, "SELL_READY")))
+      .where(and(eq(projectsTable.id, project.id), eq(projectsTable.status, "WAITING_HUMAN")))
       .returning({ id: projectsTable.id });
     if (!transitionedProject) {
       return null;

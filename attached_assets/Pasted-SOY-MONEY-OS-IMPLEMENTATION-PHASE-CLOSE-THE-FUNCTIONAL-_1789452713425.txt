@@ -1,0 +1,221 @@
+SOY MONEY OS — IMPLEMENTATION PHASE: CLOSE THE FUNCTIONAL GAP
+
+Usa el FINAL SYSTEM READINESS AUDIT que acabas de producir como autoridad del estado actual.
+
+El objetivo ahora es cerrar de forma integrada los bloqueos funcionales que mantienen SOFTWARE_COMPLETENESS_PERCENT=62%.
+
+NO actives autonomía todavía. Mantén:
+
+AUTONOMY_EXECUTION_LOCKED=true
+
+autonomy=OFF
+
+No ejecutes dinero real, trading, apuestas, pagos, campañas pagadas ni publicaciones comerciales reales.
+
+Implementa como una fase integrada, no como microtareas independientes:
+
+A. REAL OPPORTUNITY DISCOVERY ENGINE
+
+Implementa discovery real para las categorías:
+BUSINESS, DIGITAL_PRODUCTS, SERVICES, SAAS, AUTOMATION, AFFILIATE y OTHER_LEGAL_OPPORTUNITIES.
+
+MARKET y CRYPTO deben continuar usando Money Lab PAPER.
+
+SPORTS puede permanecer PAPER/RESEARCH hasta disponer de fuentes apropiadas.
+
+Prioriza fuentes gratuitas/open-source y acceso web público. No agregues servicios pagados obligatorios.
+
+Cada oportunidad descubierta debe conservar como mínimo:
+source, source_url, detected_at, category, title/claim, evidence reference y fingerprint.
+
+Nunca inventes una oportunidad.
+
+Si una categoría no produce evidencia válida:
+NO_VALID_OPPORTUNITY.
+
+Elimina el fallback matching[0] ?? opportunities[0]: nunca uses una oportunidad de otra categoría simplemente para llenar un ciclo.
+
+B. MULTISOURCE RESEARCH ENGINE
+
+Una oportunidad seleccionada debe pasar por investigación independiente antes de convertirse en proyecto.
+
+Exige cuando sea razonablemente posible mínimo 2 fuentes independientes.
+
+Conserva URL, timestamp/freshness, claim y evidencia de cada fuente.
+
+Separa:
+SEARCH_EVIDENCE
+DEMAND_SIGNAL
+DEMAND_PROOF
+REAL_VERIFIED
+
+Search Evidence jamás equivale automáticamente a Demand Proof.
+
+Si las fuentes no corroboran la hipótesis, rechaza la oportunidad.
+
+C. PROFESSIONAL DEDUPE + SCORING
+
+Sustituye el dedupe limitado a los últimos 100 registros por fingerprint durable.
+
+El scoring debe considerar:
+calidad de evidencia,
+independencia de fuentes,
+freshness,
+demanda,
+dificultad,
+coste inicial,
+tiempo hasta posible monetización,
+riesgo,
+confianza.
+
+Mantén el score auditable: debe poder explicarse por qué una oportunidad obtuvo su puntuación.
+
+D. REAL ZERO-CAPITAL BUILD EXECUTOR
+
+No conviertas BUILD en una simple transición.
+
+Para oportunidades aprobadas, implementa inicialmente ejecutores seguros que puedan producir artifacts reales sin gastar dinero.
+
+Dependiendo del tipo de proyecto, pueden generar por ejemplo:
+landing page,
+sitio web/MVP,
+pequeño SaaS/prototipo,
+automatización,
+producto digital,
+paquete de servicio,
+contenido/activos necesarios para una oferta.
+
+Utiliza el repositorio/workspace existente y herramientas gratuitas cuando sea posible.
+
+Cada BUILD debe producir artifacts verificables y referencias persistidas.
+
+E. FUNCTIONAL QA
+
+QA debe verificar el artifact real correspondiente.
+
+No otorgues PASS únicamente porque existen campos.
+
+Según el artifact comprueba como mínimo lo aplicable:
+build,
+ejecución,
+enlaces,
+archivos,
+errores,
+funcionalidad principal,
+seguridad básica,
+integridad.
+
+Un artifact que no funciona debe regresar a corrección o FAILED; nunca SELL_READY automáticamente.
+
+F. SAFE MONETIZATION PREPARATION
+
+Implementa preparación real para monetización sin ejecutar todavía acciones externas irreversibles.
+
+El sistema puede crear:
+oferta,
+precio recomendado,
+descripción,
+assets,
+listing draft,
+landing preparada,
+canales recomendados,
+estrategia inicial.
+
+Cuando sea necesaria creación de cuenta, CAPTCHA, MFA, KYC, aceptación de términos, credenciales, publicación o pago:
+crea HUMAN_ACTION_REQUIRED.
+
+Detén únicamente ese proyecto.
+
+Después de aprobación/intervención humana, debe poder continuar desde el mismo checkpoint.
+
+No falsifiques ventas ni demanda.
+
+G. LEARNING FEEDBACK LOOP
+
+Los registros Learning deben comenzar a influir de manera limitada y auditable en ciclos posteriores.
+
+Utiliza resultados históricos para:
+penalizar patrones repetidamente fallidos,
+reconocer categorías/fuentes con mejores resultados,
+ajustar moderadamente scoring/prioridad,
+reducir repetición de oportunidades rechazadas.
+
+Impón límites para que Learning no pueda cambiar violentamente scoring ni saltarse safety gates.
+
+H. OBSERVABILITY
+
+Todo lo anterior debe aparecer en Control Tower:
+qué descubrió,
+dónde lo encontró,
+qué fuentes investigó,
+score y explicación,
+por qué lo seleccionó/rechazó,
+proyecto generado,
+progreso BUILD,
+artifacts,
+QA,
+Human Actions,
+monetization preparation,
+resultado,
+learning.
+
+El propietario no debe necesitar PostgreSQL, GitHub o logs internos para comprender qué está haciendo el sistema.
+
+I. PRESERVE WORKING SYSTEMS
+
+No rompas:
+Money Lab PAPER,
+exact GitHub run tracking,
+expiration,
+Human Action Manager,
+append-only lifecycle,
+Finance REAL/PAPER/POTENTIAL,
+owner authorization,
+idempotency,
+outbox/dispatch.
+
+Windmill permanece LEGACY_UNUSED.
+
+J. TESTING
+
+Después de implementar, realiza pruebas técnicas internas seguras y regresiones.
+
+NO hagas todavía el Final Golden Path autónomo completo y NO actives autonomía.
+
+Al terminar entrega:
+
+IMPLEMENTATION_STATUS
+
+FILES_CHANGED
+
+DATABASE_CHANGES
+
+DISCOVERY_PROVIDERS_IMPLEMENTED
+
+CATEGORIES_NOW_FUNCTIONAL
+
+MULTISOURCE_RESEARCH_STATUS
+
+REAL_BUILD_EXECUTORS
+
+FUNCTIONAL_QA_STATUS
+
+MONETIZATION_PREPARATION_STATUS
+
+LEARNING_FEEDBACK_STATUS
+
+REGRESSION_STATUS
+
+CRITICAL_BLOCKERS_REMAINING
+
+HIGH_BLOCKERS_REMAINING
+
+NEW_SOFTWARE_COMPLETENESS_PERCENT
+
+READY_FOR_FINAL_GOLDEN_PATH=YES/NO
+
+READY_FOR_CONTROLLED_AUTONOMY=YES/NO
+
+Si una integración requiere una credencial que actualmente no existe, no inventes ni sustituyas datos. Implementa hasta el límite seguro, informa exactamente qué credencial/proveedor falta y continúa con las demás partes que no dependan de ella.
+
+Trabaja sobre la arquitectura existente. No reconstruyas SOY MONEY OS desde cero y no crees un segundo orquestador.

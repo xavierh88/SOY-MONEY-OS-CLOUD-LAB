@@ -8,6 +8,7 @@ import autonomyRouter from "./autonomy";
 import controlTowerRouter from "./control-tower";
 import { requireOwner } from "../middlewares/require-owner";
 import serviceCallbacksRouter from "./service-callbacks";
+import discoveryRouter from "./discovery";
 
 const router: IRouter = Router();
 
@@ -23,5 +24,6 @@ router.use(cyclesRouter);
 router.use(moneyLabRouter);
 router.use(autonomyRouter);
 router.use(controlTowerRouter);
+router.use(discoveryRouter);
 
 export default router;

@@ -17,4 +17,10 @@ export interface Evidence {
   contradictions: string[];
   gaps: string[];
   proofType: string;
+  /** @nullable */
+  evidenceRef?: string | null;
+  /** @nullable */
+  independenceKey?: string | null;
+  /** @nullable */
+  freshnessScore?: number | null;
 }

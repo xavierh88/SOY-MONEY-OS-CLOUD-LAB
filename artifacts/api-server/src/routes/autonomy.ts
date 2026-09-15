@@ -44,6 +44,11 @@ import {
   StopAutonomyResponse,
 } from "@workspace/api-zod";
 import { AUTONOMY_EXECUTION_LOCKED } from "../lib/autonomy-policy";
+import {
+  DISCOVERY_CATEGORIES,
+  MONEY_LAB_CATEGORIES,
+  RESEARCH_ONLY_CATEGORIES,
+} from "../lib/discovery-research";
 import { lifecycleKey } from "../lib/lifecycle";
 import {
   appendGoldenPathEvent,
@@ -238,12 +243,31 @@ export async function runSafeAutonomousCycleWithClaim(
   const opportunities = (await db.select().from(opportunitiesTable)
     .orderBy(desc(opportunitiesTable.updatedAt)).limit(100))
     .filter((opportunity) => activeOpportunity(opportunity, now));
-  const matching = deduplicateOpportunities(opportunities).filter((opportunity) => {
-    if (category === "OTHER_LEGAL_OPPORTUNITIES") return true;
-    const haystack = `${opportunity.sector} ${opportunity.name} ${opportunity.description}`.toUpperCase();
-    return haystack.includes(category.replace("_", " "));
-  });
-  const selected = matching[0] ?? opportunities[0];
+  // MARKET/CRYPTO remain exclusively in Money Lab and SPORTS is research
+  // only. Neither lane is allowed to become a project through autonomy.
+  const researchCategory = (DISCOVERY_CATEGORIES as readonly string[]).includes(category);
+  const laneBlocked = (MONEY_LAB_CATEGORIES as readonly string[]).includes(category)
+    || (RESEARCH_ONLY_CATEGORIES as readonly string[]).includes(category);
+  const matching = researchCategory
+    ? deduplicateOpportunities(opportunities).filter((opportunity) =>
+      opportunity.category === category
+      && opportunity.proofStatus !== "TEST_SIMULATION"
+      && opportunity.researchStatus === "CORROBORATED")
+    : [];
+  // A category can only select corroborated evidence from that category. In
+  // particular, never use a generic/other record as a cross-category fallback.
+  const corroborated: typeof opportunities = [];
+  if (researchCategory) {
+    for (const opportunity of matching) {
+      const sources = await db.select({ source: evidenceTable.independenceKey })
+        .from(evidenceTable)
+        .where(eq(evidenceTable.opportunityId, opportunity.id));
+      if (new Set(sources.map((row) => row.source).filter(Boolean)).size >= 2) {
+        corroborated.push(opportunity);
+      }
+    }
+  }
+  const selected = laneBlocked ? undefined : corroborated[0];
   if (!selected) {
     const completed = await db.transaction((tx) => completeNoValidOpportunity(tx, cycle.id));
     return { cycle: completed, claimed: true };

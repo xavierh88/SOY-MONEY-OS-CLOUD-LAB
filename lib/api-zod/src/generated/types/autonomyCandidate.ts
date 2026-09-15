@@ -5,12 +5,10 @@
  * SOY MONEY OS API
  * OpenAPI spec version: 0.1.0
  */
-import type { Opportunity } from './opportunity';
+import type { OpportunityCandidate } from './opportunityCandidate';
 
-export interface AutonomyCandidate {
-  opportunity: Opportunity;
-  score: number;
-  scoreIsDemandProof: false;
-  normalizedHash: string;
-  demandProofStatus?: string;
-}
+/**
+ * Deprecated compatibility alias; use OpportunityCandidate.
+ * @deprecated
+ */
+export type AutonomyCandidate = OpportunityCandidate;

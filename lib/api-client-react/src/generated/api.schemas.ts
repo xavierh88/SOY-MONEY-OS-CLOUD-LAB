@@ -29,6 +29,17 @@ export interface Opportunity {
   timeToRevenue: string;
   status: string;
   proofStatus: string;
+  source: string;
+  /** @nullable */
+  sourceUrl: string | null;
+  category: string;
+  /** @nullable */
+  titleClaim: string | null;
+  evidenceRefs: string[];
+  /** @nullable */
+  fingerprint: string | null;
+  researchStatus: string;
+  demandConfidence: number;
   /** @nullable */
   detectedAt: string | null;
   /** @nullable */
@@ -45,6 +56,65 @@ export interface Opportunity {
   expirationOutcome: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type DiscoveryResearchInputCategory = typeof DiscoveryResearchInputCategory[keyof typeof DiscoveryResearchInputCategory];
+
+
+export const DiscoveryResearchInputCategory = {
+  BUSINESS: 'BUSINESS',
+  DIGITAL_PRODUCTS: 'DIGITAL_PRODUCTS',
+  SERVICES: 'SERVICES',
+  SAAS: 'SAAS',
+  AUTOMATION: 'AUTOMATION',
+  AFFILIATE: 'AFFILIATE',
+  OTHER_LEGAL_OPPORTUNITIES: 'OTHER_LEGAL_OPPORTUNITIES',
+  SPORTS: 'SPORTS',
+} as const;
+
+export interface DiscoveryResearchInput {
+  category: DiscoveryResearchInputCategory;
+  /** @maxLength 240 */
+  query?: string;
+  /** @maxLength 240 */
+  idempotencyKey?: string;
+}
+
+export type DiscoveryResearchRunScoreBreakdown = {[key: string]: number};
+
+export interface DiscoveryResearchRun {
+  id: number;
+  idempotencyKey: string;
+  category: string;
+  query: string;
+  status: string;
+  sourceCount: number;
+  independentSourceCount: number;
+  acceptedCount: number;
+  /** @nullable */
+  rejectionReason?: string | null;
+  scoreBreakdown: DiscoveryResearchRunScoreBreakdown;
+  startedAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DiscoveryResearchResponseFindingsItem = { [key: string]: unknown };
+
+/**
+ * @nullable
+ */
+export type DiscoveryResearchResponseError = { [key: string]: unknown } | null;
+
+export interface DiscoveryResearchResponse {
+  run: DiscoveryResearchRun;
+  opportunities?: Opportunity[];
+  findings: DiscoveryResearchResponseFindingsItem[];
+  accepted?: boolean;
+  /** @nullable */
+  error?: DiscoveryResearchResponseError;
 }
 
 export type OpportunityMetadataScoreBreakdown = {[key: string]: number};
@@ -92,6 +162,12 @@ export interface Evidence {
   contradictions: string[];
   gaps: string[];
   proofType: string;
+  /** @nullable */
+  evidenceRef?: string | null;
+  /** @nullable */
+  independenceKey?: string | null;
+  /** @nullable */
+  freshnessScore?: number | null;
 }
 
 export type OpportunityApprovalDecision = typeof OpportunityApprovalDecision[keyof typeof OpportunityApprovalDecision] | null;
@@ -194,6 +270,14 @@ export type ProjectSellPackage = { [key: string]: unknown } | null;
 export interface Project {
   id: number;
   opportunityId: number;
+  /** @nullable */
+  originCandidateId?: number | null;
+  /** @nullable */
+  originOpportunityId?: number | null;
+  /** @nullable */
+  originCycleId?: number | null;
+  /** @nullable */
+  creationIdempotencyKey?: string | null;
   name: string;
   status: string;
   /** @nullable */
@@ -236,6 +320,18 @@ export interface ProjectExecution {
   createdAt: string;
 }
 
+/**
+ * Canonical finance mode. REAL requires explicit real-world evidence and authorization; PAPER is simulation; POTENTIAL is an unexecuted opportunity. SIMULATED is not a valid mode.
+ */
+export type FinanceMode = typeof FinanceMode[keyof typeof FinanceMode];
+
+
+export const FinanceMode = {
+  REAL: 'REAL',
+  PAPER: 'PAPER',
+  POTENTIAL: 'POTENTIAL',
+} as const;
+
 export interface Result {
   id: number;
   projectId: number;
@@ -243,6 +339,13 @@ export interface Result {
   outcome: string;
   status: string;
   revenue: number;
+  /** @nullable */
+  cost: number | null;
+  /** @nullable */
+  profit: number | null;
+  mode: FinanceMode;
+  /** @nullable */
+  financeIdempotencyKey: string | null;
   realRevenue: boolean;
   createdAt: string;
 }
@@ -271,8 +374,11 @@ export const StartProjectInputDeliverableType = {
   DIGITAL_PRODUCT: 'DIGITAL_PRODUCT',
   SERVICE: 'SERVICE',
   LANDING_PAGE: 'LANDING_PAGE',
-  REPORT: 'REPORT',
+  SITE_MVP: 'SITE_MVP',
+  SERVICE_PACKAGE: 'SERVICE_PACKAGE',
   AUTOMATION: 'AUTOMATION',
+  PROTOTYPE: 'PROTOTYPE',
+  REPORT: 'REPORT',
   CONSULTING_OFFER: 'CONSULTING_OFFER',
   CONTENT_PRODUCT: 'CONTENT_PRODUCT',
   OTHER: 'OTHER',
@@ -420,6 +526,7 @@ export interface MarketCycle {
   dispatchKey: string;
   status: string;
   source: string;
+  mode: FinanceMode;
   marketsAnalyzed: number;
   candidatesFound: number;
   paperApproved: number;
@@ -545,13 +652,22 @@ export interface AutonomousCycle {
   updatedAt: string;
 }
 
-export interface AutonomyCandidate {
+/**
+ * Existing business opportunity candidate, distinct from a normalized Market Lab candidate.
+ */
+export interface OpportunityCandidate {
   opportunity: Opportunity;
   score: number;
   scoreIsDemandProof: false;
   normalizedHash: string;
   demandProofStatus?: string;
 }
+
+/**
+ * Deprecated compatibility alias; use OpportunityCandidate.
+ * @deprecated
+ */
+export type AutonomyCandidate = OpportunityCandidate;
 
 export type AutonomyLearningMetadata = { [key: string]: unknown };
 
@@ -784,6 +900,195 @@ export interface ControlTowerProjectDetail {
   learning: LearningInsight | null;
 }
 
+export interface GoldenPathSafeFlags {
+  externalCalls: boolean;
+  realMoney: boolean;
+  autoApproval: false;
+  externalCallsAllowed: false;
+  realMoneyAllowed: false;
+}
+
+export type GoldenPathLifecycleEventPayload = { [key: string]: unknown };
+
+export interface GoldenPathLifecycleEvent {
+  id: number;
+  eventKey: string;
+  sourceType: string;
+  sourceId: string;
+  eventType: string;
+  status: string;
+  occurredAt: string;
+  /** @nullable */
+  opportunityId?: number | null;
+  /** @nullable */
+  projectId?: number | null;
+  /** @nullable */
+  cycleId?: number | null;
+  /** @nullable */
+  marketCycleId?: number | null;
+  /** @nullable */
+  actionId?: number | null;
+  payload: GoldenPathLifecycleEventPayload;
+  createdAt: string;
+}
+
+export type GoldenPathOutboxEventPayload = { [key: string]: unknown };
+
+export interface GoldenPathOutboxEvent {
+  id: number;
+  eventKey: string;
+  eventType: string;
+  aggregateType: string;
+  aggregateId: string;
+  /** @nullable */
+  dispatchId?: number | null;
+  payload: GoldenPathOutboxEventPayload;
+  status: string;
+  attemptCount: number;
+  availableAt: string;
+  /** @nullable */
+  lockedAt?: string | null;
+  /** @nullable */
+  deliveredAt?: string | null;
+  /** @nullable */
+  lastError?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type GoldenPathMonetizationAttemptResult = { [key: string]: unknown } | null;
+
+export type GoldenPathMonetizationAttemptEvidence = { [key: string]: unknown };
+
+export interface GoldenPathMonetizationAttempt {
+  id: number;
+  idempotencyKey: string;
+  /** @nullable */
+  opportunityId?: number | null;
+  /** @nullable */
+  projectId?: number | null;
+  /** @nullable */
+  platformAccountId?: number | null;
+  mode: FinanceMode;
+  kind: string;
+  status: string;
+  amount: number;
+  /** @nullable */
+  channel?: string | null;
+  /** @nullable */
+  offer?: string | null;
+  /** @nullable */
+  startedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  result?: GoldenPathMonetizationAttemptResult;
+  evidence: GoldenPathMonetizationAttemptEvidence;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ControlTowerGoldenPathResponseResponsibleActor = typeof ControlTowerGoldenPathResponseResponsibleActor[keyof typeof ControlTowerGoldenPathResponseResponsibleActor];
+
+
+export const ControlTowerGoldenPathResponseResponsibleActor = {
+  OWNER: 'OWNER',
+  AUTONOMY_WORKER: 'AUTONOMY_WORKER',
+  SYSTEM: 'SYSTEM',
+} as const;
+
+export type ControlTowerGoldenPathResponseStateDetails = {
+  state: string;
+  stage: string;
+  checkpoint: string;
+  message: string;
+};
+
+export type ControlTowerGoldenPathResponseTimestamps = {
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  completedAt: string | null;
+  /** @nullable */
+  lastHumanActionAt: string | null;
+  /** @nullable */
+  lastLifecycleEventAt: string | null;
+};
+
+export type ControlTowerGoldenPathResponseErrorsItem = { [key: string]: unknown };
+
+/**
+ * @nullable
+ */
+export type ControlTowerGoldenPathResponseError = { [key: string]: unknown } | null;
+
+export type ControlTowerGoldenPathResponseResume = {
+  available: boolean;
+  /** @nullable */
+  instruction: string | null;
+  action: HumanAction | null;
+  lifecycle: GoldenPathLifecycleEvent[];
+};
+
+export type CandidateDecisionCandidateType = typeof CandidateDecisionCandidateType[keyof typeof CandidateDecisionCandidateType];
+
+
+export const CandidateDecisionCandidateType = {
+  MONEY_LAB_CANDIDATE: 'MONEY_LAB_CANDIDATE',
+  OPPORTUNITY_CANDIDATE: 'OPPORTUNITY_CANDIDATE',
+} as const;
+
+export type CandidateDecisionDecision = typeof CandidateDecisionDecision[keyof typeof CandidateDecisionDecision];
+
+
+export const CandidateDecisionDecision = {
+  SELECTED_PENDING_OWNER: 'SELECTED_PENDING_OWNER',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  BLOCKED: 'BLOCKED',
+  OPPORTUNITY_CANDIDATE: 'OPPORTUNITY_CANDIDATE',
+} as const;
+
+export type CandidateDecisionMetadata = { [key: string]: unknown };
+
+/**
+ * Generic durable decision whose link is explicit. MONEY_LAB_CANDIDATE uses candidateId; OPPORTUNITY_CANDIDATE uses opportunityId and never reuses a Market Lab candidate identifier.
+ */
+export interface CandidateDecision {
+  id: number;
+  decisionKey: string;
+  candidateType: CandidateDecisionCandidateType;
+  /** @nullable */
+  candidateRef?: string | null;
+  /** @nullable */
+  candidateId?: number | null;
+  /** @nullable */
+  opportunityId?: number | null;
+  /** @nullable */
+  autonomousCycleId?: number | null;
+  decision: CandidateDecisionDecision;
+  /** @nullable */
+  decisionReason?: string | null;
+  /** @nullable */
+  score?: number | null;
+  /** @nullable */
+  confidence?: number | null;
+  /** @nullable */
+  risk?: string | null;
+  /** @nullable */
+  decidedAt?: string | null;
+  /** @nullable */
+  decidedBy?: string | null;
+  /** @nullable */
+  nextAction?: string | null;
+  metadata: CandidateDecisionMetadata;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type MarketCycleCandidateRaw = { [key: string]: unknown };
 
 export type MarketCycleCandidateMetrics = { [key: string]: unknown };
@@ -829,6 +1134,37 @@ export interface MarketCycleCandidate {
   strategyKind: string | null;
   metrics: MarketCycleCandidateMetrics;
   /** @nullable */
+  assetType?: string | null;
+  /** @nullable */
+  market?: string | null;
+  /** @nullable */
+  signal?: string | null;
+  /** @nullable */
+  score?: number | null;
+  /** @nullable */
+  confidence?: number | null;
+  /** @nullable */
+  risk?: string | null;
+  /** @nullable */
+  detectedAt?: string | null;
+  /** @nullable */
+  validFrom?: string | null;
+  mode?: FinanceMode;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  decision?: string | null;
+  /** @nullable */
+  evidenceReference?: string | null;
+  /** @nullable */
+  learningReference?: string | null;
+  /** @nullable */
+  sourceCycleId?: number | null;
+  /** @nullable */
+  githubRunId?: string | null;
+  /** @nullable */
+  dispatchId?: string | null;
+  /** @nullable */
   cycleTimestamp: string | null;
   guardrails: MarketCycleGuardrails;
   /** @nullable */
@@ -847,10 +1183,264 @@ export interface MarketCycleCandidate {
   outOfSample: MarketCycleCandidateOutOfSample;
 }
 
+export type ExternalDispatchStatus = typeof ExternalDispatchStatus[keyof typeof ExternalDispatchStatus];
+
+
+export const ExternalDispatchStatus = {
+  CREATED: 'CREATED',
+  DISPATCHING: 'DISPATCHING',
+  ACCEPTED: 'ACCEPTED',
+  RUNNING: 'RUNNING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  RECONCILING: 'RECONCILING',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type ExternalDispatchPayload = { [key: string]: unknown };
+
+/**
+ * @nullable
+ */
+export type ExternalDispatchResult = { [key: string]: unknown } | null;
+
+/**
+ * Durable external work reservation created before any provider request.
+ */
+export interface ExternalDispatch {
+  id: number;
+  dispatchId: string;
+  provider: string;
+  operation: string;
+  entityType: string;
+  /** @nullable */
+  entityId?: string | null;
+  /** @nullable */
+  cycleId?: number | null;
+  /** @nullable */
+  marketCycleId?: number | null;
+  /** @nullable */
+  opportunityId?: number | null;
+  /** @nullable */
+  projectId?: number | null;
+  payloadHash: string;
+  payload: ExternalDispatchPayload;
+  status: ExternalDispatchStatus;
+  /** @minimum 0 */
+  attemptCount: number;
+  /** @nullable */
+  externalJobId?: string | null;
+  /** @nullable */
+  externalRunId?: string | null;
+  createdAt: string;
+  /** @nullable */
+  dispatchedAt?: string | null;
+  /** @nullable */
+  acknowledgedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  lastError?: string | null;
+  /** @nullable */
+  nextRetryAt?: string | null;
+  /** @nullable */
+  resultReference?: string | null;
+  /** @nullable */
+  result?: ExternalDispatchResult;
+}
+
+/**
+ * Read-only persisted chain for an autonomous cycle. Null means that stage has not been persisted or is not linked to this cycle; arrays preserve the recorded history and are not inferred as execution.
+ */
+export interface ControlTowerGoldenPathResponse {
+  cycle: AutonomousCycle;
+  currentState: string;
+  /** @nullable */
+  currentAction: string | null;
+  /** @nullable */
+  nextAction: string | null;
+  responsibleActor: ControlTowerGoldenPathResponseResponsibleActor;
+  state: string;
+  stage: string;
+  checkpoint: string;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  completedAt: string | null;
+  stateDetails: ControlTowerGoldenPathResponseStateDetails;
+  timestamps: ControlTowerGoldenPathResponseTimestamps;
+  errors: ControlTowerGoldenPathResponseErrorsItem[];
+  /** @nullable */
+  error: ControlTowerGoldenPathResponseError;
+  financeMode: FinanceMode | null;
+  financeModes: FinanceMode[];
+  safeFlags: GoldenPathSafeFlags;
+  safe: GoldenPathSafeFlags;
+  isSafe: boolean;
+  candidateDecisions: CandidateDecision[];
+  candidates: MarketCycleCandidate[];
+  opportunity: Opportunity | null;
+  evidence: Evidence[];
+  project: Project | null;
+  projects: Project[];
+  execution: ProjectExecution | null;
+  executions: ProjectExecution[];
+  activities: Activity[];
+  humanActions: HumanAction[];
+  resume: ControlTowerGoldenPathResponseResume;
+  resumeLifecycle: GoldenPathLifecycleEvent[];
+  monetizationAttempt: GoldenPathMonetizationAttempt | null;
+  monetizationAttempts: GoldenPathMonetizationAttempt[];
+  result: Result | null;
+  results: Result[];
+  finance: FinanceLedgerEntry[];
+  financeEntries: FinanceLedgerEntry[];
+  learning: LearningInsight | null;
+  learningRecords: LearningInsight[];
+  autonomyLearning: AutonomyLearning[];
+  lifecycleTimeline: GoldenPathLifecycleEvent[];
+  externalDispatches: ExternalDispatch[];
+  outbox: GoldenPathOutboxEvent[];
+  outboxStatus: GoldenPathOutboxEvent[];
+}
+
+/**
+ * Normalized candidate produced by a persisted Market Lab cycle.
+ */
+export type MoneyLabCandidate = MarketCycleCandidate;
+
+export interface ControlledGoldenPathPrepareInput {
+  /**
+     * Repeating this key returns the same durable preparation.
+     * @maxLength 200
+     */
+  idempotencyKey?: string;
+}
+
+export type ControlledGoldenPathPrepareResponseState = typeof ControlledGoldenPathPrepareResponseState[keyof typeof ControlledGoldenPathPrepareResponseState];
+
+
+export const ControlledGoldenPathPrepareResponseState = {
+  WAITING_HUMAN: 'WAITING_HUMAN',
+} as const;
+
+export interface ControlledGoldenPathPrepareResponse {
+  cycleId: number;
+  opportunityId: number;
+  projectId: number;
+  actionId: number;
+  decisionId: number;
+  state: ControlledGoldenPathPrepareResponseState;
+  checkpoint: string;
+  nextInstruction: string;
+  fixtureKey: string;
+  safe: true;
+}
+
+export interface ControlledGoldenPathStatusResponse {
+  cycle: AutonomousCycle;
+  opportunity: Opportunity | null;
+  project: Project | null;
+  humanActions: HumanAction[];
+  nextInstruction: string;
+}
+
+export type ServiceCallbackBodyResult = { [key: string]: unknown };
+
+export interface ServiceCallbackBody {
+  dispatch_id: string;
+  transition?: string;
+  status: string;
+  job_id?: string;
+  run_id?: string;
+  result?: ServiceCallbackBodyResult;
+  [key: string]: unknown;
+ }
+
+export interface ServiceCallbackResponse {
+  accepted: true;
+  replay: boolean;
+  receiptId: number;
+}
+
+export type ServiceReceiptPayload = { [key: string]: unknown };
+
+/**
+ * Immutable replay receipt for one dispatch transition.
+ */
+export interface ServiceReceipt {
+  id: number;
+  receiptKey: string;
+  serviceId: string;
+  /** @nullable */
+  dispatchId?: number | null;
+  /** @nullable */
+  externalDispatchId?: string | null;
+  operation: string;
+  /** @nullable */
+  transition?: string | null;
+  /** @nullable */
+  externalJobId?: string | null;
+  /** @nullable */
+  externalRunId?: string | null;
+  status: string;
+  /** @nullable */
+  payloadHash?: string | null;
+  payload?: ServiceReceiptPayload;
+  createdAt: string;
+}
+
 /**
  * Resource not found
  */
 export type NotFoundResponse = Error;
+
+export type ServiceIdParameter = typeof ServiceIdParameter[keyof typeof ServiceIdParameter];
+
+
+export const ServiceIdParameter = {
+  windmill: 'windmill',
+} as const;
+
+export type ServiceOperationParameter = typeof ServiceOperationParameter[keyof typeof ServiceOperationParameter];
+
+
+export const ServiceOperationParameter = {
+  windmillcallback: 'windmill.callback',
+  windmilljobcompleted: 'windmill.job.completed',
+  windmilljobfailed: 'windmill.job.failed',
+} as const;
+
+/**
+ * Unix seconds or milliseconds, within five minutes of server time.
+ */
+export type ServiceTimestampParameter = string;
+
+export type ServiceDispatchIdParameter = string;
+
+/**
+ * Lowercase SHA-256 hex digest of the exact JSON request bytes.
+ */
+export type ServiceBodySha256Parameter = string;
+
+/**
+ * HMAC-SHA256 hex over timestamp.method.path.dispatch_id.body_hash.
+ */
+export type ServiceSignatureParameter = string;
+
+export type ServiceMethodParameter = typeof ServiceMethodParameter[keyof typeof ServiceMethodParameter];
+
+
+export const ServiceMethodParameter = {
+  POST: 'POST',
+} as const;
+
+export type ServicePathParameter = typeof ServicePathParameter[keyof typeof ServicePathParameter];
+
+
+export const ServicePathParameter = {
+  '/api/service/v1/callback': '/api/service/v1/callback',
+} as const;
 
 export type ListEvidenceParams = {
 opportunityId?: number;

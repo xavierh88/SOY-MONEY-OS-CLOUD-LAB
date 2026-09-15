@@ -5,6 +5,7 @@
  * SOY MONEY OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { FinanceMode } from './financeMode';
 import type { MarketCycleCandidateBestParams } from './marketCycleCandidateBestParams';
 import type { MarketCycleCandidateInSample } from './marketCycleCandidateInSample';
 import type { MarketCycleCandidateMetrics } from './marketCycleCandidateMetrics';
@@ -28,6 +29,37 @@ export interface MarketCycleCandidate {
   /** @nullable */
   strategyKind: string | null;
   metrics: MarketCycleCandidateMetrics;
+  /** @nullable */
+  assetType?: string | null;
+  /** @nullable */
+  market?: string | null;
+  /** @nullable */
+  signal?: string | null;
+  /** @nullable */
+  score?: number | null;
+  /** @nullable */
+  confidence?: number | null;
+  /** @nullable */
+  risk?: string | null;
+  /** @nullable */
+  detectedAt?: Date | null;
+  /** @nullable */
+  validFrom?: Date | null;
+  mode?: FinanceMode;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  decision?: string | null;
+  /** @nullable */
+  evidenceReference?: string | null;
+  /** @nullable */
+  learningReference?: string | null;
+  /** @nullable */
+  sourceCycleId?: number | null;
+  /** @nullable */
+  githubRunId?: string | null;
+  /** @nullable */
+  dispatchId?: string | null;
   /** @nullable */
   cycleTimestamp: Date | null;
   guardrails: MarketCycleGuardrails;

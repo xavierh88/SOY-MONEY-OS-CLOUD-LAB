@@ -441,9 +441,10 @@ router.get("/control-tower/golden-path/:cycleId", async (req, res): Promise<void
         .where(eq(autonomyLearningTable.cycleId, cycle.id))
         .orderBy(desc(autonomyLearningTable.createdAt)),
     ]);
+  const resultRows: Array<typeof resultsTable.$inferSelect> = results;
 
-  const resultIds = results.map((result) => result.id);
-  const financeIdempotencyKeys = results
+  const resultIds = resultRows.map((result) => result.id);
+  const financeIdempotencyKeys = resultRows
     .map((result) => result.financeIdempotencyKey)
     .filter((key): key is string => Boolean(key));
   const financeEntries = await db.select().from(financeLedgerTable)
@@ -533,7 +534,7 @@ router.get("/control-tower/golden-path/:cycleId", async (req, res): Promise<void
   const financeModes = [
     ...financeEntries.map((entry) => entry.mode),
     ...monetizationAttempts.map((attempt) => attempt.mode),
-    ...results.map((result) => result.mode),
+    ...resultRows.map((result) => result.mode),
     ...marketCandidates.map((candidate) => candidate.mode).filter(
       (mode): mode is NonNullable<typeof mode> => mode !== null,
     ),
@@ -546,7 +547,7 @@ router.get("/control-tower/golden-path/:cycleId", async (req, res): Promise<void
         ? "POTENTIAL"
         : null;
   const realMoney = financeMode === "REAL"
-    || results.some((result) => result.realRevenue)
+    || resultRows.some((result) => result.realRevenue)
     || Boolean(project?.financialExecution);
   const externalCalls = dispatches.length > 0
     || project?.publicationExecuted === true

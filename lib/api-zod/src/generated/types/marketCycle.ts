@@ -5,6 +5,7 @@
  * SOY MONEY OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { FinanceMode } from './financeMode';
 import type { MarketCycleResult } from './marketCycleResult';
 
 export interface MarketCycle {
@@ -17,6 +18,7 @@ export interface MarketCycle {
   dispatchKey: string;
   status: string;
   source: string;
+  mode: FinanceMode;
   marketsAnalyzed: number;
   candidatesFound: number;
   paperApproved: number;

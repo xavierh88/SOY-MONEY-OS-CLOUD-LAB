@@ -10,6 +10,14 @@ import type { ProjectSellPackage } from './projectSellPackage';
 export interface Project {
   id: number;
   opportunityId: number;
+  /** @nullable */
+  originCandidateId?: number | null;
+  /** @nullable */
+  originOpportunityId?: number | null;
+  /** @nullable */
+  originCycleId?: number | null;
+  /** @nullable */
+  creationIdempotencyKey?: string | null;
   name: string;
   status: string;
   /** @nullable */

@@ -24,21 +24,27 @@ import type {
   Approval,
   ApprovalDecisionInput,
   AutonomousCycle,
-  AutonomyCandidate,
   AutonomyControlInput,
   AutonomyLearning,
   AutonomyState,
   BuildStageResponse,
   CompleteStageResponse,
+  ControlTowerGoldenPathResponse,
   ControlTowerOpportunityDetail,
   ControlTowerOverview,
   ControlTowerProjectDetail,
   ControlTowerTimelineEvent,
+  ControlledGoldenPathPrepareInput,
+  ControlledGoldenPathPrepareResponse,
+  ControlledGoldenPathStatusResponse,
   Cycle,
   CycleInput,
   CycleRunInput,
   Dashboard,
   DemandProof,
+  DiscoveryResearchInput,
+  DiscoveryResearchResponse,
+  DiscoveryResearchRun,
   Error,
   Evidence,
   EvidenceInput,
@@ -57,6 +63,7 @@ import type {
   NotFoundResponse,
   Opportunity,
   OpportunityApproval,
+  OpportunityCandidate,
   OpportunityDetail,
   OpportunityInput,
   PipelineInput,
@@ -68,6 +75,8 @@ import type {
   Result,
   ResultStageResponse,
   SellReadyStageResponse,
+  ServiceCallbackBody,
+  ServiceCallbackResponse,
   StartProjectInput,
   WithdrawableFinance
 } from './api.schemas';
@@ -484,6 +493,248 @@ export function useGetOpportunity<TData = Awaited<ReturnType<typeof getOpportuni
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetOpportunityQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getResearchDiscoveryUrl = () => {
+
+
+
+
+  return `/api/discovery/research`
+}
+
+/**
+ * @summary Research a category using free public sources
+ */
+export const researchDiscovery = async (discoveryResearchInput: DiscoveryResearchInput, options?: Parameters<typeof customFetch>[1]): Promise<DiscoveryResearchResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<DiscoveryResearchResponse>(getResearchDiscoveryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(discoveryResearchInput)
+  }
+);}
+
+
+
+
+
+export const getResearchDiscoveryMutationKey = () => ['researchDiscovery'] as const;
+
+export const getResearchDiscoveryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof researchDiscovery>>, TError,ResearchDiscoveryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof researchDiscovery>>, TError,ResearchDiscoveryMutationVariables, TContext> => {
+
+const mutationKey = getResearchDiscoveryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof researchDiscovery>>, ResearchDiscoveryMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  researchDiscovery(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResearchDiscoveryMutationResult = NonNullable<Awaited<ReturnType<typeof researchDiscovery>>>
+    export type ResearchDiscoveryMutationBody = BodyType<DiscoveryResearchInput>
+    export type ResearchDiscoveryMutationError = ErrorType<void>
+    export type ResearchDiscoveryMutationVariables = {data: BodyType<DiscoveryResearchInput>}
+
+    /**
+ * @summary Research a category using free public sources
+ */
+export const useResearchDiscovery = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof researchDiscovery>>, TError,ResearchDiscoveryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof researchDiscovery>>,
+        TError,
+        ResearchDiscoveryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getResearchDiscoveryMutationOptions(options));
+    }
+
+export const getListDiscoveryResearchUrl = () => {
+
+
+
+
+  return `/api/discovery/research`
+}
+
+/**
+ * @summary List durable discovery research runs
+ */
+export const listDiscoveryResearch = async ( options?: Parameters<typeof customFetch>[1]): Promise<DiscoveryResearchRun[]> => {
+
+  return customFetch<DiscoveryResearchRun[]>(getListDiscoveryResearchUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDiscoveryResearchQueryKey = () => {
+    return [
+    `/api/discovery/research`
+    ] as const;
+    }
+
+
+export const getListDiscoveryResearchQueryOptions = <TData = Awaited<ReturnType<typeof listDiscoveryResearch>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDiscoveryResearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDiscoveryResearchQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDiscoveryResearch>>> = ({ signal }) => listDiscoveryResearch({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDiscoveryResearch>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDiscoveryResearchQueryResult = NonNullable<Awaited<ReturnType<typeof listDiscoveryResearch>>>
+export type ListDiscoveryResearchQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List durable discovery research runs
+ */
+
+export function useListDiscoveryResearch<TData = Awaited<ReturnType<typeof listDiscoveryResearch>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDiscoveryResearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDiscoveryResearchQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDiscoveryResearchUrl = (id: number,) => {
+
+
+
+
+  return `/api/discovery/research/${id}`
+}
+
+/**
+ * @summary Get a research run and its findings
+ */
+export const getDiscoveryResearch = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<DiscoveryResearchResponse> => {
+
+  return customFetch<DiscoveryResearchResponse>(getGetDiscoveryResearchUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDiscoveryResearchQueryKey = (id: number,) => {
+    return [
+    `/api/discovery/research/${id}`
+    ] as const;
+    }
+
+
+export const getGetDiscoveryResearchQueryOptions = <TData = Awaited<ReturnType<typeof getDiscoveryResearch>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDiscoveryResearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDiscoveryResearchQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDiscoveryResearch>>> = ({ signal }) => getDiscoveryResearch(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDiscoveryResearch>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDiscoveryResearchQueryResult = NonNullable<Awaited<ReturnType<typeof getDiscoveryResearch>>>
+export type GetDiscoveryResearchQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get a research run and its findings
+ */
+
+export function useGetDiscoveryResearch<TData = Awaited<ReturnType<typeof getDiscoveryResearch>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDiscoveryResearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDiscoveryResearchQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -2493,6 +2744,173 @@ export function useGetMarketCycleStatus<TData = Awaited<ReturnType<typeof getMar
 
 
 
+export const getPrepareControlledGoldenPathUrl = () => {
+
+
+
+
+  return `/api/autonomy/controlled-golden-path/prepare`
+}
+
+/**
+ * Creates only durable PAPER/POTENTIAL records and a pending owner checkpoint. This endpoint never approves an action, publishes, spends money, or calls an external provider.
+ * @summary Prepare a controlled, zero-capital Golden Path checkpoint
+ */
+export const prepareControlledGoldenPath = async (controlledGoldenPathPrepareInput?: ControlledGoldenPathPrepareInput, options?: Parameters<typeof customFetch>[1]): Promise<ControlledGoldenPathPrepareResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ControlledGoldenPathPrepareResponse>(getPrepareControlledGoldenPathUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(controlledGoldenPathPrepareInput)
+  }
+);}
+
+
+
+
+
+export const getPrepareControlledGoldenPathMutationKey = () => ['prepareControlledGoldenPath'] as const;
+
+export const getPrepareControlledGoldenPathMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof prepareControlledGoldenPath>>, TError,PrepareControlledGoldenPathMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof prepareControlledGoldenPath>>, TError,PrepareControlledGoldenPathMutationVariables, TContext> => {
+
+const mutationKey = getPrepareControlledGoldenPathMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof prepareControlledGoldenPath>>, PrepareControlledGoldenPathMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  prepareControlledGoldenPath(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PrepareControlledGoldenPathMutationResult = NonNullable<Awaited<ReturnType<typeof prepareControlledGoldenPath>>>
+    export type PrepareControlledGoldenPathMutationBody = BodyType<ControlledGoldenPathPrepareInput> | undefined
+    export type PrepareControlledGoldenPathMutationError = ErrorType<Error>
+    export type PrepareControlledGoldenPathMutationVariables = {data?: BodyType<ControlledGoldenPathPrepareInput>}
+
+    /**
+ * @summary Prepare a controlled, zero-capital Golden Path checkpoint
+ */
+export const usePrepareControlledGoldenPath = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof prepareControlledGoldenPath>>, TError,PrepareControlledGoldenPathMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof prepareControlledGoldenPath>>,
+        TError,
+        PrepareControlledGoldenPathMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPrepareControlledGoldenPathMutationOptions(options));
+    }
+
+export const getGetControlledGoldenPathStatusUrl = (id: number,) => {
+
+
+
+
+  return `/api/autonomy/controlled-golden-path/status/${id}`
+}
+
+/**
+ * Read-only status; it never resumes or approves the checkpoint.
+ * @summary Read a controlled Golden Path checkpoint
+ */
+export const getControlledGoldenPathStatus = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ControlledGoldenPathStatusResponse> => {
+
+  return customFetch<ControlledGoldenPathStatusResponse>(getGetControlledGoldenPathStatusUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetControlledGoldenPathStatusQueryKey = (id: number,) => {
+    return [
+    `/api/autonomy/controlled-golden-path/status/${id}`
+    ] as const;
+    }
+
+
+export const getGetControlledGoldenPathStatusQueryOptions = <TData = Awaited<ReturnType<typeof getControlledGoldenPathStatus>>, TError = ErrorType<Error | NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlledGoldenPathStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetControlledGoldenPathStatusQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getControlledGoldenPathStatus>>> = ({ signal }) => getControlledGoldenPathStatus(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getControlledGoldenPathStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetControlledGoldenPathStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getControlledGoldenPathStatus>>>
+export type GetControlledGoldenPathStatusQueryError = ErrorType<Error | NotFoundResponse>
+
+
+/**
+ * @summary Read a controlled Golden Path checkpoint
+ */
+
+export function useGetControlledGoldenPathStatus<TData = Awaited<ReturnType<typeof getControlledGoldenPathStatus>>, TError = ErrorType<Error | NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlledGoldenPathStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetControlledGoldenPathStatusQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListMarketCyclesUrl = () => {
 
 
@@ -3111,6 +3529,95 @@ export function useGetAutonomyStatus<TData = Awaited<ReturnType<typeof getAutono
 
 
 
+export const getReceiveServiceCallbackUrl = () => {
+
+
+
+
+  return `/api/service/v1/callback`
+}
+
+/**
+ * Machine-to-machine callback boundary. The provider must send the service identity, allowlisted operation, dispatch identifier, current timestamp, SHA-256 hash of the exact request bytes, and an HMAC-SHA256 signature. This endpoint does not use owner authentication and never starts an external job.
+ * @summary Receive an authenticated, replay-safe service transition
+ */
+export const receiveServiceCallback = async (serviceCallbackBody: ServiceCallbackBody, options?: Parameters<typeof customFetch>[1]): Promise<ServiceCallbackResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ServiceCallbackResponse>(getReceiveServiceCallbackUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(serviceCallbackBody)
+  }
+);}
+
+
+
+
+
+export const getReceiveServiceCallbackMutationKey = () => ['receiveServiceCallback'] as const;
+
+export const getReceiveServiceCallbackMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveServiceCallback>>, TError,ReceiveServiceCallbackMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof receiveServiceCallback>>, TError,ReceiveServiceCallbackMutationVariables, TContext> => {
+
+const mutationKey = getReceiveServiceCallbackMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof receiveServiceCallback>>, ReceiveServiceCallbackMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  receiveServiceCallback(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReceiveServiceCallbackMutationResult = NonNullable<Awaited<ReturnType<typeof receiveServiceCallback>>>
+    export type ReceiveServiceCallbackMutationBody = BodyType<ServiceCallbackBody>
+    export type ReceiveServiceCallbackMutationError = ErrorType<Error>
+    export type ReceiveServiceCallbackMutationVariables = {data: BodyType<ServiceCallbackBody>}
+
+    /**
+ * @summary Receive an authenticated, replay-safe service transition
+ */
+export const useReceiveServiceCallback = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveServiceCallback>>, TError,ReceiveServiceCallbackMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof receiveServiceCallback>>,
+        TError,
+        ReceiveServiceCallbackMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReceiveServiceCallbackMutationOptions(options));
+    }
+
 export const getListAutonomyActivityUrl = () => {
 
 
@@ -3518,9 +4025,9 @@ export const getListCandidatesUrl = () => {
 /**
  * @summary List existing opportunities as autonomy candidates
  */
-export const listCandidates = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomyCandidate[]> => {
+export const listCandidates = async ( options?: Parameters<typeof customFetch>[1]): Promise<OpportunityCandidate[]> => {
 
-  return customFetch<AutonomyCandidate[]>(getListCandidatesUrl(),
+  return customFetch<OpportunityCandidate[]>(getListCandidatesUrl(),
   {
     ...options,
     method: 'GET'
@@ -3595,9 +4102,9 @@ export const getGetCandidateUrl = (id: number,) => {
 /**
  * @summary Get an existing opportunity autonomy candidate
  */
-export const getCandidate = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<AutonomyCandidate> => {
+export const getCandidate = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<OpportunityCandidate> => {
 
-  return customFetch<AutonomyCandidate>(getGetCandidateUrl(id),
+  return customFetch<OpportunityCandidate>(getGetCandidateUrl(id),
   {
     ...options,
     method: 'GET'
@@ -3672,9 +4179,9 @@ export const getListAutonomyCandidatesUrl = () => {
 /**
  * @summary List existing opportunities with dedupe and scoring metadata
  */
-export const listAutonomyCandidates = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutonomyCandidate[]> => {
+export const listAutonomyCandidates = async ( options?: Parameters<typeof customFetch>[1]): Promise<OpportunityCandidate[]> => {
 
-  return customFetch<AutonomyCandidate[]>(getListAutonomyCandidatesUrl(),
+  return customFetch<OpportunityCandidate[]>(getListAutonomyCandidatesUrl(),
   {
     ...options,
     method: 'GET'
@@ -3749,9 +4256,9 @@ export const getGetAutonomyCandidateUrl = (id: number,) => {
 /**
  * @summary Get one existing opportunity candidate
  */
-export const getAutonomyCandidate = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<AutonomyCandidate> => {
+export const getAutonomyCandidate = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<OpportunityCandidate> => {
 
-  return customFetch<AutonomyCandidate>(getGetAutonomyCandidateUrl(id),
+  return customFetch<OpportunityCandidate>(getGetAutonomyCandidateUrl(id),
   {
     ...options,
     method: 'GET'
@@ -4508,6 +5015,84 @@ export function useGetControlTowerTimeline<TData = Awaited<ReturnType<typeof get
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetControlTowerTimelineQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetControlTowerGoldenPathUrl = (cycleId: number,) => {
+
+
+
+
+  return `/api/control-tower/golden-path/${cycleId}`
+}
+
+/**
+ * Read-only reconstruction of the durable chain. It correlates the cycle with candidate decisions, opportunity/evidence, project/execution, human checkpoints, learning/results/finance, lifecycle history, external dispatches, and outbox records. This GET does not create or resume work, approve an action, call a provider, or mutate history.
+ * @summary Read the persisted Golden Path chain for one autonomous cycle
+ */
+export const getControlTowerGoldenPath = async (cycleId: number, options?: Parameters<typeof customFetch>[1]): Promise<ControlTowerGoldenPathResponse> => {
+
+  return customFetch<ControlTowerGoldenPathResponse>(getGetControlTowerGoldenPathUrl(cycleId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetControlTowerGoldenPathQueryKey = (cycleId: number,) => {
+    return [
+    `/api/control-tower/golden-path/${cycleId}`
+    ] as const;
+    }
+
+
+export const getGetControlTowerGoldenPathQueryOptions = <TData = Awaited<ReturnType<typeof getControlTowerGoldenPath>>, TError = ErrorType<Error>>(cycleId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlTowerGoldenPath>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetControlTowerGoldenPathQueryKey(cycleId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getControlTowerGoldenPath>>> = ({ signal }) => getControlTowerGoldenPath(cycleId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: cycleId !== null && cycleId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getControlTowerGoldenPath>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetControlTowerGoldenPathQueryResult = NonNullable<Awaited<ReturnType<typeof getControlTowerGoldenPath>>>
+export type GetControlTowerGoldenPathQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Read the persisted Golden Path chain for one autonomous cycle
+ */
+
+export function useGetControlTowerGoldenPath<TData = Awaited<ReturnType<typeof getControlTowerGoldenPath>>, TError = ErrorType<Error>>(
+ cycleId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlTowerGoldenPath>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetControlTowerGoldenPathQueryOptions(cycleId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

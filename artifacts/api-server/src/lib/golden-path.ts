@@ -277,6 +277,85 @@ export async function stopAtOwnerCheckpoint(
   return { cycle, action: savedAction };
 }
 
+/**
+ * Records a blocker which only a person can clear.  This is deliberately
+ * separate from OWNER_APPROVAL_REQUIRED: account creation, CAPTCHA/MFA/KYC,
+ * terms, credentials, publication, and payment must never be inferred or
+ * performed by a project executor.  A completed action is only a resume
+ * instruction for the same project/checkpoint.
+ */
+export async function createHumanActionRequired(
+  tx: GoldenExecutor,
+  input: {
+    projectId: number;
+    opportunityId?: number | null;
+    cycleId?: number | null;
+    checkpoint: string;
+    blockers: string[];
+    payload?: Record<string, unknown>;
+  },
+) {
+  const idempotencyKey = `project:${input.projectId}:human-action:${input.checkpoint}`;
+  const [existing] = await tx.select().from(humanActionsTable)
+    .where(eq(humanActionsTable.idempotencyKey, idempotencyKey));
+  if (existing) return existing;
+  const [action] = await tx.insert(humanActionsTable).values({
+    idempotencyKey,
+    cycleId: input.cycleId ?? null,
+    opportunityId: input.opportunityId ?? null,
+    projectId: input.projectId,
+    actionType: "HUMAN_ACTION_REQUIRED",
+    checkpoint: input.checkpoint,
+    status: "PENDING",
+    payload: {
+      safeInternalOnly: true,
+      noAutoApproval: true,
+      blockers: input.blockers,
+      ...(input.payload ?? {}),
+    },
+    updatedAt: new Date(),
+  }).onConflictDoNothing({ target: humanActionsTable.idempotencyKey }).returning();
+  const saved = action ?? (await tx.select().from(humanActionsTable)
+    .where(eq(humanActionsTable.idempotencyKey, idempotencyKey)))[0];
+  if (!saved) throw new Error("HUMAN_ACTION_CREATE_FAILED");
+  await appendGoldenPathEvent(tx, {
+    eventKey: lifecycleKey("human_action", saved.id, "REQUIRED"),
+    sourceType: "human_action",
+    sourceId: saved.id,
+    eventType: "HUMAN_ACTION_REQUIRED",
+    status: saved.status,
+    cycleId: input.cycleId,
+    opportunityId: input.opportunityId,
+    projectId: input.projectId,
+    actionId: saved.id,
+    payload: { checkpoint: input.checkpoint, blockers: input.blockers, sameProjectOnResume: true },
+  });
+  return saved;
+}
+
+export async function getProjectResumeInstruction(
+  executor: GoldenExecutor = db,
+  projectId: number,
+) {
+  const [action] = await executor.select().from(humanActionsTable)
+    .where(and(
+      eq(humanActionsTable.projectId, projectId),
+      eq(humanActionsTable.status, "COMPLETED"),
+    ))
+    .orderBy(desc(humanActionsTable.completedAt))
+    .limit(1);
+  if (!action) return null;
+  return {
+    projectId,
+    opportunityId: action.opportunityId,
+    checkpoint: action.checkpoint,
+    actionId: action.id,
+    instruction: "RESUME_SAME_PROJECT_FROM_CHECKPOINT",
+    externalCallsAllowed: false,
+    realMoneyAllowed: false,
+  };
+}
+
 export async function prepareSafeTestSimulation(
   tx: GoldenExecutor,
   input: { projectId: number; opportunityId?: number; cycleId?: number; idempotencyKey?: string },
