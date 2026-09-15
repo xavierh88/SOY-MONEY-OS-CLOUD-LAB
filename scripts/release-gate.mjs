@@ -8,6 +8,7 @@ const stages = [
   ["provider fixtures", ["--filter", "@workspace/scripts", "run", "test:provider-contracts"]],
   ["API contracts", ["--filter", "@workspace/api-server", "run", "test:contract"]],
   ["migration tests", ["--filter", "@workspace/db", "run", "test:migrations"]],
+  ["App Storage E2E", ["--filter", "@workspace/api-server", "run", "test:storage-e2e"]],
   ["worker concurrency tests", ["--filter", "@workspace/scripts", "run", "test:offline-workers"]],
   ["P0 safety invariants", ["--filter", "@workspace/scripts", "run", "test:p0-safety-invariants"]],
   ["Playwright E2E", ["--filter", "@workspace/soy-money-os", "run", "test:e2e"]],
@@ -29,11 +30,7 @@ for (const name of forbiddenEnvironment) {
   delete childEnvironment[name];
 }
 for (const name of Object.keys(childEnvironment)) {
-  if (
-    name.startsWith("CLERK_") ||
-    name.startsWith("WINDMILL_") ||
-    name.startsWith("AUTONOMY_")
-  ) {
+  if (name.startsWith("CLERK_") || name.startsWith("WINDMILL_") || name.startsWith("AUTONOMY_")) {
     delete childEnvironment[name];
   }
 }
@@ -55,22 +52,14 @@ try {
   process.exit(1);
 }
 const databaseName = decodeURIComponent(parsedTestDatabaseUrl.pathname.replace(/^\/+/, ""));
-if (
-  !["postgres:", "postgresql:"].includes(parsedTestDatabaseUrl.protocol) ||
-  !/(^|[-_])(test|tests|ci|ephemeral|temporary)([-_]|$)/i.test(databaseName)
-) {
+if (!["postgres:", "postgresql:"].includes(parsedTestDatabaseUrl.protocol) || !/(^|[-_])(test|tests|ci|ephemeral|temporary)([-_]|$)/i.test(databaseName)) {
   console.error("FAIL release gate: TEST_DATABASE_URL must identify a disposable test database");
   process.exit(1);
 }
 
 for (const [name, args] of stages) {
   console.log(`\n==> ${name}`);
-  const result = spawnSync(pnpm, args, {
-    cwd: process.cwd(),
-    env: childEnvironment,
-    stdio: "inherit",
-    shell: false,
-  });
+  const result = spawnSync(pnpm, args, { cwd: process.cwd(), env: childEnvironment, stdio: "inherit", shell: false });
   if (result.error) {
     console.error(`FAIL ${name}: ${result.error.message}`);
     process.exit(result.status || 1);
@@ -82,4 +71,4 @@ for (const [name, args] of stages) {
   console.log(`PASS ${name}`);
 }
 
-console.log("\nPASS release gate: all P0 checks completed");
+console.log("\nPASS release gate: all P0/P1 checks completed");
