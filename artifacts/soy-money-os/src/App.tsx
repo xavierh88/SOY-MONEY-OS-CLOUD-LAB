@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { ClerkProvider, Show, SignIn, SignUp, useClerk } from '@clerk/react';
+import { ClerkProvider, Show, SignIn, SignUp, useClerk, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
@@ -21,6 +21,7 @@ import {
   Gauge,
   Layers3,
   LayoutDashboard,
+  LogOut,
   Menu,
   Play,
   Plus,
@@ -166,6 +167,20 @@ export function Badge({ value, small = false }: { value?: string; small?: boolea
   return <span className={cx('status-badge', statusTone(value), small && 'text-[10px]')} data-testid={`status-${(value || 'sin-datos').toLowerCase()}`}>{statusLabel(value)}</span>;
 }
 
+function ownerInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return (parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : name.slice(0, 2)).toUpperCase();
+}
+function FixtureOwnerSession() { return <div className="operator" data-testid="owner-session"><div className="avatar">QA</div><div><strong>Propietario de prueba</strong><small>Sesión E2E local</small></div></div>; }
+function ClerkOwnerSession() {
+  const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
+  const name = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress || 'Propietario';
+  const detail = user?.primaryEmailAddress?.emailAddress || 'Sesión autenticada';
+  const handleSignOut = async () => { queryClient.clear(); await signOut({ redirectUrl: `${basePath || ''}/` }); };
+  return <div className="operator" data-testid="owner-session"><div className="avatar">{isLoaded ? ownerInitials(name) : '…'}</div><div className="min-w-0"><strong className="block truncate" data-testid="owner-name">{isLoaded ? name : 'Cargando sesión'}</strong><small className="block truncate" data-testid="owner-email">{isLoaded ? detail : 'Verificando identidad'}</small></div><button type="button" className="button button-quiet button-small" onClick={() => void handleSignOut()} disabled={!isLoaded} title="Cerrar sesión" aria-label="Cerrar sesión" data-testid="button-sign-out"><LogOut size={14} /></button></div>;
+}
+
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -189,7 +204,7 @@ function Shell({ children }: { children: ReactNode }) {
         </nav>
         <div className="sidebar-bottom">
           <div className="system-chip"><span className="pulse-signal" /><div><strong>SISTEMA OPERATIVO</strong><small>Servicios supervisados</small></div></div>
-          <div className="operator"><div className="avatar">AM</div><div><strong>Analista principal</strong><small>Control de oportunidades</small></div><ChevronDown size={14} /></div>
+          {e2eFixtureMode ? <FixtureOwnerSession /> : <ClerkOwnerSession />}
         </div>
       </aside>
       <div className="main-wrap">
