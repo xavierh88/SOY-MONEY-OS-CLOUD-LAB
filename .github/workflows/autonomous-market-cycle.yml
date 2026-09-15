@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       dispatch_id:
-        description: 'Durable dispatch correlation identifier'
-        required: false
+        description: 'Required durable dispatch correlation identifier for manual PAPER runs'
+        required: true
         type: string
       trials:
         description: 'Optuna trials per symbol'
@@ -65,6 +65,7 @@ jobs:
         env:
           SOY_DISPATCH_ID: ${{ inputs.dispatch_id || '' }}
           SOY_GITHUB_RUN_ID: ${{ github.run_id }}
+          SOY_EVENT_NAME: ${{ github.event_name }}
         run: |
           python - <<'PY'
           import json
@@ -72,6 +73,8 @@ jobs:
           from pathlib import Path
           path = Path('results/autonomous_cycle.json')
           data = json.loads(path.read_text())
+          if os.environ['SOY_EVENT_NAME'] == 'workflow_dispatch' and not os.environ['SOY_DISPATCH_ID']:
+              raise SystemExit('dispatch_id is required for workflow_dispatch')
           data['dispatch_id'] = os.environ['SOY_DISPATCH_ID']
           data['github_run_id'] = os.environ['SOY_GITHUB_RUN_ID']
           path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
