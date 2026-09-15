@@ -15,6 +15,7 @@
     "test:prepare-controlled-money-lab": "tsx ./src/prepare-controlled-money-lab.ts",
     "test:execute-controlled-money-lab": "tsx ./src/execute-controlled-money-lab.ts",
     "test:project-artifacts": "tsx ./src/test-project-artifacts.ts",
+    "audit:final-controlled-golden-path": "tsx ./src/execute-final-controlled-golden-path.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

@@ -45,7 +45,7 @@ const {
   isAutonomyClaimInProgress: (state: string) => boolean;
   isTerminalAutonomyCycle: (state: string) => boolean;
 };
-const moneyLabModulePath = "../../artifacts/api-server/src/routes/money-lab";
+const moneyLabModulePath = "../../artifacts/api-server/src/lib/money-lab-validation";
 const { validateArtifactCorrelation, validateArtifactSafetyContract } = await import(moneyLabModulePath) as {
   validateArtifactCorrelation: (
     result: Record<string, unknown>,
