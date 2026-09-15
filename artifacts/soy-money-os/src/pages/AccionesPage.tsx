@@ -55,18 +55,18 @@ export default function AccionesPage() {
                     <Badge value={action.status} small />
                     <span className="card-date">{formatDate(action.createdAt)} {formatTime(action.createdAt)}</span>
                   </div>
-                  <div className="py-5 flex justify-between items-center gap-6">
-                    <div>
+                  <div className="py-5 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6">
+                    <div className="min-w-0 flex-1">
                       <h3 className="text-base font-semibold mb-2">{action.actionType} — {action.checkpoint}</h3>
                       <div className="flex gap-3 text-xs mb-2">
                         {action.projectId && <Link href={`/proyectos/${action.projectId}`} className="text-link">Proyecto PRJ-{action.projectId}</Link>}
                         {action.opportunityId && <Link href={`/oportunidades/${action.opportunityId}`} className="text-link">Oportunidad OP-{action.opportunityId}</Link>}
                       </div>
-                      <p className="text-xs text-muted-foreground font-mono bg-secondary p-3 mt-2 rounded-sm overflow-x-auto whitespace-pre">
+                      <p className="text-xs text-muted-foreground font-mono bg-secondary p-3 mt-2 rounded-sm whitespace-pre-wrap break-words">
                         {JSON.stringify(action.payload, null, 2)}
                       </p>
                     </div>
-                    <div className="flex flex-col gap-2 min-w-[140px]">
+                    <div className="flex flex-col sm:flex-row lg:flex-col gap-2 w-full lg:w-auto lg:min-w-[140px]">
                       <button 
                         className="button button-primary w-full justify-center" 
                         onClick={() => handleDecision(action.id, true)} 
