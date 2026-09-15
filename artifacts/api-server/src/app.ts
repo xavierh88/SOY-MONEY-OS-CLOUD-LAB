@@ -56,7 +56,13 @@ const sameOriginCors: RequestHandler = (req, res, next) => {
 };
 
 app.use(sameOriginCors);
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buffer) => {
+    // Keep the exact bytes for the machine-authenticated callback boundary.
+    // The value is never logged or sent back to a caller.
+    (req as typeof req & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 app.use(

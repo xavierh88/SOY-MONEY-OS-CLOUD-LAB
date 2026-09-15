@@ -10,6 +10,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
+import type { FinanceMode } from "./finance";
 
 export const marketCyclesTable = pgTable(
   "soy_market_cycles",
@@ -26,6 +27,7 @@ export const marketCyclesTable = pgTable(
     paperApproved: integer("paper_approved").notNull().default(0),
     rejected: integer("rejected").notNull().default(0),
     result: jsonb("result").$type<Record<string, unknown>>(),
+    mode: text("mode").$type<FinanceMode>().notNull().default("PAPER"),
     errors: text("errors").array().notNull().default([]),
     realMoneyUsed: boolean("real_money_used").notNull().default(false),
     financialExecution: boolean("financial_execution").notNull().default(false),

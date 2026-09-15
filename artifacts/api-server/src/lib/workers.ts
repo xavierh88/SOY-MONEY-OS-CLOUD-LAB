@@ -1,15 +1,29 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import {
   autonomousCyclesTable,
   db,
-  humanActionsTable,
-  lifecycleEventsTable,
+  externalDispatchesTable,
+  marketCyclesTable,
 } from "@workspace/db";
-import { appendLifecycleEvent, finalizeExpiredOpportunities, lifecycleKey } from "./lifecycle";
+import { finalizeExpiredOpportunities } from "./lifecycle";
+import { resumeSameProjectToSafeCompletion } from "./golden-path";
 import { logger } from "./logger";
+import {
+  attachExternalRun,
+  claimOutbox,
+  markOutboxDelivered,
+  markOutboxFailure,
+} from "./durable-dispatch";
+import {
+  dispatchMarketCycle,
+  findDispatchedRun,
+  GitHubActionsError,
+} from "./github-actions";
+import { registerScheduledRuns, syncCycle } from "../routes/money-lab";
 
 const resumeStates = ["RESUME_PENDING"] as const;
 const resumeIntervalMs = 60_000;
+const externalIntervalMs = 30_000;
 
 /**
  * Resume only the persisted internal state machine.  This worker never calls
@@ -22,88 +36,8 @@ export async function processResumePending(limit = 50) {
     .limit(limit);
   const processed = [];
   for (const cycle of pending) {
-    const [action] = await db.select().from(humanActionsTable)
-      .where(and(
-        eq(humanActionsTable.cycleId, cycle.id),
-        eq(humanActionsTable.status, "COMPLETED"),
-      ))
-      .orderBy(desc(humanActionsTable.completedAt))
-      .limit(1);
-    if (!action) continue;
-    if (
-      (action.projectId ?? null) !== (cycle.projectId ?? null)
-      || (action.opportunityId ?? null) !== (cycle.opportunityId ?? null)
-    ) continue;
-    const claimKey = `resume:${cycle.id}:${cycle.projectId ?? "none"}:${cycle.opportunityId ?? "none"}:${action.id}`;
-    const changed = await db.transaction(async (tx) => {
-      // The event itself is also the durable claim. A separate mutable queue
-      // is unnecessary and would create another source of truth.
-      const claim = await appendLifecycleEvent({
-        eventKey: claimKey,
-        sourceType: "autonomous_cycle",
-        sourceId: cycle.id,
-        eventType: "RESUME_CLAIMED",
-        status: "RESUME_PENDING",
-        cycleId: cycle.id,
-        opportunityId: cycle.opportunityId,
-        projectId: cycle.projectId,
-        actionId: action.id,
-        payload: {
-          checkpoint: action.checkpoint,
-          safeInternalOnly: true,
-        },
-      }, tx);
-      if (!claim) {
-        const [existingClaim] = await tx.select({ id: lifecycleEventsTable.id })
-          .from(lifecycleEventsTable)
-          .where(eq(lifecycleEventsTable.eventKey, claimKey));
-        if (!existingClaim) return false;
-      }
-
-      const nextCheckpoint = "NEXT_HUMAN_CHECKPOINT";
-      const [advanced] = await tx.update(autonomousCyclesTable).set({
-        state: "WAITING_HUMAN",
-        stage: "HUMAN_CHECKPOINT",
-        checkpoint: nextCheckpoint,
-        message: "Internal resume checkpoint reached; waiting for the next human decision.",
-        updatedAt: new Date(),
-      }).where(and(
-        eq(autonomousCyclesTable.id, cycle.id),
-        eq(autonomousCyclesTable.state, "RESUME_PENDING"),
-      )).returning();
-      if (!advanced) return false;
-
-      // Include the completed action so every later resume transition gets one
-      // fresh pending checkpoint while retries of the same transition converge.
-      const nextActionKey = `cycle:${cycle.id}:human:${nextCheckpoint}:after:${action.id}`;
-      await tx.insert(humanActionsTable).values({
-        idempotencyKey: nextActionKey,
-        cycleId: cycle.id,
-        opportunityId: cycle.opportunityId,
-        projectId: cycle.projectId,
-        actionType: "RESUME_CHECKPOINT_REVIEW",
-        checkpoint: nextCheckpoint,
-        status: "PENDING",
-        payload: {
-          priorActionId: action.id,
-          safeInternalOnly: true,
-        },
-      }).onConflictDoNothing();
-      await appendLifecycleEvent({
-        eventKey: `${lifecycleKey("autonomous_cycle", cycle.id, "WAITING_HUMAN")}:${nextCheckpoint}:${action.id}`,
-        sourceType: "autonomous_cycle",
-        sourceId: cycle.id,
-        eventType: "RESUME_WAITING_HUMAN",
-        status: "WAITING_HUMAN",
-        cycleId: cycle.id,
-        opportunityId: cycle.opportunityId,
-        projectId: cycle.projectId,
-        actionId: action.id,
-        payload: { checkpoint: nextCheckpoint, safeInternalOnly: true },
-      }, tx);
-      return true;
-    });
-    if (changed) processed.push(cycle.id);
+    const result = await resumeSameProjectToSafeCompletion(cycle.id);
+    if (result) processed.push(cycle.id);
   }
   return processed;
 }
@@ -127,5 +61,115 @@ export function launchExpirationFinalizer() {
   }, resumeIntervalMs);
   handle.unref();
   void finalizeExpiredOpportunities().catch((error) => logger.warn({ err: error }, "Expiration finalizer initial run failed"));
+  return handle;
+}
+
+function messageOf(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Deliver durable provider work away from request time.  Windmill dispatches
+ * are intentionally not handled here: its local signed callback contract is
+ * installed, but flow execution remains disabled by policy.
+ */
+export async function processExternalOutbox(limit = 10) {
+  const claimed = await claimOutbox(limit);
+  for (const item of claimed) {
+    const dispatch = item.dispatch;
+    if (!dispatch) {
+      await markOutboxFailure(item.id, item.dispatchId!, "Dispatch record missing");
+      continue;
+    }
+    if (dispatch.provider !== "GITHUB" || dispatch.operation !== "market_cycle.dispatch") {
+      await markOutboxFailure(item.id, dispatch.id, "Provider operation is not enabled", { ambiguous: true });
+      continue;
+    }
+    try {
+      const dispatchedAt = await dispatchMarketCycle(dispatch.dispatchId);
+      await markOutboxDelivered(item.id, dispatch.id);
+      const run = await findDispatchedRun(dispatchedAt, dispatch.dispatchId);
+      if (run) {
+        await attachExternalRun(dispatch.dispatchId, String(run.id));
+        if (dispatch.marketCycleId) {
+          await db.update(marketCyclesTable).set({
+            githubRunId: String(run.id),
+            githubRunUrl: run.html_url,
+            status: run.status === "in_progress" ? "RUNNING" : "QUEUED",
+            startedAt: new Date(run.run_started_at || run.created_at),
+            updatedAt: new Date(),
+          }).where(eq(marketCyclesTable.id, dispatch.marketCycleId));
+          await syncCycle(dispatch.marketCycleId);
+        }
+      }
+    } catch (error) {
+      const ambiguous = error instanceof GitHubActionsError && error.ambiguous;
+      await markOutboxFailure(item.id, dispatch.id, messageOf(error), { ambiguous });
+    }
+  }
+  return claimed.length;
+}
+
+/**
+ * Reconcile ambiguous GitHub POSTs before considering any future action.  An
+ * ambiguous dispatch is never retried blindly; only a provider-observed run
+ * can move it forward.
+ */
+export async function reconcileExternalDispatches(limit = 25) {
+  const rows = await db.select().from(externalDispatchesTable)
+    .where(and(
+      eq(externalDispatchesTable.provider, "GITHUB"),
+      or(eq(externalDispatchesTable.status, "AMBIGUOUS"), isNull(externalDispatchesTable.externalRunId)),
+    ))
+    .limit(limit);
+  let reconciled = 0;
+  for (const dispatch of rows) {
+    if (dispatch.status !== "AMBIGUOUS" && dispatch.status !== "DISPATCHED") continue;
+    try {
+      const run = await findDispatchedRun(dispatch.dispatchedAt ?? dispatch.createdAt, dispatch.dispatchId);
+      if (!run) continue;
+      await attachExternalRun(dispatch.dispatchId, String(run.id));
+      if (dispatch.marketCycleId) {
+        await db.update(marketCyclesTable).set({
+          githubRunId: String(run.id),
+          githubRunUrl: run.html_url,
+          status: run.status === "in_progress" ? "RUNNING" : "QUEUED",
+          startedAt: new Date(run.run_started_at || run.created_at),
+          updatedAt: new Date(),
+        }).where(eq(marketCyclesTable.id, dispatch.marketCycleId));
+        await syncCycle(dispatch.marketCycleId);
+      }
+      reconciled += 1;
+    } catch (error) {
+      logger.warn({ err: error, dispatchId: dispatch.dispatchId }, "GitHub dispatch reconciliation failed");
+    }
+  }
+  return reconciled;
+}
+
+export async function processGitHubIngestion() {
+  try {
+    await registerScheduledRuns();
+    const active = await db.select({ id: marketCyclesTable.id })
+      .from(marketCyclesTable)
+      .where(inArray(marketCyclesTable.status, ["QUEUED", "RUNNING"]));
+    for (const cycle of active) await syncCycle(cycle.id);
+    return active.length;
+  } catch (error) {
+    logger.warn({ err: error }, "GitHub ingestion worker tick failed");
+    return 0;
+  }
+}
+
+export function launchExternalDurabilityWorkers() {
+  const handle = setInterval(() => {
+    void processExternalOutbox().catch((error) => logger.warn({ err: error }, "External outbox worker tick failed"));
+    void reconcileExternalDispatches().catch((error) => logger.warn({ err: error }, "External reconciliation tick failed"));
+    void processGitHubIngestion();
+  }, externalIntervalMs);
+  handle.unref();
+  void processExternalOutbox().catch((error) => logger.warn({ err: error }, "External outbox initial run failed"));
+  void reconcileExternalDispatches().catch((error) => logger.warn({ err: error }, "External reconciliation initial run failed"));
+  void processGitHubIngestion();
   return handle;
 }

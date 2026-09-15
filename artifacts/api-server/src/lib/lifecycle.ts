@@ -5,6 +5,7 @@ import {
   lifecycleEventsTable,
   marketCycleCandidatesTable,
   marketCyclesTable,
+  outboxTable,
   opportunitiesTable,
 } from "@workspace/db";
 
@@ -64,6 +65,26 @@ export async function appendLifecycleEvent(
     actionId: input.actionId ?? null,
     payload: input.payload ?? {},
   }).onConflictDoNothing({ target: lifecycleEventsTable.eventKey }).returning();
+  return event;
+}
+
+/**
+ * State-machine writers use this boundary when a lifecycle transition also
+ * needs delivery. Both inserts run on the supplied transaction; callers must
+ * not call this with a separate executor for either side of the transition.
+ */
+export async function appendLifecycleEventWithOutbox(
+  input: LifecycleEventInput,
+  executor: any = db,
+) {
+  const event = await appendLifecycleEvent(input, executor);
+  await executor.insert(outboxTable).values({
+    eventKey: input.eventKey,
+    eventType: normalizeStatus(input.eventType, "LIFECYCLE_EVENT"),
+    aggregateType: input.sourceType,
+    aggregateId: String(input.sourceId),
+    payload: input.payload ?? {},
+  }).onConflictDoNothing({ target: outboxTable.eventKey });
   return event;
 }
 
@@ -176,7 +197,7 @@ export async function finalizeExpiredOpportunities(limit = 100) {
       )).returning();
       const current = saved ?? opportunity;
       if (current) {
-        await appendLifecycleEvent({
+        await appendLifecycleEventWithOutbox({
           eventKey: lifecycleKey("opportunity", current.id, "EXPIRED"),
           sourceType: "opportunity",
           sourceId: current.id,

@@ -7,6 +7,8 @@
     "hello": "tsx ./src/hello.ts",
     "test:evidence": "tsx ./src/test-evidence-endpoint.ts",
     "test:post-approval": "tsx ./src/test-post-approval.ts",
+    "test:regression-db": "tsx ./src/regression-db.ts",
+    "test:service-hmac": "tsx ./src/test-service-hmac.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

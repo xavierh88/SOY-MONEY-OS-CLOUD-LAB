@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Router, type IRouter } from "express";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import {
   autonomyLearningTable,
   autonomyStateTable,
@@ -12,6 +12,7 @@ import {
   opportunitiesTable,
   opportunityMetadataTable,
   platformAccountsTable,
+  projectsTable,
   structuredErrorsTable,
 } from "@workspace/db";
 import {
@@ -43,7 +44,16 @@ import {
   StopAutonomyResponse,
 } from "@workspace/api-zod";
 import { AUTONOMY_EXECUTION_LOCKED } from "../lib/autonomy-policy";
-import { appendLifecycleEvent, lifecycleKey } from "../lib/lifecycle";
+import { lifecycleKey } from "../lib/lifecycle";
+import {
+  appendGoldenPathEvent,
+  completeOwnerAction,
+  completeNoValidOpportunity,
+  ensureCycleProject,
+  getResumeInstruction,
+  prepareControlledGoldenPath,
+  stopAtOwnerCheckpoint,
+} from "../lib/golden-path";
 
 export const DIRECTOR_CATEGORIES = [
   "BUSINESS", "DIGITAL_PRODUCTS", "SERVICES", "SAAS", "AUTOMATION",
@@ -106,6 +116,10 @@ const hashFor = (opportunity: typeof opportunitiesTable.$inferSelect) => createH
     normalized(opportunity.name), normalized(opportunity.problem),
     normalized(opportunity.targetCustomer), normalized(opportunity.proposedSolution),
   ].join("|")).digest("hex");
+const activeOpportunity = (opportunity: typeof opportunitiesTable.$inferSelect, now = new Date()) =>
+  opportunity.status !== "EXPIRED"
+  && (!opportunity.expiresAt || opportunity.expiresAt.getTime() > now.getTime())
+  && (!opportunity.validUntil || opportunity.validUntil.getTime() > now.getTime());
 
 function scoreOpportunity(opportunity: typeof opportunitiesTable.$inferSelect, evidenceCount: number) {
   // This is prioritization metadata only. It is never treated as demand proof.
@@ -195,10 +209,7 @@ export async function runSafeAutonomousCycle(input: {
 
   const opportunities = (await db.select().from(opportunitiesTable)
     .orderBy(desc(opportunitiesTable.updatedAt)).limit(100))
-    .filter((opportunity) =>
-    opportunity.status !== "EXPIRED"
-    && (!opportunity.expiresAt || opportunity.expiresAt.getTime() > now.getTime())
-  );
+    .filter((opportunity) => activeOpportunity(opportunity, now));
   const matching = deduplicateOpportunities(opportunities).filter((opportunity) => {
     if (category === "OTHER_LEGAL_OPPORTUNITIES") return true;
     const haystack = `${opportunity.sector} ${opportunity.name} ${opportunity.description}`.toUpperCase();
@@ -206,46 +217,109 @@ export async function runSafeAutonomousCycle(input: {
   });
   const selected = matching[0] ?? opportunities[0];
   if (!selected) {
-    const [finished] = await db.update(autonomousCyclesTable).set({
-      state: "COMPLETED", stage: "NO_VALID_OPPORTUNITY", checkpoint: "NO_VALID_OPPORTUNITY",
-      message: "NO_VALID_OPPORTUNITY: no existing opportunity was available.",
-      updatedAt: now,
-    }).where(eq(autonomousCyclesTable.id, cycle.id)).returning();
-    await appendLifecycleEvent({
-      eventKey: lifecycleKey("autonomous_cycle", cycle.id, "NO_VALID_OPPORTUNITY"),
-      sourceType: "autonomous_cycle", sourceId: cycle.id, eventType: "CYCLE_COMPLETED",
-      status: finished.state, cycleId: finished.id,
-      payload: { stage: finished.stage },
-    });
-    return finished;
+    return db.transaction((tx) => completeNoValidOpportunity(tx, cycle.id));
   }
   const scored = await candidate(selected);
-  const [finished] = await db.update(autonomousCyclesTable).set({
-    state: "COMPLETED", stage: "CANDIDATE_RECORDED", checkpoint: "CANDIDATE_RECORDED",
-    opportunityId: selected.id, selectedCandidateId: selected.id, score: scored.score,
-    message: category === "MARKET" || category === "CRYPTO" || category === "SPORTS"
-      ? "Existing candidate recorded. Money Lab remains paper/simulation only."
-      : "Existing candidate recorded. Score is not demand proof and no execution occurred.",
-    updatedAt: now,
-  }).where(eq(autonomousCyclesTable.id, cycle.id)).returning();
-  await appendLifecycleEvent({
-    eventKey: lifecycleKey("autonomous_cycle", cycle.id, "CANDIDATE_RECORDED"),
-    sourceType: "autonomous_cycle", sourceId: cycle.id, eventType: "CYCLE_COMPLETED",
-    status: finished.state, cycleId: finished.id,
-    opportunityId: finished.opportunityId, payload: { score: finished.score },
+  return db.transaction(async (tx) => {
+    const project = await ensureCycleProject(tx, {
+      cycleId: cycle.id,
+      opportunityId: selected.id,
+    });
+    const [recorded] = await tx.update(autonomousCyclesTable).set({
+      opportunityId: selected.id,
+      // This legacy field historically exposed the selected opportunity ID
+      // to API clients. The canonical market candidate ID is linked by the
+      // Golden Path service when a Money Lab candidate exists.
+      selectedCandidateId: selected.id,
+      score: scored.score,
+      message: category === "MARKET" || category === "CRYPTO" || category === "SPORTS"
+        ? "Candidate recorded in PAPER mode; owner action is required before execution."
+        : "Candidate recorded; score is not demand proof and owner action is required.",
+      updatedAt: now,
+    }).where(eq(autonomousCyclesTable.id, cycle.id)).returning();
+    await tx.insert(autonomyLearningTable).values({
+      cycleId: cycle.id, category, signal: "SELECTION",
+      observation: scored.scoreIsDemandProof ? "Scored" : "Scored without demand proof",
+      scoreDelta: 0, metadata: { opportunityId: selected.id, projectId: project.id },
+    });
+    await appendGoldenPathEvent(tx, {
+      eventKey: lifecycleKey("autonomous_cycle", cycle.id, "CANDIDATE_RECORDED"),
+      sourceType: "autonomous_cycle", sourceId: cycle.id,
+      eventType: "CANDIDATE_RECORDED", status: "RECORDED",
+      cycleId: cycle.id, opportunityId: selected.id, projectId: project.id,
+      payload: { score: scored.score, safe: true },
+    });
+    await stopAtOwnerCheckpoint(tx, {
+      cycleId: cycle.id,
+      opportunityId: selected.id,
+      projectId: project.id,
+    });
+    return recorded;
   });
-  await db.insert(autonomyLearningTable).values({
-    cycleId: cycle.id, category, signal: "SELECTION",
-    observation: scored.scoreIsDemandProof ? "Scored" : "Scored without demand proof",
-    scoreDelta: 0, metadata: { opportunityId: selected.id },
-  });
-  return finished;
 }
 
 async function parseId(value: string | string[]) {
   const id = Number(Array.isArray(value) ? value[0] : value);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
+
+router.post("/autonomy/controlled-golden-path/prepare", async (req, res): Promise<void> => {
+  const raw = req.body ?? {};
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    res.status(400).json({ error: "body must be an object" });
+    return;
+  }
+  const idempotencyKey = "idempotencyKey" in raw ? raw.idempotencyKey : undefined;
+  if (idempotencyKey !== undefined
+    && (typeof idempotencyKey !== "string" || idempotencyKey.trim().length > 200)) {
+    res.status(400).json({ error: "idempotencyKey must be a string of at most 200 characters" });
+    return;
+  }
+  const prepared = await prepareControlledGoldenPath({ idempotencyKey });
+  if (!prepared.action) {
+    res.status(409).json({ error: "Controlled Golden Path action could not be persisted" });
+    return;
+  }
+  res.status(201).json({
+    cycleId: prepared.cycle.id,
+    opportunityId: prepared.opportunity.id,
+    projectId: prepared.project.id,
+    actionId: prepared.action.id,
+    decisionId: prepared.decision.id,
+    state: "WAITING_HUMAN",
+    checkpoint: prepared.action.checkpoint,
+    nextInstruction: prepared.nextInstruction,
+    fixtureKey: prepared.fixtureKey,
+    safe: prepared.safe,
+  });
+});
+
+router.get("/autonomy/controlled-golden-path/status/:id", async (req, res): Promise<void> => {
+  const id = await parseId(req.params.id);
+  if (!id) { res.status(400).json({ error: "id must be a positive integer" }); return; }
+  const [cycle] = await db.select().from(autonomousCyclesTable)
+    .where(eq(autonomousCyclesTable.id, id));
+  if (!cycle) { res.status(404).json({ error: "Controlled Golden Path cycle not found" }); return; }
+  const [opportunity] = cycle.opportunityId
+    ? await db.select().from(opportunitiesTable).where(eq(opportunitiesTable.id, cycle.opportunityId))
+    : [];
+  const [project] = cycle.projectId
+    ? await db.select().from(projectsTable).where(eq(projectsTable.id, cycle.projectId))
+    : [];
+  const actions = await db.select().from(humanActionsTable)
+    .where(eq(humanActionsTable.cycleId, cycle.id));
+  res.json({
+    cycle,
+    opportunity: opportunity ?? null,
+    project: project ?? null,
+    humanActions: actions,
+    nextInstruction: cycle.state === "WAITING_HUMAN"
+      ? "OWNER_COMPLETE_HUMAN_ACTION_THEN_RESUME_SAME_PROJECT"
+      : cycle.state === "RESUME_PENDING"
+        ? "RESUME_SAME_PROJECT_FROM_CHECKPOINT"
+        : cycle.state === "COMPLETED" ? "STOP_SAFE" : "WAIT_FOR_OWNER_CHECKPOINT",
+  });
+});
 
 router.post("/autonomy/start", async (req, res): Promise<void> => {
   if (AUTONOMY_EXECUTION_LOCKED) {
@@ -332,6 +406,16 @@ router.get("/autonomy/cycles/:id", async (req, res): Promise<void> => {
   if (!cycle) { res.status(404).json({ error: "Autonomous cycle not found" }); return; }
   res.json(GetAutonomousCycleResponse.parse(cycle));
 });
+router.get("/autonomy/cycles/:id/resume-instruction", async (req, res): Promise<void> => {
+  const id = await parseId(req.params.id);
+  if (!id) { res.status(400).json({ error: "id must be a positive integer" }); return; }
+  const instruction = await getResumeInstruction(db, id);
+  if (!instruction) {
+    res.status(409).json({ error: "No resume instruction is available for this checkpoint" });
+    return;
+  }
+  res.json(instruction);
+});
 router.get("/autonomy/cycles", async (_req, res): Promise<void> => {
   const rows = await db.select().from(autonomousCyclesTable).orderBy(desc(autonomousCyclesTable.createdAt)).limit(100);
   res.json(ListAutonomousCyclesResponse.parse(rows));
@@ -339,10 +423,11 @@ router.get("/autonomy/cycles", async (_req, res): Promise<void> => {
 
 async function candidateResponse(id: number) {
   const [opportunity] = await db.select().from(opportunitiesTable).where(eq(opportunitiesTable.id, id));
-  return opportunity ? candidate(opportunity) : null;
+  return opportunity && activeOpportunity(opportunity) ? candidate(opportunity) : null;
 }
 router.get("/autonomy/candidates", async (_req, res): Promise<void> => {
-  const opportunities = await db.select().from(opportunitiesTable).orderBy(desc(opportunitiesTable.updatedAt)).limit(100);
+  const opportunities = (await db.select().from(opportunitiesTable).orderBy(desc(opportunitiesTable.updatedAt)).limit(100))
+    .filter((opportunity) => activeOpportunity(opportunity));
   res.json(ListAutonomyCandidatesResponse.parse(await Promise.all(deduplicateOpportunities(opportunities).map(candidate))));
 });
 router.get("/autonomy/candidates/:id", async (req, res): Promise<void> => {
@@ -354,7 +439,8 @@ router.get("/autonomy/candidates/:id", async (req, res): Promise<void> => {
   res.json(GetAutonomyCandidateResponse.parse(result));
 });
 router.get("/candidates", async (_req, res): Promise<void> => {
-  const opportunities = await db.select().from(opportunitiesTable).orderBy(desc(opportunitiesTable.updatedAt)).limit(100);
+  const opportunities = (await db.select().from(opportunitiesTable).orderBy(desc(opportunitiesTable.updatedAt)).limit(100))
+    .filter((opportunity) => activeOpportunity(opportunity));
   res.json(ListAutonomyCandidatesResponse.parse(await Promise.all(deduplicateOpportunities(opportunities).map(candidate))));
 });
 router.get("/candidates/:id", async (req, res): Promise<void> => {
@@ -403,39 +489,11 @@ router.post("/human-actions/:id/complete", async (req, res): Promise<void> => {
       return;
     }
   }
-  const result = await db.transaction(async (tx) => {
-    const [completed] = await tx.update(humanActionsTable).set({
-      status: approved ? "COMPLETED" : "CANCELLED",
-      payload: body.data.payload ?? action.payload,
-      completedAt: new Date(),
-      updatedAt: new Date(),
-    }).where(and(eq(humanActionsTable.id, id), eq(humanActionsTable.status, "PENDING"))).returning();
-    if (!completed) return action;
-    if (action.cycleId) {
-      const [movedCycle] = await tx.update(autonomousCyclesTable).set({
-        state: approved ? "RESUME_PENDING" : "WAITING_HUMAN",
-        stage: approved ? "RESUME_PENDING" : "HUMAN_REJECTED",
-        checkpoint: action.checkpoint,
-        message: approved
-          ? `Human action completed. Checkpoint ${action.checkpoint} is ready for the workflow runner to resume.`
-          : `Human action rejected. Cycle remains blocked at checkpoint ${action.checkpoint}.`,
-        updatedAt: new Date(),
-      }).where(and(
-        eq(autonomousCyclesTable.id, action.cycleId),
-        eq(autonomousCyclesTable.state, "WAITING_HUMAN"),
-        eq(autonomousCyclesTable.checkpoint, action.checkpoint),
-      )).returning({ id: autonomousCyclesTable.id });
-      if (!movedCycle) throw new Error("Human action lost its linked cycle checkpoint");
-      await appendLifecycleEvent({
-        eventKey: lifecycleKey("human_action", action.id, completed.status),
-        sourceType: "human_action", sourceId: action.id, eventType: "HUMAN_ACTION_COMPLETED",
-        status: completed.status, actionId: action.id, cycleId: action.cycleId,
-        opportunityId: action.opportunityId, projectId: action.projectId,
-        payload: { checkpoint: action.checkpoint, approved },
-      }, tx);
-    }
-    return completed;
-  });
+  const result = await db.transaction((tx) => completeOwnerAction(tx, {
+    actionId: id,
+    approved,
+    payload: body.data.payload ?? action.payload,
+  }));
   res.json(CompleteHumanActionResponse.parse(result));
 });
 

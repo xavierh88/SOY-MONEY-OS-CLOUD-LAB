@@ -11,6 +11,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
+import type { FinanceMode } from "./finance";
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -119,6 +120,12 @@ export const projectsTable = pgTable(
     qaRecommendations: text("qa_recommendations").array().notNull().default([]),
     qaCheckedAt: timestamp("qa_checked_at", { withTimezone: true }),
     sellPackage: jsonb("sell_package").$type<Record<string, unknown>>(),
+    originCandidateId: integer("origin_candidate_id"),
+    originOpportunityId: integer("origin_opportunity_id").references(() => opportunitiesTable.id),
+    // The migration adds the FK after both tables exist; keeping this scalar
+    // avoids a TypeScript inference cycle with cyclesTable.
+    originCycleId: integer("origin_cycle_id"),
+    creationIdempotencyKey: text("creation_idempotency_key"),
     publicationExecuted: boolean("publication_executed").notNull().default(false),
     marketingExecuted: boolean("marketing_executed").notNull().default(false),
     saleExecuted: boolean("sale_executed").notNull().default(false),
@@ -146,6 +153,10 @@ export const resultsTable = pgTable(
     outcome: text("outcome").notNull(),
     status: text("status").notNull(),
     revenue: real("revenue").notNull().default(0),
+    cost: real("cost"),
+    profit: real("profit"),
+    mode: text("mode").$type<FinanceMode>().notNull().default("POTENTIAL"),
+    financeIdempotencyKey: text("finance_idempotency_key"),
     realRevenue: boolean("real_revenue").notNull().default(false),
     ...timestamps,
   },
@@ -159,6 +170,16 @@ export const learningTable = pgTable(
   {
     id: serial("id").primaryKey(),
     projectId: integer("project_id").references(() => projectsTable.id),
+    originClassification: text("origin_classification").notNull().default("UNKNOWN_ORIGIN"),
+    provenanceSourceType: text("provenance_source_type"),
+    provenanceSourceId: text("provenance_source_id"),
+    candidateId: integer("candidate_id"),
+    opportunityId: integer("opportunity_id").references(() => opportunitiesTable.id),
+    // Linked by the migration after both tables exist.
+    cycleId: integer("cycle_id"),
+    resultId: integer("result_id").references(() => resultsTable.id),
+    evidenceReference: text("evidence_reference"),
+    provenance: jsonb("provenance").$type<Record<string, unknown>>().notNull().default({}),
     title: text("title").notNull(),
     summary: text("summary").notNull(),
     status: text("status").notNull(),

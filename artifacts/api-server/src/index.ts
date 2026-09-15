@@ -1,7 +1,11 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startAutonomyScheduler } from "./lib/autonomy-scheduler";
-import { launchExpirationFinalizer, launchResumePendingWorker } from "./lib/workers";
+import {
+  launchExpirationFinalizer,
+  launchExternalDurabilityWorkers,
+  launchResumePendingWorker,
+} from "./lib/workers";
 
 const rawPort = process.env["PORT"];
 
@@ -27,4 +31,5 @@ app.listen(port, (err) => {
   startAutonomyScheduler();
   launchExpirationFinalizer();
   launchResumePendingWorker();
+  launchExternalDurabilityWorkers();
 });

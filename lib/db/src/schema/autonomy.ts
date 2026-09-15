@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 import { opportunitiesTable, projectsTable } from "./soy-money";
+import type { FinanceMode } from "./finance";
 
 const created = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -91,7 +92,7 @@ export const financeLedgerTable = pgTable("soy_finance_ledger", {
   id: serial("id").primaryKey(),
   idempotencyKey: text("idempotency_key").notNull(),
   accountId: integer("account_id"),
-  mode: text("mode").notNull().default("POTENTIAL"),
+  mode: text("mode").$type<FinanceMode>().notNull().default("POTENTIAL"),
   entryType: text("entry_type").notNull(),
   amount: real("amount").notNull().default(0),
   currency: text("currency").notNull().default("USD"),
@@ -107,7 +108,7 @@ export const platformAccountsTable = pgTable("soy_platform_accounts", {
   id: serial("id").primaryKey(),
   platform: text("platform").notNull(),
   accountName: text("account_name").notNull(),
-  mode: text("mode").notNull().default("PAPER"),
+  mode: text("mode").$type<FinanceMode>().notNull().default("PAPER"),
   status: text("status").notNull().default("UNCONNECTED"),
   availableAmount: real("available_amount").notNull().default(0),
   withdrawableAmount: real("withdrawable_amount").notNull().default(0),
@@ -123,10 +124,15 @@ export const monetizationAttemptsTable = pgTable("soy_monetization_attempts", {
   opportunityId: integer("opportunity_id").references(() => opportunitiesTable.id),
   projectId: integer("project_id").references(() => projectsTable.id),
   platformAccountId: integer("platform_account_id").references(() => platformAccountsTable.id),
-  mode: text("mode").notNull().default("POTENTIAL"),
+  mode: text("mode").$type<FinanceMode>().notNull().default("POTENTIAL"),
   kind: text("kind").notNull(),
   status: text("status").notNull().default("PREPARED"),
   amount: real("amount").notNull().default(0),
+  channel: text("channel"),
+  offer: text("offer"),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  result: jsonb("result").$type<Record<string, unknown>>(),
   evidence: jsonb("evidence").$type<Record<string, unknown>>().notNull().default({}),
   ...created,
 }, (table) => ({

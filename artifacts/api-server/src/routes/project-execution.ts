@@ -29,6 +29,7 @@ import {
   StartProjectBuildResponse,
 } from "@workspace/api-zod";
 import { appendLifecycleEvent, lifecycleKey } from "../lib/lifecycle";
+import { appendGoldenPathEvent, recordCanonicalFinance } from "../lib/golden-path";
 
 const router: IRouter = Router();
 
@@ -546,17 +547,37 @@ router.post("/projects/:id/result", async (req, res): Promise<void> => {
       outcome: "MVP estructurado y paquete comercial preparados; no se realizó ninguna venta.",
       status: "COMPLETED",
       revenue: 0,
+      cost: 0,
+      profit: 0,
+      mode: "POTENTIAL" as const,
       realRevenue: false,
     };
     const [savedResult] = existingResult
       ? await tx.update(resultsTable).set(resultValues).where(eq(resultsTable.id, existingResult.id)).returning()
       : await tx.insert(resultsTable).values({ projectId: project.id, ...resultValues }).returning();
+    await recordCanonicalFinance(tx, {
+      resultId: savedResult.id,
+      projectId: project.id,
+      mode: "POTENTIAL",
+      amount: 0,
+      description: "MVP preparation result; no real revenue claimed",
+    });
     await tx.update(executionsTable).set({ status: "RESULT_RECORDED", currentStage: "LEARNING", updatedAt: now }).where(eq(executionsTable.id, execution.id));
     await tx.insert(activitiesTable).values({
       executionId: execution.id,
       stage: "PROJECT_RESULT_RECORDED",
       status: "COMPLETED",
       message: "Resultado de preparación registrado con revenue 0 y realRevenue false.",
+    });
+    await appendGoldenPathEvent(tx, {
+      eventKey: lifecycleKey("result", savedResult.id, "RECORDED"),
+      sourceType: "result",
+      sourceId: savedResult.id,
+      eventType: "PROJECT_RESULT_RECORDED",
+      status: savedResult.status,
+      opportunityId: project.opportunityId,
+      projectId: project.id,
+      payload: { revenue: savedResult.revenue, realRevenue: savedResult.realRevenue },
     });
     return savedResult;
   });
@@ -577,12 +598,6 @@ router.post("/projects/:id/result", async (req, res): Promise<void> => {
     return;
   }
 
-  await appendLifecycleEvent({
-    eventKey: lifecycleKey("result", result.id, "RECORDED"),
-    sourceType: "result", sourceId: result.id, eventType: "PROJECT_RESULT_RECORDED",
-    status: result.status, opportunityId: project.opportunityId, projectId: project.id,
-    payload: { revenue: result.revenue, realRevenue: result.realRevenue },
-  });
   res.json(RecordProjectResultResponse.parse({
     status: "RESULT_RECORDED",
     projectId: project.id,
@@ -645,6 +660,16 @@ router.post("/projects/:id/learning", async (req, res): Promise<void> => {
       status: "COMPLETED",
       message: "Aprendizaje basado en etapas realmente ejecutadas; no contiene afirmaciones de ventas.",
     });
+    await appendGoldenPathEvent(tx, {
+      eventKey: lifecycleKey("learning", savedLearning.id, "RECORDED"),
+      sourceType: "learning",
+      sourceId: savedLearning.id,
+      eventType: "PROJECT_LEARNING_RECORDED",
+      status: savedLearning.status,
+      opportunityId: project.opportunityId,
+      projectId: project.id,
+      payload: { safe: true },
+    });
     return savedLearning;
   });
   if (!learning) {
@@ -664,11 +689,6 @@ router.post("/projects/:id/learning", async (req, res): Promise<void> => {
     return;
   }
 
-  await appendLifecycleEvent({
-    eventKey: lifecycleKey("learning", learning.id, "RECORDED"),
-    sourceType: "learning", sourceId: learning.id, eventType: "PROJECT_LEARNING_RECORDED",
-    status: learning.status, opportunityId: project.opportunityId, projectId: project.id,
-  });
   res.json(RecordProjectLearningResponse.parse({
     status: "LEARNING_RECORDED",
     projectId: project.id,
@@ -728,6 +748,16 @@ router.post("/projects/:id/complete", async (req, res): Promise<void> => {
       status: "COMPLETED",
       message: "Ciclo V1 completado de forma segura; no se ejecutaron publicación, venta ni operaciones financieras.",
     });
+    await appendGoldenPathEvent(tx, {
+      eventKey: lifecycleKey("project", savedProject.id, "COMPLETED"),
+      sourceType: "project",
+      sourceId: savedProject.id,
+      eventType: "PROJECT_COMPLETED",
+      status: savedProject.status,
+      opportunityId: savedProject.opportunityId,
+      projectId: savedProject.id,
+      payload: { publicationExecuted: false, saleExecuted: false, financialExecution: false },
+    });
     return savedProject;
   });
   if (!completedProject) {
@@ -746,12 +776,6 @@ router.post("/projects/:id/complete", async (req, res): Promise<void> => {
     return;
   }
 
-  await appendLifecycleEvent({
-    eventKey: lifecycleKey("project", completedProject.id, "COMPLETED"),
-    sourceType: "project", sourceId: completedProject.id, eventType: "PROJECT_COMPLETED",
-    status: completedProject.status, opportunityId: completedProject.opportunityId, projectId: completedProject.id,
-    payload: { publicationExecuted: false, saleExecuted: false, financialExecution: false },
-  });
   res.json(CompleteProjectResponse.parse({
     status: "PROJECT_COMPLETED",
     projectId: project.id,

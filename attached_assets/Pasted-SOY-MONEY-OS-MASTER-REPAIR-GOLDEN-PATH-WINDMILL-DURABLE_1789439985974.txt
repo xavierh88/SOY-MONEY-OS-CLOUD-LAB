@@ -1,0 +1,1263 @@
+SOY MONEY OS
+MASTER REPAIR — GOLDEN PATH + WINDMILL + DURABLE EXTERNAL ORCHESTRATION V1
+
+MISIÓN
+
+Corregir los bloqueadores HIGH y los MEDIUM necesarios identificados por la FINAL ARCHITECTURE + WINDMILL AUDIT de SOY MONEY OS, hasta conseguir una arquitectura capaz de ejecutar UN Golden Path controlado end-to-end.
+
+ESTADO DE PARTIDA CONFIRMADO POR AUDITORÍA:
+
+FINAL_AUDIT_STATUS = FAIL
+READY_FOR_GOLDEN_PATH_TEST = NO
+READY_TO_UNLOCK_AUTONOMY = NO
+READY_TO_ENABLE_AUTONOMY = NO
+
+AUTONOMY_EXECUTION_LOCKED=true
+AUTONOMY=OFF
+
+NO cambiar esos dos estados durante esta fase.
+
+==================================================
+REGLAS ABSOLUTAS
+==================================================
+
+1. NO activar autonomía.
+2. NO desbloquear autonomía.
+3. NO dinero real.
+4. NO trading real.
+5. NO apuestas reales.
+6. NO inversiones reales.
+7. NO compras.
+8. NO pagos.
+9. NO retiros.
+10. NO campañas/publicaciones reales.
+11. NO autoaprobar Human Actions.
+12. NO relajar Clerk para solucionar Windmill.
+13. NO convertir endpoints owner-only en públicos.
+14. NO borrar datos históricos.
+15. NO borrar lifecycle events.
+16. NO borrar learning huérfano.
+17. NO eliminar Windmill flows existentes.
+18. NO romper GitHub Money Lab existente.
+19. NO crear una segunda fuente de verdad.
+20. PostgreSQL/Replit continúa siendo Source of Truth para los dominios internos.
+
+Antes de modificar:
+
+- inspeccionar implementación real;
+- identificar componentes existentes reutilizables;
+- trabajar incrementalmente;
+- aplicar migraciones seguras;
+- mantener compatibilidad;
+- ejecutar typecheck/tests después de cada bloque importante.
+
+==================================================
+PROBLEMAS CONFIRMADOS QUE DEBEN RESOLVERSE
+==================================================
+
+HIGH:
+
+H1.
+Windmill Discovery y Continuation no pueden autenticarse contra API protegida por Clerk.
+
+H2.
+Windmill POST puede producir jobs duplicados después de timeouts ambiguos.
+
+H3.
+GitHub workflow dispatch presenta riesgo equivalente.
+
+H4.
+No existe Golden Path autónomo/end-to-end completo.
+
+H5.
+RESUME_PENDING no continúa el mismo proyecto; actualmente puede terminar creando otro checkpoint interno.
+
+H6.
+No existe conexión causal Result → Finance.
+
+H7.
+Algunas mutaciones y lifecycle events no son atómicas.
+
+H8.
+No existe reconciliación durable del trabajo externo aceptado.
+
+MEDIUM necesarios para Golden Path:
+
+M1.
+22 Money Lab candidates sin clasificación normalizada.
+
+M2.
+22 Money Lab candidates sin validUntil/expiresAt normalizados.
+
+M3.
+5 learning records huérfanos.
+
+M4.
+GitHub ingestion depende de solicitudes UI/API.
+
+M5.
+REAL/PAPER/POTENTIAL no es un modo canónico.
+
+M6.
+Candidate no posee evidence/decision/learning lifecycle completo.
+
+M7.
+Scheduler puede consumir slot fallido.
+
+M8.
+Aliases de candidate pueden causar ambigüedad.
+
+==================================================
+FASE 1
+MACHINE-TO-MACHINE AUTHENTICATION
+==================================================
+
+Crear una frontera de autenticación independiente para integraciones de confianza.
+
+NO utilizar sesión Clerk humana para Windmill/GitHub.
+
+NO relajar requireOwner.
+
+Diseñar:
+
+SERVICE_IDENTITY
+
+para:
+
+WINDMILL
+GITHUB_CALLBACK si se necesita
+INTERNAL_WORKER
+
+Usar secretos server-side.
+
+Nunca exponerlos al frontend.
+
+Implementar un mecanismo seguro, por ejemplo:
+
+service identity
++
+signed request
++
+timestamp
++
+nonce/dispatch_id
+
+o una solución equivalente compatible con la arquitectura actual.
+
+Cada request máquina-a-máquina debe validar:
+
+service identity
+signature
+timestamp
+dispatch_id
+allowed operation
+
+Rechazar:
+
+firma incorrecta
+timestamp vencido
+service desconocido
+operación no autorizada
+replay inválido
+
+Los endpoints humanos continúan protegidos por Clerk/owner.
+
+Crear separación explícita:
+
+HUMAN AUTH
+vs
+SERVICE AUTH
+
+==================================================
+FASE 2
+DURABLE DISPATCH SYSTEM
+==================================================
+
+Crear una capa durable de dispatch externo.
+
+ANTES de llamar Windmill o GitHub:
+
+persistir un dispatch.
+
+Modelo sugerido:
+
+soy_external_dispatches
+
+campos conceptuales:
+
+id
+dispatch_id UNIQUE
+provider
+operation
+entity_type
+entity_id
+cycle_id
+opportunity_id
+project_id
+payload_hash
+status
+attempt_count
+external_job_id
+external_run_id
+created_at
+dispatched_at
+acknowledged_at
+completed_at
+last_error
+next_retry_at
+result_reference
+
+Estados:
+
+CREATED
+DISPATCHING
+ACCEPTED
+RUNNING
+COMPLETED
+FAILED
+RECONCILING
+CANCELLED
+
+dispatch_id debe existir ANTES del POST externo.
+
+Nunca depender únicamente del HTTP response para determinar si el trabajo existe.
+
+==================================================
+FASE 3
+IDEMPOTENT WINDMILL DISPATCH
+==================================================
+
+Adaptar la integración Replit → Windmill.
+
+Flows actuales:
+
+Discovery:
+u/xavierhernandez1988/foremost_flow
+
+Continuation:
+u/xavierhernandez1988/contrasty_flow
+
+NO borrarlos.
+
+NO reemplazarlos sin necesidad.
+
+Proporcionar autenticación máquina-a-máquina compatible.
+
+Cada dispatch debe incluir:
+
+dispatch_id
+cycle_id cuando exista
+opportunity_id cuando exista
+project_id cuando exista
+operation
+timestamp
+
+Antes de reintentar un POST tras timeout:
+
+RECONCILIAR.
+
+Preguntar:
+
+¿ya existe el job asociado a dispatch_id?
+
+Si existe:
+
+NO crear otro.
+
+Vincularlo al dispatch durable.
+
+Si no existe:
+
+permitir retry.
+
+MAX_RETRIES = 3.
+
+Nunca crear múltiples jobs por timeout ambiguo.
+
+==================================================
+FASE 4
+WINDMILL CALLBACK
+==================================================
+
+Crear callback firmado/idempotente Windmill → Replit.
+
+El callback debe incluir:
+
+dispatch_id
+external_job_id
+status
+result
+timestamp
+signature
+
+Replit debe:
+
+autenticar servicio
+validar firma
+buscar dispatch_id
+rechazar replay incorrecto
+aceptar repetición idéntica idempotentemente
+persistir resultado
+continuar state machine una sola vez
+
+UNIQUE(dispatch_id + transition)
+
+o mecanismo equivalente.
+
+Nunca confiar solamente en job_id.
+
+==================================================
+FASE 5
+GITHUB DURABLE DISPATCH
+==================================================
+
+Mantener:
+
+xavierh88/SOY-MONEY-OS-CLOUD-LAB
+
+y el workflow actual de Money Lab.
+
+NO cambiar reglas PAPER.
+
+Crear el mismo concepto durable:
+
+dispatch_id
+
+antes de:
+
+workflow_dispatch.
+
+Enviar dispatch_id al workflow si técnicamente es posible.
+
+El artifact/result debe conservar dispatch_id.
+
+La asociación:
+
+Replit Cycle
+↔ GitHub Run
+↔ Artifact
+
+debe ser inequívoca.
+
+No asociar simplemente “el run más reciente”.
+
+==================================================
+FASE 6
+GITHUB DURABLE INGESTION
+==================================================
+
+Eliminar dependencia exclusiva de:
+
+usuario abre Money Lab
+o
+request de summary/list.
+
+Implementar un mecanismo durable de reconciliación/ingestión.
+
+Puede ser:
+
+background worker
+poller durable
+callback seguro
+o arquitectura equivalente.
+
+Debe poder detectar:
+
+ACCEPTED
+RUNNING
+COMPLETED
+FAILED
+
+y descargar/ingerir artifact cuando corresponda.
+
+Debe sobrevivir:
+
+restart
+ausencia de tráfico UI
+timeout
+respuesta perdida
+
+No duplicar candidates.
+
+==================================================
+FASE 7
+GOLDEN PATH ORCHESTRATOR
+==================================================
+
+Crear UNA orquestación causal clara.
+
+NO crear otro sistema paralelo si puede reutilizarse la state machine actual.
+
+Objetivo:
+
+DISCOVERY
+→ RESEARCH
+→ EVIDENCE
+→ DEDUPE
+→ SCORE
+→ VALIDATION
+→ DECISION
+
+SI NO EXISTE OPORTUNIDAD:
+
+NO_VALID_OPPORTUNITY
+→ HISTORY
+→ LEARNING
+→ COMPLETE
+
+SI EXISTE:
+
+CANDIDATE
+→ DECISION_REQUIRED o DECISION
+→ PROJECT_CREATED
+→ BUILDING
+→ QA_REVIEW
+→ READY_TO_MONETIZE
+→ MONETIZATION_ATTEMPT
+→ RESULT
+→ FINANCE
+→ LEARNING
+→ COMPLETE
+
+Durante esta fase:
+
+MONETIZATION_ATTEMPT debe ser SAFE/SIMULATED/PAPER cuando pueda implicar actividad externa o dinero.
+
+NO realizar monetización real.
+
+==================================================
+FASE 8
+DURABLE CANDIDATE DECISION
+==================================================
+
+Candidate necesita decisión persistente.
+
+Crear/reutilizar estructura para:
+
+candidate_id
+decision
+decision_reason
+score
+confidence
+risk
+decided_at
+decided_by
+next_action
+
+Decisiones posibles:
+
+REJECT
+RESEARCH_MORE
+CANDIDATE
+HIGH_PRIORITY
+HUMAN_REVIEW
+NO_VALID_OPPORTUNITY
+
+No inferir una decisión únicamente desde texto de UI.
+
+==================================================
+FASE 9
+CANDIDATE → PROJECT
+==================================================
+
+Cuando una oportunidad BUSINESS válida sea seleccionada:
+
+crear exactamente UN proyecto.
+
+Persistir relación:
+
+candidate
+→ opportunity
+→ project
+
+Usar idempotency key.
+
+Retry no puede crear un segundo proyecto.
+
+El proyecto debe conservar:
+
+origin_candidate_id
+origin_opportunity_id
+origin_cycle_id
+
+cuando corresponda.
+
+==================================================
+FASE 10
+RESUME SAME PROJECT
+==================================================
+
+Corregir el problema confirmado:
+
+RESUME_PENDING actualmente NO continúa realmente el proyecto.
+
+Implementar:
+
+WAITING_HUMAN
+→ owner completes Human Action
+→ RESUME_PENDING
+→ resume exact checkpoint
+→ continue SAME project
+
+Conservar:
+
+cycle_id
+opportunity_id
+project_id
+execution_id si existe
+checkpoint
+context
+
+NO comenzar nuevamente.
+
+NO crear otra Human Action salvo que una etapa posterior realmente la requiera.
+
+Ejemplo:
+
+BUILD
+→ HUMAN ACTION
+→ RESUME
+→ CONTINUE BUILD/QA
+
+no:
+
+BUILD
+→ HUMAN ACTION
+→ RESUME
+→ HUMAN ACTION artificial.
+
+==================================================
+FASE 11
+PROJECT EXECUTION
+==================================================
+
+Conectar la state machine existente:
+
+PROJECT_CREATED
+→ BUILDING
+→ QA_REVIEW
+→ READY_TO_MONETIZE
+
+Reutilizar endpoints/servicios existentes:
+
+start
+qa
+sell-ready
+result
+learning
+complete
+
+pero mover la lógica reusable a servicios internos si actualmente depende demasiado de HTTP interno.
+
+Evitar que Replit tenga que llamarse a sí mismo mediante HTTP si no es necesario.
+
+==================================================
+FASE 12
+SAFE MONETIZATION ATTEMPT
+==================================================
+
+Crear registro observable:
+
+monetization_attempt
+
+pero durante esta fase:
+
+mode = PAPER / SIMULATED / POTENTIAL
+
+NO venta real.
+
+Registrar:
+
+project_id
+opportunity_id
+channel
+offer
+mode
+status
+started_at
+completed_at
+result
+
+Estados:
+
+PLANNED
+READY
+WAITING_HUMAN
+SIMULATED
+NO_RESULT
+RESULT_RECORDED
+FAILED
+
+==================================================
+FASE 13
+CANONICAL FINANCE MODE
+==================================================
+
+Crear modo canónico obligatorio:
+
+REAL
+PAPER
+POTENTIAL
+
+Aplicarlo a:
+
+Result
+Finance
+Money Lab
+Monetization Attempt
+
+No inferir mediante texto.
+
+Reglas:
+
+PAPER nunca aumenta REAL.
+POTENTIAL nunca aumenta REAL.
+SIMULATED se normaliza a PAPER si esa es la convención elegida.
+REAL solamente con evidencia real y autorización apropiada.
+
+Durante esta reparación:
+
+NO crear transacciones REAL.
+
+==================================================
+FASE 14
+RESULT → FINANCE
+==================================================
+
+Crear conexión causal.
+
+RESULT
+→ finance classification
+→ ledger/read model correspondiente
+→ learning
+
+Para Golden Path de prueba:
+
+usar PAPER o POTENTIAL.
+
+Registrar por ejemplo:
+
+mode=PAPER
+revenue=...
+cost=...
+profit=...
+
+pero NO mezclarlo con balance REAL.
+
+Idempotency key:
+
+result_id + finance_mode
+
+Un retry no puede duplicar ledger.
+
+==================================================
+FASE 15
+LEARNING RECONCILIATION
+==================================================
+
+Existen 5 learning records huérfanos.
+
+NO borrarlos.
+
+Analizarlos individualmente.
+
+Clasificar:
+
+LEGACY_VALID
+LINKABLE
+IMPORTED_SNAPSHOT
+UNKNOWN_ORIGIN
+
+Cuando pueda determinarse relación de forma verificable:
+
+vincularla.
+
+Cuando no:
+
+mantenerla y marcar origen desconocido.
+
+Nunca inventar project_id.
+
+Además conectar causalmente:
+
+candidate decision
+NO_VALID_OPPORTUNITY
+expiration
+paper result
+project result
+
+→ Learning.
+
+==================================================
+FASE 16
+MONEY LAB CANDIDATE NORMALIZATION
+==================================================
+
+Actualmente existen 22 candidates.
+
+Migrarlos idempotentemente para incluir cuando sea posible:
+
+classification
+asset_type
+symbol
+market
+signal
+score
+confidence
+risk
+detected_at
+valid_from
+valid_until
+expires_at
+status
+paper_mode
+evidence_reference
+decision
+learning_reference
+source_cycle_id
+github_run_id
+dispatch_id
+
+NO inventar datos históricos.
+
+Si no puede determinarse un dato:
+
+NULL / UNKNOWN.
+
+No fabricar fechas de vigencia.
+
+==================================================
+FASE 17
+MARKET CANDIDATE EXPIRATION
+==================================================
+
+Crear finalizador durable equivalente al de Opportunities.
+
+Estados conceptuales:
+
+ACTIVE
+VALIDATING
+PAPER_TESTING
+EXPIRED
+REJECTED
+COMPLETED
+
+Cuando expires_at < now:
+
+EXPIRED
+NON_EXECUTABLE
+
+Registrar lifecycle.
+
+No borrar.
+
+No permitir que un candidato expirado vuelva a ser ejecutable.
+
+==================================================
+FASE 18
+ATOMIC STATE + LIFECYCLE
+==================================================
+
+Corregir el problema:
+
+mutación principal y lifecycle event pueden quedar divergentes.
+
+Cuando sea posible:
+
+STATE MUTATION
++
+LIFECYCLE EVENT
+
+deben ocurrir en la MISMA transacción PostgreSQL.
+
+Si una transición depende de outbox:
+
+crear transactional outbox.
+
+No permitir:
+
+estado cambiado
+pero evento perdido
+
+o:
+
+evento creado
+pero estado no cambiado.
+
+==================================================
+FASE 19
+TRANSACTIONAL OUTBOX
+==================================================
+
+Para acciones externas considerar/implementar:
+
+soy_outbox
+
+La transacción interna crea:
+
+state transition
+lifecycle event
+outbox event
+
+atómicamente.
+
+Worker procesa outbox posteriormente.
+
+Estados:
+
+PENDING
+PROCESSING
+DELIVERED
+FAILED
+
+Esto debe evitar depender de llamadas externas dentro de una transacción DB.
+
+==================================================
+FASE 20
+SCHEDULER HARDENING
+==================================================
+
+NO encender scheduler autónomo.
+
+Corregir arquitectura para:
+
+- reserva atómica del slot;
+- múltiples instancias no ejecutan mismo slot;
+- un fallo no consume definitivamente el slot si es retryable;
+- max retries;
+- retry_after;
+- status durable.
+
+AUTONOMY_EXECUTION_LOCKED debe seguir TRUE.
+
+==================================================
+FASE 21
+ZERO CAPITAL POLICY
+==================================================
+
+Formalizar:
+
+STARTING_CAPITAL = 0
+
+como constraint del Business Engine durante fase inicial.
+
+Opportunity scoring debe favorecer oportunidades ejecutables con:
+
+required_capital = 0
+
+o muy cercano a cero cuando solo sea análisis.
+
+Si una oportunidad necesita gasto:
+
+CAPITAL_REQUIRED
+
+y debe requerir futura decisión humana.
+
+No gastar automáticamente.
+
+==================================================
+FASE 22
+OBSERVABILITY
+==================================================
+
+Control Tower debe poder reconstruir:
+
+Cycle
+→ Candidate
+→ Evidence
+→ Decision
+→ Opportunity
+→ Project
+→ Execution
+→ Human Action
+→ Resume
+→ QA
+→ Monetization Attempt
+→ Result
+→ Finance
+→ Learning
+→ Complete
+
+Mostrar:
+
+current state
+current action
+next action
+responsible actor/process
+timestamps
+errors
+external dispatches
+Windmill job cuando exista
+GitHub run cuando exista
+expiration
+finance mode
+
+No crear solamente UI.
+
+Los datos deben provenir de registros persistidos.
+
+==================================================
+FASE 23
+WINDMILL RESPONSIBILITY
+==================================================
+
+Después de reparar autenticación/idempotencia, decidir explícitamente qué responsabilidad conserva Windmill.
+
+NO permitir dos motores responsables de la misma transición.
+
+Matriz obligatoria:
+
+DOMAIN
+SOURCE_OF_TRUTH
+ORCHESTRATOR
+EXECUTOR
+
+Si Replit es responsable de Project State Machine:
+
+Windmill no debe competir modificando la misma transición independientemente.
+
+Windmill puede actuar como:
+
+external workflow executor
+
+pero Replit/PostgreSQL conserva autoridad.
+
+Clasificar finalmente:
+
+Discovery
+Continuation
+
+como:
+
+KEEP
+KEEP_REFACTORED
+LEGACY_UNUSED
+
+NO borrar durante esta fase.
+
+==================================================
+FASE 24
+FAILURE RECOVERY
+==================================================
+
+Probar controladamente:
+
+Windmill timeout
+GitHub timeout
+duplicate callback
+duplicate dispatch request
+duplicate Human Action click
+worker restart
+scheduler restart
+missing artifact
+invalid callback signature
+expired candidate
+invalid state transition
+
+Resultado esperado:
+
+NO duplicación
+estado durable
+error observable
+reconciliación posible
+máximo 3 retries cuando corresponda
+
+==================================================
+FASE 25
+NO VALID OPPORTUNITY
+==================================================
+
+Implementar/probar rama causal:
+
+cycle
+→ research
+→ no candidate passes threshold
+→ NO_VALID_OPPORTUNITY
+→ lifecycle
+→ learning
+→ complete
+
+NO crear proyecto.
+
+NO fabricar oportunidad.
+
+==================================================
+FASE 26
+GOLDEN PATH TEST PREPARATION
+==================================================
+
+Después de reparar:
+
+NO activar autonomía.
+
+Crear capacidad para ejecutar UN fixture controlado:
+
+TEST_SIMULATION
+
+Debe probar:
+
+Opportunity
+→ Evidence
+→ Dedupe
+→ Score
+→ Candidate
+→ Decision
+→ Project
+→ Build
+→ QA
+→ Human Action
+→ manual owner approval
+→ Resume SAME project
+→ Ready
+→ simulated monetization
+→ PAPER/POTENTIAL Result
+→ Finance
+→ Learning
+→ Complete
+
+NO autoaprobar Human Action.
+
+Cuando llegue al Human Action:
+
+DETENER LA PRUEBA.
+
+Mostrar al propietario exactamente qué debe aprobar.
+
+Esperar aprobación humana real.
+
+Después continuar el MISMO fixture.
+
+==================================================
+FASE 27
+PARALLEL MONEY LAB TEST
+==================================================
+
+También preparar un test PAPER:
+
+Market Cycle
+→ GitHub dispatch durable
+→ GitHub run
+→ artifact
+→ durable ingestion
+→ candidate
+→ validation
+→ classification
+→ validity
+→ PAPER result
+→ learning
+
+No dinero real.
+
+==================================================
+FASE 28
+REGRESSION
+==================================================
+
+Ejecutar:
+
+typecheck
+build
+database migration
+migration rerun
+API tests
+frontend tests
+auth tests
+service-auth tests
+signature tests
+idempotency tests
+lifecycle atomicity
+outbox tests
+resume tests
+expiration tests
+finance separation
+GitHub integration READ-ONLY donde sea posible
+Windmill inspection READ-ONLY antes de cualquier controlled test
+
+Comprobar:
+
+duplicate opportunities = 0
+duplicate projects = 0
+duplicate dispatches = 0
+duplicate lifecycle keys = 0
+duplicate finance events = 0
+
+==================================================
+IMPORTANTE SOBRE WINDMILL
+==================================================
+
+No soluciones Windmill haciendo pública la API.
+
+No desactives Clerk.
+
+No utilices el token del propietario como secreto de máquina.
+
+Crear una identidad de servicio independiente.
+
+No mostrar secretos en logs, UI o reporte.
+
+==================================================
+IMPORTANTE SOBRE GITHUB
+==================================================
+
+No reemplazar el token existente si funciona.
+
+No mostrarlo.
+
+No imprimirlo.
+
+No ejecutar trading.
+
+Money Lab continúa PAPER ONLY.
+
+==================================================
+IMPORTANTE SOBRE AUTONOMÍA
+==================================================
+
+Al finalizar:
+
+AUTONOMY_EXECUTION_LOCKED=true
+AUTONOMY=OFF
+
+OBLIGATORIAMENTE.
+
+Incluso si todas las pruebas pasan.
+
+El propietario decidirá posteriormente cuándo desbloquear.
+
+==================================================
+REPORTE FINAL OBLIGATORIO
+==================================================
+
+Al terminar entregar:
+
+REPAIR_STATUS
+
+HIGH_BLOCKERS_RESOLVED
+
+HIGH_BLOCKERS_REMAINING
+
+MEDIUM_ISSUES_RESOLVED
+
+MEDIUM_ISSUES_REMAINING
+
+DATABASE_MIGRATIONS
+
+MACHINE_AUTH_STATUS
+
+WINDMILL_AUTH_STATUS
+
+WINDMILL_IDEMPOTENCY_STATUS
+
+WINDMILL_FINAL_ROLE
+
+GITHUB_DISPATCH_STATUS
+
+GITHUB_INGESTION_STATUS
+
+EXTERNAL_DISPATCH_STATUS
+
+OUTBOX_STATUS
+
+GOLDEN_PATH_ORCHESTRATOR_STATUS
+
+CANDIDATE_DECISION_STATUS
+
+CANDIDATE_TO_PROJECT_STATUS
+
+RESUME_SAME_PROJECT_STATUS
+
+PROJECT_EXECUTION_STATUS
+
+MONETIZATION_ATTEMPT_STATUS
+
+RESULT_FINANCE_STATUS
+
+FINANCE_MODE_STATUS
+
+LEARNING_RECONCILIATION_STATUS
+
+MONEY_LAB_NORMALIZATION_STATUS
+
+MARKET_EXPIRATION_STATUS
+
+LIFECYCLE_ATOMICITY_STATUS
+
+SCHEDULER_HARDENING_STATUS
+
+ZERO_CAPITAL_POLICY_STATUS
+
+OBSERVABILITY_STATUS
+
+SECURITY_STATUS
+
+FAILURE_RECOVERY_STATUS
+
+TEST_RESULTS
+
+DUPLICATES_FOUND
+
+REGRESSIONS
+
+AUTONOMY_EXECUTION_LOCKED
+
+AUTONOMY_STATUS
+
+READY_FOR_CONTROLLED_GOLDEN_PATH_TEST = YES/NO
+
+READY_FOR_CONTROLLED_MONEY_LAB_TEST = YES/NO
+
+READY_TO_UNLOCK_AUTONOMY = YES/NO
+
+NEXT_EXACT_ACTION
+
+==================================================
+DEFINITION OF DONE
+==================================================
+
+NO declarar reparación completa solamente porque:
+
+- compila;
+- existen nuevas tablas;
+- aparece una pantalla;
+- existe un endpoint;
+- existe un flow.
+
+Para considerar:
+
+READY_FOR_CONTROLLED_GOLDEN_PATH_TEST = YES
+
+debe existir causalmente:
+
+Candidate
+→ Decision
+→ Project
+→ Human Checkpoint cuando corresponda
+→ Resume SAME Project
+→ QA
+→ simulated monetization
+→ PAPER/POTENTIAL Result
+→ Finance
+→ Learning
+→ Complete
+
+y debe estar demostrado mediante tests seguros.
+
+Para:
+
+READY_FOR_CONTROLLED_MONEY_LAB_TEST = YES
+
+debe existir:
+
+durable dispatch
+→ exact GitHub run correlation
+→ durable ingestion
+→ normalized candidate
+→ validity/expiration
+→ PAPER classification/result
+→ learning
+
+NO activar autonomía.
+
+Si aparece un checkpoint que requiere acción real del propietario durante la prueba, DETENTE y pregúntale al propietario.
+
+No simules su aprobación.

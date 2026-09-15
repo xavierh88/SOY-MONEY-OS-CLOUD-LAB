@@ -23,3 +23,8 @@ export * from "./autonomy";
 export * from "./owner-binding";
 export * from "./lifecycle";
 export * from "./money-lab-candidates";
+export * from "./finance";
+export * from "./external-dispatches";
+export * from "./outbox";
+export * from "./service-receipts";
+export * from "./candidate-decisions";

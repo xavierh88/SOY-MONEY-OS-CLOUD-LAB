@@ -26,6 +26,10 @@ tags:
   - name: human-actions
   - name: finance
   - name: control-tower
+  - name: candidate-decisions
+  - name: service-callbacks
+security:
+  - ClerkOwner: []
 paths:
   /healthz:
     get:
@@ -33,6 +37,7 @@ paths:
       tags: [health]
       summary: Health check
       description: Returns server health status
+      security: []
       responses:
         "200":
           description: Healthy
@@ -609,6 +614,63 @@ paths:
                 $ref: "#/components/schemas/MarketCycle"
         "404":
           $ref: "#/components/responses/NotFound"
+  /autonomy/controlled-golden-path/prepare:
+    post:
+      operationId: prepareControlledGoldenPath
+      tags: [autonomy]
+      summary: Prepare a controlled, zero-capital Golden Path checkpoint
+      description: >
+        Creates only durable PAPER/POTENTIAL records and a pending owner
+        checkpoint. This endpoint never approves an action, publishes,
+        spends money, or calls an external provider.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ControlledGoldenPathPrepareInput"
+      responses:
+        "201":
+          description: Prepared Golden Path checkpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlledGoldenPathPrepareResponse"
+        "400":
+          description: Invalid idempotency key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Durable checkpoint could not be prepared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /autonomy/controlled-golden-path/status/{id}:
+    get:
+      operationId: getControlledGoldenPathStatus
+      tags: [autonomy]
+      summary: Read a controlled Golden Path checkpoint
+      description: Read-only status; it never resumes or approves the checkpoint.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Controlled Golden Path status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlledGoldenPathStatusResponse"
+        "400":
+          description: Invalid cycle identifier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /money-lab/market-cycles:
     get:
       operationId: listMarketCycles
@@ -717,6 +779,83 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AutonomyState"
+  /service/v1/callback:
+    post:
+      operationId: receiveServiceCallback
+      tags: [service-callbacks]
+      security:
+        - ServiceHmac: []
+      summary: Receive an authenticated, replay-safe service transition
+      description: >
+        Machine-to-machine callback boundary. The provider must send the
+        service identity, allowlisted operation, dispatch identifier, current
+        timestamp, SHA-256 hash of the exact request bytes, and an HMAC-SHA256
+        signature. This endpoint does not use owner authentication and never
+        starts an external job.
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+        - $ref: "#/components/parameters/ServiceOperation"
+        - $ref: "#/components/parameters/ServiceTimestamp"
+        - $ref: "#/components/parameters/ServiceDispatchId"
+        - $ref: "#/components/parameters/ServiceBodySha256"
+        - $ref: "#/components/parameters/ServiceSignature"
+        - $ref: "#/components/parameters/ServiceMethod"
+        - $ref: "#/components/parameters/ServicePath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceCallbackBody"
+      responses:
+        "202":
+          description: New callback receipt accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceCallbackResponse"
+        "200":
+          description: Identical callback replay accepted idempotently
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceCallbackResponse"
+        "400":
+          description: Invalid callback headers, body hash, or method
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Expired timestamp or invalid signature
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Unknown service or disallowed operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: dispatch_id is not known
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicting replay for dispatch_id and transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: Service credential or callback persistence unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /autonomy/activity:
     get:
       operationId: listAutonomyActivity
@@ -818,7 +957,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/AutonomyCandidate"
+                  $ref: "#/components/schemas/OpportunityCandidate"
   /candidates/{id}:
     get:
       operationId: getCandidate
@@ -832,7 +971,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AutonomyCandidate"
+                $ref: "#/components/schemas/OpportunityCandidate"
         "404":
           $ref: "#/components/responses/NotFound"
   /autonomy/candidates:
@@ -848,7 +987,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/AutonomyCandidate"
+                  $ref: "#/components/schemas/OpportunityCandidate"
   /autonomy/candidates/{id}:
     get:
       operationId: getAutonomyCandidate
@@ -862,7 +1001,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AutonomyCandidate"
+                $ref: "#/components/schemas/OpportunityCandidate"
         "404":
           $ref: "#/components/responses/NotFound"
   /human-actions:
@@ -1050,6 +1189,23 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 components:
+  securitySchemes:
+    ClerkOwner:
+      type: apiKey
+      in: cookie
+      name: __session
+      description: >
+        Clerk session for the single persisted SOY MONEY owner. Human and
+        browser operations are owner-only; client-supplied owner identifiers
+        are never accepted.
+    ServiceHmac:
+      type: apiKey
+      in: header
+      name: X-Service-Signature
+      description: >
+        HMAC-SHA256 machine authentication. Pair this header with
+        X-Service-Id, X-Service-Operation, X-Service-Timestamp, X-Dispatch-Id,
+        X-Body-Sha256, and the canonical method/path headers.
   parameters:
     Id:
       name: id
@@ -1057,6 +1213,66 @@ components:
       required: true
       schema:
         type: integer
+    ServiceId:
+      name: X-Service-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        enum: [windmill]
+      description: Allowlisted machine service identity.
+    ServiceOperation:
+      name: X-Service-Operation
+      in: header
+      required: true
+      schema:
+        type: string
+        enum: [windmill.callback, windmill.job.completed, windmill.job.failed]
+    ServiceTimestamp:
+      name: X-Service-Timestamp
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Unix seconds or milliseconds, within five minutes of server time.
+    ServiceDispatchId:
+      name: X-Dispatch-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 200
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    ServiceBodySha256:
+      name: X-Body-Sha256
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-f0-9]{64}$"
+      description: Lowercase SHA-256 hex digest of the exact JSON request bytes.
+    ServiceSignature:
+      name: X-Service-Signature
+      in: header
+      required: true
+      schema:
+        type: string
+      description: HMAC-SHA256 hex over timestamp.method.path.dispatch_id.body_hash.
+    ServiceMethod:
+      name: X-Service-Method
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [POST]
+    ServicePath:
+      name: X-Service-Path
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [/api/service/v1/callback]
   responses:
     NotFound:
       description: Resource not found
@@ -1233,6 +1449,10 @@ components:
       properties:
         id: { type: integer }
         opportunityId: { type: integer }
+        originCandidateId: { type: ["integer", "null"] }
+        originOpportunityId: { type: ["integer", "null"] }
+        originCycleId: { type: ["integer", "null"] }
+        creationIdempotencyKey: { type: ["string", "null"] }
         name: { type: string }
         status: { type: string }
         qaStatus: { type: ["string", "null"] }
@@ -1362,7 +1582,7 @@ components:
         createdAt: { type: string, format: date-time }
     Result:
       type: object
-      required: [id, projectId, resultType, outcome, status, revenue, realRevenue, createdAt]
+      required: [id, projectId, resultType, outcome, status, revenue, cost, profit, mode, financeIdempotencyKey, realRevenue, createdAt]
       properties:
         id: { type: integer }
         projectId: { type: integer }
@@ -1370,6 +1590,10 @@ components:
         outcome: { type: string }
         status: { type: string }
         revenue: { type: number }
+        cost: { type: ["number", "null"] }
+        profit: { type: ["number", "null"] }
+        mode: { $ref: "#/components/schemas/FinanceMode" }
+        financeIdempotencyKey: { type: ["string", "null"] }
         realRevenue: { type: boolean }
         createdAt: { type: string, format: date-time }
     LearningInsight:
@@ -1432,7 +1656,7 @@ components:
         idempotencyKey: { type: string, minLength: 8, maxLength: 120 }
     MarketCycle:
       type: object
-      required: [id, githubWorkflow, dispatchKey, status, source, marketsAnalyzed, candidatesFound, paperApproved, rejected, errors, realMoneyUsed, financialExecution, realVerified, startedAt, updatedAt, createdAt]
+      required: [id, githubWorkflow, dispatchKey, status, source, mode, marketsAnalyzed, candidatesFound, paperApproved, rejected, errors, realMoneyUsed, financialExecution, realVerified, startedAt, updatedAt, createdAt]
       properties:
         id: { type: integer }
         githubRunId: { type: ["string", "null"] }
@@ -1441,6 +1665,7 @@ components:
         dispatchKey: { type: string }
         status: { type: string }
         source: { type: string }
+        mode: { $ref: "#/components/schemas/FinanceMode" }
         marketsAnalyzed: { type: integer }
         candidatesFound: { type: integer }
         paperApproved: { type: integer }
@@ -1521,15 +1746,10 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     AutonomyCandidate:
-      type: object
-      required: [opportunity, score, scoreIsDemandProof, normalizedHash]
-      properties:
-        opportunity:
-          $ref: "#/components/schemas/Opportunity"
-        score: { type: integer }
-        scoreIsDemandProof: { type: boolean, enum: [false] }
-        normalizedHash: { type: string }
-        demandProofStatus: { type: string }
+      deprecated: true
+      description: Deprecated compatibility alias; use OpportunityCandidate.
+      allOf:
+        - $ref: "#/components/schemas/OpportunityCandidate"
     AutonomyLearning:
       type: object
       required: [id, category, signal, observation, scoreDelta, metadata, createdAt, updatedAt]
@@ -1772,6 +1992,22 @@ components:
         classification: { type: ["string", "null"] }
         strategyKind: { type: ["string", "null"] }
         metrics: { type: object, additionalProperties: true }
+        assetType: { type: ["string", "null"] }
+        market: { type: ["string", "null"] }
+        signal: { type: ["string", "null"] }
+        score: { type: ["number", "null"] }
+        confidence: { type: ["number", "null"] }
+        risk: { type: ["string", "null"] }
+        detectedAt: { type: ["string", "null"], format: date-time }
+        validFrom: { type: ["string", "null"], format: date-time }
+        mode: { $ref: "#/components/schemas/FinanceMode" }
+        status: { type: ["string", "null"] }
+        decision: { type: ["string", "null"] }
+        evidenceReference: { type: ["string", "null"] }
+        learningReference: { type: ["string", "null"] }
+        sourceCycleId: { type: ["integer", "null"] }
+        githubRunId: { type: ["string", "null"] }
+        dispatchId: { type: ["string", "null"] }
         cycleTimestamp: { type: ["string", "null"], format: date-time }
         guardrails: { $ref: "#/components/schemas/MarketCycleGuardrails" }
         validUntil: { type: ["string", "null"], format: date-time }
@@ -1796,4 +2032,164 @@ components:
         outOfSample:
           type: [object, "null"]
           additionalProperties: true
+    FinanceMode:
+      type: string
+      enum: [REAL, PAPER, POTENTIAL]
+      description: >
+        Canonical finance mode. REAL requires explicit real-world evidence and
+        authorization; PAPER is simulation; POTENTIAL is an unexecuted
+        opportunity. SIMULATED is not a valid mode.
+    OpportunityCandidate:
+      type: object
+      description: Existing business opportunity candidate, distinct from a normalized Market Lab candidate.
+      required: [opportunity, score, scoreIsDemandProof, normalizedHash]
+      properties:
+        opportunity:
+          $ref: "#/components/schemas/Opportunity"
+        score: { type: integer }
+        scoreIsDemandProof: { type: boolean, enum: [false] }
+        normalizedHash: { type: string }
+        demandProofStatus: { type: string }
+    MoneyLabCandidate:
+      allOf:
+        - $ref: "#/components/schemas/MarketCycleCandidate"
+      description: Normalized candidate produced by a persisted Market Lab cycle.
+    CandidateDecision:
+      type: object
+      description: >
+        Generic durable decision whose link is explicit. MONEY_LAB_CANDIDATE
+        uses candidateId; OPPORTUNITY_CANDIDATE uses opportunityId and never
+        reuses a Market Lab candidate identifier.
+      required: [id, decisionKey, candidateType, decision, metadata, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        decisionKey: { type: string }
+        candidateType:
+          type: string
+          enum: [MONEY_LAB_CANDIDATE, OPPORTUNITY_CANDIDATE]
+        candidateRef: { type: ["string", "null"] }
+        candidateId: { type: ["integer", "null"] }
+        opportunityId: { type: ["integer", "null"] }
+        autonomousCycleId: { type: ["integer", "null"] }
+        decision:
+          type: string
+          enum: [SELECTED_PENDING_OWNER, APPROVED, REJECTED, BLOCKED, OPPORTUNITY_CANDIDATE]
+        decisionReason: { type: ["string", "null"] }
+        score: { type: ["number", "null"] }
+        confidence: { type: ["number", "null"] }
+        risk: { type: ["string", "null"] }
+        decidedAt: { type: ["string", "null"], format: date-time }
+        decidedBy: { type: ["string", "null"] }
+        nextAction: { type: ["string", "null"] }
+        metadata: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ControlledGoldenPathPrepareInput:
+      type: object
+      additionalProperties: false
+      properties:
+        idempotencyKey:
+          type: string
+          maxLength: 200
+          description: Repeating this key returns the same durable preparation.
+    ControlledGoldenPathPrepareResponse:
+      type: object
+      required: [cycleId, opportunityId, projectId, actionId, decisionId, state, checkpoint, nextInstruction, fixtureKey, safe]
+      properties:
+        cycleId: { type: integer }
+        opportunityId: { type: integer }
+        projectId: { type: integer }
+        actionId: { type: integer }
+        decisionId: { type: integer }
+        state: { type: string, enum: [WAITING_HUMAN] }
+        checkpoint: { type: string }
+        nextInstruction: { type: string }
+        fixtureKey: { type: string }
+        safe: { type: boolean, enum: [true] }
+    ControlledGoldenPathStatusResponse:
+      type: object
+      required: [cycle, opportunity, project, humanActions, nextInstruction]
+      properties:
+        cycle:
+          $ref: "#/components/schemas/AutonomousCycle"
+        opportunity:
+          oneOf:
+            - $ref: "#/components/schemas/Opportunity"
+            - type: "null"
+        project:
+          oneOf:
+            - $ref: "#/components/schemas/Project"
+            - type: "null"
+        humanActions:
+          type: array
+          items:
+            $ref: "#/components/schemas/HumanAction"
+        nextInstruction: { type: string }
+    ServiceCallbackBody:
+      type: object
+      additionalProperties: true
+      required: [dispatch_id, status]
+      properties:
+        dispatch_id: { type: string }
+        transition: { type: string }
+        status: { type: string }
+        job_id: { type: string }
+        run_id: { type: string }
+        result: { type: object, additionalProperties: true }
+    ServiceCallbackResponse:
+      type: object
+      required: [accepted, replay, receiptId]
+      properties:
+        accepted: { type: boolean, enum: [true] }
+        replay: { type: boolean }
+        receiptId: { type: integer }
+    ExternalDispatch:
+      type: object
+      description: Durable external work reservation created before any provider request.
+      required: [id, dispatchId, provider, operation, entityType, payloadHash, payload, status, attemptCount, createdAt]
+      properties:
+        id: { type: integer }
+        dispatchId: { type: string }
+        provider: { type: string }
+        operation: { type: string }
+        entityType: { type: string }
+        entityId: { type: ["string", "null"] }
+        cycleId: { type: ["integer", "null"] }
+        marketCycleId: { type: ["integer", "null"] }
+        opportunityId: { type: ["integer", "null"] }
+        projectId: { type: ["integer", "null"] }
+        payloadHash: { type: string }
+        payload: { type: object, additionalProperties: true }
+        status:
+          type: string
+          enum: [CREATED, DISPATCHING, ACCEPTED, RUNNING, COMPLETED, FAILED, RECONCILING, CANCELLED]
+        attemptCount: { type: integer, minimum: 0 }
+        externalJobId: { type: ["string", "null"] }
+        externalRunId: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        dispatchedAt: { type: ["string", "null"], format: date-time }
+        acknowledgedAt: { type: ["string", "null"], format: date-time }
+        completedAt: { type: ["string", "null"], format: date-time }
+        lastError: { type: ["string", "null"] }
+        nextRetryAt: { type: ["string", "null"], format: date-time }
+        resultReference: { type: ["string", "null"] }
+        result: { type: ["object", "null"], additionalProperties: true }
+    ServiceReceipt:
+      type: object
+      description: Immutable replay receipt for one dispatch transition.
+      required: [id, receiptKey, serviceId, operation, status, createdAt]
+      properties:
+        id: { type: integer }
+        receiptKey: { type: string }
+        serviceId: { type: string }
+        dispatchId: { type: ["integer", "null"] }
+        externalDispatchId: { type: ["string", "null"] }
+        operation: { type: string }
+        transition: { type: ["string", "null"] }
+        externalJobId: { type: ["string", "null"] }
+        externalRunId: { type: ["string", "null"] }
+        status: { type: string }
+        payloadHash: { type: ["string", "null"] }
+        payload: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
 

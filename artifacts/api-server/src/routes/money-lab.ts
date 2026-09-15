@@ -12,7 +12,6 @@ import {
   StartMarketCycleResponse,
 } from "@workspace/api-zod";
 import {
-  dispatchMarketCycle,
   findDispatchedRun,
   getMarketCycleResult,
   getWorkflowRun,
@@ -23,6 +22,7 @@ import {
   type GitHubRun,
 } from "../lib/github-actions";
 import { appendLifecycleEvent, lifecycleKey, normalizeMarketCycleCandidates } from "../lib/lifecycle";
+import { createDurableDispatch } from "../lib/durable-dispatch";
 
 const router: IRouter = Router();
 const activeStatuses = ["QUEUED", "RUNNING"] as const;
@@ -78,7 +78,7 @@ async function persistRemoteRun(run: GitHubRun, source: "MANUAL" | "SCHEDULED") 
   return concurrent;
 }
 
-async function syncCycle(id: number) {
+export async function syncCycle(id: number) {
   let [cycle] = await db.select().from(marketCyclesTable).where(eq(marketCyclesTable.id, id));
   const needsCompletedArtifact = cycle?.status === "COMPLETED" && cycle.result === null;
   if (!cycle) return cycle;
@@ -170,7 +170,7 @@ async function syncCycle(id: number) {
   }
 }
 
-async function registerScheduledRuns() {
+export async function registerScheduledRuns() {
   if (!isGitHubConfigured()) return;
   const scheduled = await listWorkflowRuns("schedule");
   for (const run of scheduled.slice(0, 10)) {
@@ -227,23 +227,24 @@ router.post("/money-lab/market-cycle/start", async (req, res): Promise<void> => 
   }
   const cycle = reservation.cycle!;
   try {
-    const dispatchedAt = await dispatchMarketCycle();
-    const run = await findDispatchedRun(dispatchedAt);
-    if (!run) throw new GitHubActionsError("GitHub aceptó el dispatch, pero todavía no devolvió el run ID");
-    const [started] = await db.update(marketCyclesTable).set({
-      githubRunId: String(run.id),
-      githubRunUrl: run.html_url,
-      status: run.status === "in_progress" ? "RUNNING" : "QUEUED",
-      startedAt: new Date(run.run_started_at || run.created_at),
-      updatedAt: new Date(),
-    }).where(eq(marketCyclesTable.id, cycle.id)).returning();
-    await appendLifecycleEvent({
-      eventKey: lifecycleKey("market_cycle", started.id, started.status),
-      sourceType: "market_cycle", sourceId: started.id, eventType: "MARKET_CYCLE_STARTED",
-      status: started.status, marketCycleId: started.id,
-      payload: { githubRunId: started.githubRunId },
+    // Reserve the durable dispatch and outbox row before any provider POST.
+    // The background worker owns delivery and reconciliation; this preserves
+    // the existing response shape while removing provider work from UI time.
+    const dispatchId = `github-market-cycle-${cycle.id}-${body.data.idempotencyKey}`;
+    await createDurableDispatch({
+      dispatchId,
+      provider: "GITHUB",
+      operation: "market_cycle.dispatch",
+      entityType: "market_cycle",
+      entityId: String(cycle.id),
+      marketCycleId: cycle.id,
+      payload: {
+        ref: "main",
+        dispatch_id: dispatchId,
+        idempotency_key: body.data.idempotencyKey,
+      },
     });
-    res.status(201).json(StartMarketCycleResponse.parse(started));
+    res.status(201).json(StartMarketCycleResponse.parse(cycle));
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo iniciar GitHub Actions";
     const [failed] = await db.update(marketCyclesTable).set({

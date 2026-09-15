@@ -18,17 +18,12 @@ import {
   StartCycleBody,
   StartCycleResponse,
 } from "@workspace/api-zod";
-import { getJob, runFlow, WindmillError } from "../lib/windmill";
+import { getJob, WindmillError } from "../lib/windmill";
 import { appendLifecycleEvent, lifecycleKey } from "../lib/lifecycle";
+import { createDurableDispatch } from "../lib/durable-dispatch";
 
 const router: IRouter = Router();
 const terminalStates = ["COMPLETED", "REJECTED", "FAILED"] as const;
-
-const flowPath = (key: "WINDMILL_DISCOVERY_FLOW_PATH" | "WINDMILL_CONTINUATION_FLOW_PATH") => {
-  const value = process.env[key];
-  if (!value) throw new WindmillError(`Falta ${key}`);
-  return value;
-};
 
 const extractResult = (job: Awaited<ReturnType<typeof getJob>>) =>
   (job.result && typeof job.result === "object" ? job.result : {}) as Record<string, unknown>;
@@ -178,21 +173,34 @@ router.post("/cycles", async (req, res): Promise<void> => {
   }
   const cycle = reservation.cycle!;
   try {
-    const jobId = await runFlow(flowPath("WINDMILL_DISCOVERY_FLOW_PATH"), {
-      query: body.data.query,
+    const dispatchId = `windmill-cycle-${cycle.id}-discovery-${body.data.idempotencyKey}`;
+    await createDurableDispatch({
+      dispatchId,
+      provider: "WINDMILL",
+      operation: "windmill.discovery",
+      entityType: "cycle",
+      entityId: String(cycle.id),
       cycleId: cycle.id,
+      payload: {
+        query: body.data.query,
+        cycleId: cycle.id,
+        dispatch_id: dispatchId,
+        flowPath: process.env.WINDMILL_DISCOVERY_FLOW_PATH ?? null,
+      },
+      // Windmill flow execution is deliberately disabled while the signed
+      // callback contract is being rolled out.
+      enqueue: false,
     });
     const [started] = await db.update(cyclesTable).set({
-      discoveryJobId: jobId,
-      state: "RUNNING",
-      message: "Discovery en ejecución",
+      state: "STARTING",
+      message: "Discovery preparado; ejecución externa bloqueada por política",
       updatedAt: new Date(),
     }).where(eq(cyclesTable.id, cycle.id)).returning();
     await appendLifecycleEvent({
       eventKey: lifecycleKey("cycle", cycle.id, "RUNNING"),
       sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_STARTED",
       status: started.state, opportunityId: started.opportunityId,
-      payload: { discoveryJobId: started.discoveryJobId },
+      payload: { dispatchId, externalExecution: false },
     });
     res.status(201).json(StartCycleResponse.parse(started));
   } catch (error) {
@@ -339,23 +347,36 @@ router.post("/cycles/:id/decision", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const jobId = await runFlow(flowPath("WINDMILL_CONTINUATION_FLOW_PATH"), {
+    const dispatchId = `windmill-cycle-${cycle.id}-continuation-${projectId}`;
+    await createDurableDispatch({
+      dispatchId,
+      provider: "WINDMILL",
+      operation: "windmill.continuation",
+      entityType: "cycle",
+      entityId: String(cycle.id),
       cycleId: cycle.id,
-      opportunityId: cycle.opportunityId,
-      approvalId: cycle.approvalId,
+      opportunityId: cycle.opportunityId ?? undefined,
       projectId,
+      payload: {
+        cycleId: cycle.id,
+        opportunityId: cycle.opportunityId,
+        approvalId: cycle.approvalId,
+        projectId,
+        dispatch_id: dispatchId,
+        flowPath: process.env.WINDMILL_CONTINUATION_FLOW_PATH ?? null,
+      },
+      enqueue: false,
     });
     const [continued] = await db.update(cyclesTable).set({
-      continuationJobId: jobId,
-      state: "APPROVED",
-      message: "Aprobación registrada. Continuación iniciada.",
+      state: "STARTING_CONTINUATION",
+      message: "Aprobación registrada; continuación externa bloqueada por política.",
       updatedAt: new Date(),
     }).where(eq(cyclesTable.id, cycle.id)).returning();
     await appendLifecycleEvent({
       eventKey: lifecycleKey("cycle", cycle.id, "APPROVED"),
       sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_APPROVED",
       status: continued.state, opportunityId: continued.opportunityId, projectId: continued.projectId,
-      payload: { continuationJobId: continued.continuationJobId },
+      payload: { dispatchId, externalExecution: false },
     });
     res.json(DecideCycleResponse.parse(continued));
   } catch (error) {

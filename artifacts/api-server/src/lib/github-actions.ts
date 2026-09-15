@@ -9,10 +9,15 @@ export type GitHubRun = {
   created_at: string;
   run_started_at: string | null;
   updated_at: string;
+  dispatch_id?: string;
 };
 
 export class GitHubActionsError extends Error {
-  constructor(message: string, public readonly statusCode?: number) {
+  constructor(
+    message: string,
+    public readonly statusCode?: number,
+    public readonly ambiguous = false,
+  ) {
     super(message);
   }
 }
@@ -35,7 +40,12 @@ async function githubRequest(path: string, init?: RequestInit): Promise<Response
   if (!token) throw new GitHubActionsError("GITHUB_CONNECTION_REQUIRED: falta GITHUB_TOKEN", 503);
 
   let lastError: unknown;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  const method = (init?.method ?? "GET").toUpperCase();
+  // A POST may have been accepted before a connection failed.  Retrying it
+  // blindly can create a second workflow run, so reconciliation owns the
+  // ambiguous case instead.
+  const attempts = method === "POST" ? 1 : 3;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const response = await fetch(`https://api.github.com${path}`, {
         ...init,
@@ -49,11 +59,21 @@ async function githubRequest(path: string, init?: RequestInit): Promise<Response
         },
       });
       if (response.ok || (response.status < 500 && response.status !== 429)) return response;
-      lastError = new GitHubActionsError(`GitHub respondió ${response.status}`, response.status);
+      lastError = new GitHubActionsError(
+        `GitHub respondió ${response.status}`,
+        response.status,
+        method === "POST" && (response.status >= 500 || response.status === 429),
+      );
     } catch (error) {
-      lastError = error;
+      lastError = method === "POST"
+        ? new GitHubActionsError(
+          error instanceof Error ? error.message : "GitHub no disponible",
+          undefined,
+          true,
+        )
+        : error;
     }
-    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
   }
   if (lastError instanceof GitHubActionsError) throw lastError;
   throw new GitHubActionsError(lastError instanceof Error ? lastError.message : "GitHub no disponible");
@@ -73,11 +93,19 @@ const workflowPath = () => {
   return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodeURIComponent(workflow)}`;
 };
 
-export async function dispatchMarketCycle(): Promise<Date> {
+export async function dispatchMarketCycle(dispatchId?: string): Promise<Date> {
   const dispatchedAt = new Date();
+  const body: Record<string, unknown> = { ref: "main" };
+  // Existing workflows may reject input keys that are not declared in their
+  // workflow_dispatch schema.  Opt into the exact input only when the
+  // deployed workflow explicitly supports it; the legacy time fallback stays
+  // available for older compatible workflows.
+  if (dispatchId && process.env.GITHUB_WORKFLOW_ACCEPTS_DISPATCH_ID === "true") {
+    body.inputs = { dispatch_id: dispatchId };
+  }
   const response = await githubRequest(`${workflowPath()}/dispatches`, {
     method: "POST",
-    body: JSON.stringify({ ref: "main" }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) throw new GitHubActionsError(await response.text(), response.status);
   return dispatchedAt;
@@ -90,12 +118,20 @@ export async function listWorkflowRuns(event?: "workflow_dispatch" | "schedule")
   return payload.workflow_runs;
 }
 
-export async function findDispatchedRun(dispatchedAt: Date): Promise<GitHubRun | null> {
+export async function findDispatchedRun(dispatchedAt: Date, dispatchId?: string): Promise<GitHubRun | null> {
   const threshold = dispatchedAt.getTime() - 10_000;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    const run = (await listWorkflowRuns("workflow_dispatch"))
-      .filter((item) => new Date(item.created_at).getTime() >= threshold)
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
+    const runs = await listWorkflowRuns("workflow_dispatch");
+    const exact = dispatchId
+      ? runs.find((item) => item.dispatch_id === dispatchId)
+      : undefined;
+    // Older workflows do not expose dispatch inputs in the run object.  Keep
+    // the historical time-based fallback solely for those compatible runs.
+    const run = exact ?? (runs.some((item) => item.dispatch_id)
+      ? undefined
+      : runs
+        .filter((item) => new Date(item.created_at).getTime() >= threshold)
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0]);
     if (run) return run;
     if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 1_000 * attempt));
   }
