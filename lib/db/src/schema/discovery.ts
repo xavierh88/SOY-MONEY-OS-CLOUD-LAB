@@ -27,6 +27,8 @@ export const discoveryResearchRunsTable = pgTable("soy_discovery_research_runs",
   acceptedCount: integer("accepted_count").notNull().default(0),
   rejectionReason: text("rejection_reason"),
   scoreBreakdown: jsonb("score_breakdown").$type<Record<string, number>>().notNull().default({}),
+  executionOwner: text("execution_owner"),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -34,6 +36,23 @@ export const discoveryResearchRunsTable = pgTable("soy_discovery_research_runs",
 }, (table) => ({
   idempotencyUnique: uniqueIndex("soy_discovery_research_runs_idempotency_unique")
     .on(table.idempotencyKey),
+}));
+
+export const discoveryProviderAttemptsTable = pgTable("soy_discovery_provider_attempts", {
+  id: serial("id").primaryKey(),
+  researchRunId: integer("research_run_id").notNull().references(() => discoveryResearchRunsTable.id),
+  provider: text("provider").notNull(),
+  query: text("query").notNull(),
+  stage: text("stage").notNull(),
+  status: text("status").notNull().default("RESERVED"),
+  resultCount: integer("result_count").notNull().default(0),
+  errorCode: text("error_code"),
+  normalizedResults: jsonb("normalized_results").$type<Record<string, unknown>[]>().notNull().default([]),
+  reservedAt: timestamp("reserved_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+}, (table) => ({
+  attemptUnique: uniqueIndex("soy_discovery_provider_attempt_unique")
+    .on(table.researchRunId, table.provider, table.query),
 }));
 
 export const discoveryFindingsTable = pgTable("soy_discovery_findings", {
@@ -59,10 +78,14 @@ export const discoveryFindingsTable = pgTable("soy_discovery_findings", {
 
 export const insertDiscoveryResearchRunSchema = createInsertSchema(discoveryResearchRunsTable)
   .omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDiscoveryProviderAttemptSchema = createInsertSchema(discoveryProviderAttemptsTable)
+  .omit({ id: true });
 export const insertDiscoveryFindingSchema = createInsertSchema(discoveryFindingsTable)
   .omit({ id: true, createdAt: true });
 
 export type DiscoveryResearchRun = typeof discoveryResearchRunsTable.$inferSelect;
+export type DiscoveryProviderAttempt = typeof discoveryProviderAttemptsTable.$inferSelect;
 export type DiscoveryFinding = typeof discoveryFindingsTable.$inferSelect;
 export type InsertDiscoveryResearchRun = z.infer<typeof insertDiscoveryResearchRunSchema>;
+export type InsertDiscoveryProviderAttempt = z.infer<typeof insertDiscoveryProviderAttemptSchema>;
 export type InsertDiscoveryFinding = z.infer<typeof insertDiscoveryFindingSchema>;

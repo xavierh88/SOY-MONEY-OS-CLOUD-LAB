@@ -1,0 +1,556 @@
+SOY MONEY OS — FINAL REAL DISCOVERY INTEGRATION
+BRAVE SEARCH + CONTROLLED REAL GOLDEN PATH
+
+OBJETIVO
+Cerrar el último bloqueo funcional del sistema: obtener una oportunidad pública REAL, reciente y suficientemente corroborada mediante fuentes independientes, usando Brave Search API como nuevo proveedor general de discovery, sin debilitar los gates existentes, sin fabricar evidencia y sin activar autonomía.
+
+IMPORTANTE:
+Este trabajo debe ser QUIRÚRGICO.
+No reconstruyas componentes que ya pasan sus tests.
+No hagas refactors cosméticos.
+No cambies arquitectura estable sin necesidad.
+Minimiza iteraciones y uso innecesario del Agent.
+
+ESTADO QUE DEBES PRESERVAR
+
+- AUTONOMY_EXECUTION_LOCKED=true
+- autonomy=OFF
+- Finance REAL=0
+- Windmill=LEGACY_UNUSED
+- Replit/Postgres sigue siendo la única autoridad del lifecycle.
+- NO Republish.
+- NO producción.
+- NO pagos.
+- NO trading.
+- NO betting.
+- NO inversión.
+- NO compras.
+- NO campañas reales.
+- NO publicación comercial.
+- NO ventas reales.
+- NO transferencias/retiros.
+- NO uso autónomo de credenciales.
+- NO auto-aprobación de checkpoints humanos.
+
+Existe en Replit Secrets:
+
+BRAVE_SEARCH_API_KEY
+
+Nunca imprimas, registres, devuelvas ni expongas su valor.
+
+==================================================
+1. AUDITAR ANTES DE MODIFICAR
+==================================================
+
+Inspecciona primero el discovery/research existente.
+
+En particular revisa la implementación actual relacionada con:
+
+- discovery-research
+- provider adapters
+- semantic query expansion
+- evidence normalization
+- source independence
+- freshness
+- semantic clustering
+- deduplication
+- opportunity scoring
+- owner checkpoint
+- Golden Path
+- Human Action Manager
+- project lifecycle
+
+El último run real terminó correctamente:
+
+NO_VALID_OPPORTUNITY
+
+Providers actuales:
+
+HACKER_NEWS
+STACK_EXCHANGE
+GITHUB_PUBLIC
+
+Resultados:
+
+152 findings públicos
+10 agrupaciones preliminares DEMAND_SIGNAL
+0 candidatos elegibles
+0 oportunidades aceptadas
+0 proyectos
+0 Human Actions
+
+Causas principales:
+
+FRESHNESS_BELOW_THRESHOLD
+LOW_SEMANTIC_RELEVANCE
+INSUFFICIENT_INDEPENDENT_SOURCES
+SYNDICATED_ORIGIN_NOT_INDEPENDENT
+CHECKPOINT_FRESHNESS_BELOW_THRESHOLD
+
+NO elimines esas protecciones.
+
+==================================================
+2. INTEGRAR BRAVE SEARCH
+==================================================
+
+Implementa un nuevo provider:
+
+BRAVE_SEARCH
+
+Usa la API oficial de Brave Search mediante:
+
+BRAVE_SEARCH_API_KEY
+
+La API key solamente debe obtenerse del entorno/Secrets.
+
+Fail closed si falta la key.
+
+Nunca persistir la key.
+
+Nunca mostrarla en logs.
+
+Nunca enviarla al frontend.
+
+Nunca incluirla en metadata durable.
+
+Normaliza los resultados de Brave al modelo de findings existente.
+
+Cuando estén disponibles, conserva:
+
+provider
+query
+title
+url
+domain
+snippet/text
+published_at o discovered_at
+retrieved_at
+source/entity identifiers
+category
+provenance
+
+==================================================
+3. BRAVE NO DEBE CONVERTIRSE EN “DOS FUENTES”
+==================================================
+
+MUY IMPORTANTE:
+
+Brave es un motor de descubrimiento, no el origen de todos los documentos.
+
+Dos resultados encontrados mediante Brave pueden contar como fuentes independientes SOLO si proceden de dominios/orígenes realmente independientes.
+
+Ejemplo válido:
+
+problema X encontrado en:
+domain-A.com
+domain-B.org
+
+Puede ser corroboración independiente si no existe relación evidente entre ambos.
+
+Ejemplo inválido:
+
+el mismo artículo republicado,
+mirror,
+syndication,
+misma organización,
+mismo repositorio,
+mismo autor/origen,
+misma conversación presentada desde URLs diferentes.
+
+El independence gate existente debe seguir aplicándose.
+
+==================================================
+4. ESTRATEGIA DE DISCOVERY DE BAJO COSTO
+==================================================
+
+NO hagas cientos de queries indiscriminadamente.
+
+Implementa una estrategia funnel:
+
+STAGE A — BROAD DISCOVERY
+
+Generar pocas queries de alta intención por categoría.
+
+Priorizar inicialmente:
+
+SAAS
+AUTOMATION
+SERVICES
+DIGITAL_PRODUCTS
+
+No es necesario intentar todas las categorías en este run.
+
+Ejemplos conceptuales de señales:
+
+“looking for a tool”
+“need a way to”
+“how do I automate”
+“currently doing this manually”
+“software for”
+“alternative to”
+“need help with”
+“looking for service”
+“template for”
+“spreadsheet for”
+“calculator for”
+“workflow problem”
+
+No copies estos ejemplos mecánicamente.
+Genera queries adecuadas a cada categoría.
+
+STAGE B — NORMALIZE + DEDUPE
+
+Normaliza findings y elimina duplicados antes de investigación profunda.
+
+STAGE C — PROBLEM CLUSTERING
+
+Agrupa solamente findings que expresen esencialmente el MISMO problema/necesidad.
+
+Evita clustering transitivo A→B→C.
+
+No agrupes simplemente porque compartan palabras genéricas.
+
+STAGE D — CHEAP PRE-SCORE
+
+Evalúa rápidamente:
+
+semantic relevance
+freshness
+source independence
+commercial intent/demand signal
+zero-capital feasibility
+
+Conserva solamente los candidatos prometedores.
+
+STAGE E — TARGETED CORROBORATION
+
+Para los mejores candidatos, genera búsquedas específicas destinadas a corroborar EL MISMO PROBLEMA.
+
+Aquí puede utilizarse:
+
+BRAVE_SEARCH
+HACKER_NEWS
+STACK_EXCHANGE
+GITHUB_PUBLIC
+
+No es obligatorio que cada provider tenga resultados.
+
+Lo obligatorio es que la evidencia aceptada cumpla las reglas reales de independencia.
+
+==================================================
+5. PRESUPUESTO DE BÚSQUEDA
+==================================================
+
+Queremos conservar los créditos gratuitos.
+
+Para ESTE RUN CONTROLADO:
+
+máximo 30 requests a Brave Search.
+
+Idealmente utiliza bastante menos.
+
+Implementa contador por run:
+
+brave_requests_attempted
+brave_requests_successful
+brave_requests_failed
+
+Si alcanza el límite:
+
+STOP_BRAVE_BUDGET_REACHED
+
+No comprar créditos.
+No intentar modificar planes.
+No activar auto-reload.
+
+==================================================
+6. FRESHNESS
+==================================================
+
+Mantén el checkpoint de freshness existente.
+
+Pero diferencia correctamente:
+
+published_at
+retrieved_at
+unknown publication date
+
+No inventes fechas.
+
+Una página recuperada hoy NO significa que haya sido publicada hoy.
+
+Si no existe fecha verificable:
+
+publication_date_status=UNKNOWN
+
+y aplica la política existente de forma conservadora.
+
+==================================================
+7. EVIDENCE CLASSIFICATION
+==================================================
+
+Mantener estrictamente separadas:
+
+SEARCH_EVIDENCE
+DEMAND_SIGNAL
+DEMAND_PROOF
+REAL_VERIFIED
+
+Discovery puede producir:
+
+SEARCH_EVIDENCE
+DEMAND_SIGNAL
+
+NO debe convertir automáticamente una búsqueda en:
+
+DEMAND_PROOF
+REAL_VERIFIED
+
+No inventar:
+
+clientes
+ventas
+ingresos
+conversiones
+demanda comprobada
+usuarios
+contratos
+market size
+
+==================================================
+8. GLOBAL DEDUPE
+==================================================
+
+Antes de crear una nueva oportunidad:
+
+compara con oportunidades existentes utilizando:
+
+canonical problem fingerprint
+normalized URLs
+domains
+semantic problem identity
+existing provenance
+
+No crear duplicados de oportunidades históricas.
+
+==================================================
+9. EJECUTAR EXACTAMENTE UN DISCOVERY REAL
+==================================================
+
+Después de implementar y pasar tests:
+
+ejecuta UNA SOLA búsqueda pública controlada.
+
+NO hagas múltiples runs externos intentando obtener el resultado deseado.
+
+La idempotencia debe permitir reanalizar el mismo run persistido sin repetir llamadas externas.
+
+==================================================
+10. SI NO EXISTE OPORTUNIDAD VÁLIDA
+==================================================
+
+Si ninguna oportunidad cumple:
+
+2+ fuentes realmente independientes
+freshness requerida
+semantic problem match
+legalidad
+zero-capital feasibility
+quality threshold
+
+el resultado obligatorio es:
+
+NO_VALID_OPPORTUNITY
+
+No crear:
+
+cycle
+project
+Human Action
+fake opportunity
+
+En ese caso DETENTE y reporta exactamente por qué.
+
+==================================================
+11. SI EXISTE UNA OPORTUNIDAD CORROBORADA
+==================================================
+
+Si aparece al menos una oportunidad legítima:
+
+selecciona únicamente la mejor que supere todos los gates.
+
+Crea el lifecycle normal existente.
+
+Ejecuta el Golden Path únicamente hasta:
+
+OWNER_REVIEW
+
+Crea la Human Action correspondiente.
+
+Después:
+
+STOP.
+
+NO apruebes por mí.
+
+NO simules mi decisión.
+
+NO uses autorización del runner como sustituto de mi decisión.
+
+==================================================
+12. OWNER UI
+==================================================
+
+La Cola Humana debe mostrar claramente:
+
+opportunity ID
+título
+problema detectado
+categoría
+score
+evidence classification
+por qué puede existir oportunidad
+fuentes independientes
+URLs navegables
+freshness
+riesgos
+difficulty
+cost estimate
+time estimate
+confidence
+proyecto/cycle asociado
+decisión requerida
+
+Botones:
+
+APROBAR
+RECHAZAR
+
+La decisión debe ocurrir mediante mi sesión real de owner/Clerk.
+
+==================================================
+13. DESPUÉS DE MI APROBACIÓN
+==================================================
+
+NO ejecutes esta parte antes de mi aprobación real.
+
+Cuando yo apruebe OWNER_REVIEW:
+
+debe continuar EL MISMO proyecto y checkpoint lineage.
+
+Entonces:
+
+BUILD
+→ QA
+→ MONETIZATION_PREPARATION
+→ MONETIZATION_REVIEW
+
+Y detenerse nuevamente en:
+
+MONETIZATION_REVIEW
+
+No publicar ni vender automáticamente.
+
+==================================================
+14. REGRESIONES OBLIGATORIAS
+==================================================
+
+Antes de reportar terminado:
+
+typecheck
+API build
+web build
+discovery tests
+independence tests
+freshness tests
+dedupe tests
+adversarial clustering tests
+Human Action tests
+Golden Path safety
+Finance REAL invariant
+autonomy invariant
+Money Lab isolation
+Windmill isolation
+
+Confirma:
+
+Finance REAL = 0
+autonomy = OFF
+AUTONOMY_EXECUTION_LOCKED = true
+Windmill = LEGACY_UNUSED
+
+==================================================
+15. NO REPUBLISH
+==================================================
+
+No hagas Republish todavía.
+
+Todo debe validarse primero en el entorno actual.
+
+==================================================
+16. REPORTE FINAL OBLIGATORIO
+==================================================
+
+Devuélveme UN SOLO reporte final con exactamente estas secciones:
+
+IMPLEMENTATION_STATUS
+
+BRAVE_PROVIDER_STATUS
+
+BRAVE_REQUESTS_USED
+
+DISCOVERY_RUN_ID
+
+PROVIDERS_USED
+
+TOTAL_FINDINGS
+
+CORROBORATED_CANDIDATES
+
+REJECTED_CANDIDATES_AND_REASONS
+
+ACCEPTED_OPPORTUNITY
+
+PUBLIC_OPPORTUNITY_ID
+
+CYCLE_ID
+
+PROJECT_ID
+
+CURRENT_CHECKPOINT
+
+OWNER_UI_ACTION_REQUIRED
+
+HUMAN_ACTION_ID
+
+EVIDENCE_SUMMARY
+
+FINANCE_REAL
+
+AUTONOMY_STATUS
+
+WINDMILL_STATUS
+
+REGRESSION_STATUS
+
+READY_TO_CONTINUE_AFTER_OWNER_DECISION
+
+REMAINING_BLOCKERS
+
+Si hay una oportunidad legítima y OWNER_REVIEW está pendiente:
+
+termina el trabajo y espera mi decisión.
+
+Si no hay oportunidad válida:
+
+termina con NO_VALID_OPPORTUNITY y NO fuerces el lifecycle.
+
+PRINCIPIO FINAL:
+
+Preferimos NO_VALID_OPPORTUNITY antes que una oportunidad falsa.
+
+Preferimos detenernos antes que gastar dinero real.
+
+Preferimos evidencia auditable antes que volumen.
+
+Preferimos una oportunidad real bien corroborada antes que cien candidatos débiles.
