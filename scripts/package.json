@@ -9,6 +9,8 @@
     "test:post-approval": "tsx ./src/test-post-approval.ts",
     "test:regression-db": "tsx ./src/regression-db.ts",
     "test:service-hmac": "tsx ./src/test-service-hmac.ts",
+    "test:prepare-controlled-golden-path": "tsx ./src/test-prepare-controlled-golden-path.ts",
+    "test:controlled-golden-path-status": "tsx ./src/test-controlled-golden-path-status.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
