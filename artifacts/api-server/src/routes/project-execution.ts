@@ -28,6 +28,7 @@ import {
   StartProjectBuildParams,
   StartProjectBuildResponse,
 } from "@workspace/api-zod";
+import { appendLifecycleEvent, lifecycleKey } from "../lib/lifecycle";
 
 const router: IRouter = Router();
 
@@ -251,6 +252,12 @@ router.post("/projects/:id/start", async (req, res): Promise<void> => {
     throw error;
   }
 
+  await appendLifecycleEvent({
+    eventKey: lifecycleKey("execution", execution.id, "BUILD_COMPLETED"),
+    sourceType: "execution", sourceId: execution.id, eventType: "PROJECT_BUILD_COMPLETED",
+    status: execution.status, opportunityId: project.opportunityId, projectId: project.id,
+    payload: { currentStage: execution.currentStage },
+  });
   res.status(201).json(StartProjectBuildResponse.parse({
     status: "BUILD_COMPLETED",
     projectId: project.id,
@@ -356,6 +363,12 @@ router.post("/projects/:id/qa", async (req, res): Promise<void> => {
     return;
   }
 
+  await appendLifecycleEvent({
+    eventKey: lifecycleKey("project", project.id, "QA_COMPLETED"),
+    sourceType: "project", sourceId: project.id, eventType: "PROJECT_QA_COMPLETED",
+    status: nextProjectStatus, opportunityId: project.opportunityId, projectId: project.id,
+    payload: { qaStatus, qaScore, issues },
+  });
   res.json(ReviewProjectQaResponse.parse({
     status: `QA_${qaStatus}`,
     projectId: project.id,
@@ -473,6 +486,12 @@ router.post("/projects/:id/sell-ready", async (req, res): Promise<void> => {
     return;
   }
 
+  await appendLifecycleEvent({
+    eventKey: lifecycleKey("project", project.id, "SELL_READY"),
+    sourceType: "project", sourceId: project.id, eventType: "PROJECT_SELL_READY",
+    status: "SELL_READY", opportunityId: project.opportunityId, projectId: project.id,
+    payload: { publicationExecuted: false, saleExecuted: false, financialExecution: false },
+  });
   res.json(PrepareProjectSellReadyResponse.parse({
     status: "SELL_READY",
     projectId: project.id,
@@ -558,6 +577,12 @@ router.post("/projects/:id/result", async (req, res): Promise<void> => {
     return;
   }
 
+  await appendLifecycleEvent({
+    eventKey: lifecycleKey("result", result.id, "RECORDED"),
+    sourceType: "result", sourceId: result.id, eventType: "PROJECT_RESULT_RECORDED",
+    status: result.status, opportunityId: project.opportunityId, projectId: project.id,
+    payload: { revenue: result.revenue, realRevenue: result.realRevenue },
+  });
   res.json(RecordProjectResultResponse.parse({
     status: "RESULT_RECORDED",
     projectId: project.id,
@@ -639,6 +664,11 @@ router.post("/projects/:id/learning", async (req, res): Promise<void> => {
     return;
   }
 
+  await appendLifecycleEvent({
+    eventKey: lifecycleKey("learning", learning.id, "RECORDED"),
+    sourceType: "learning", sourceId: learning.id, eventType: "PROJECT_LEARNING_RECORDED",
+    status: learning.status, opportunityId: project.opportunityId, projectId: project.id,
+  });
   res.json(RecordProjectLearningResponse.parse({
     status: "LEARNING_RECORDED",
     projectId: project.id,
@@ -716,6 +746,12 @@ router.post("/projects/:id/complete", async (req, res): Promise<void> => {
     return;
   }
 
+  await appendLifecycleEvent({
+    eventKey: lifecycleKey("project", completedProject.id, "COMPLETED"),
+    sourceType: "project", sourceId: completedProject.id, eventType: "PROJECT_COMPLETED",
+    status: completedProject.status, opportunityId: completedProject.opportunityId, projectId: completedProject.id,
+    payload: { publicationExecuted: false, saleExecuted: false, financialExecution: false },
+  });
   res.json(CompleteProjectResponse.parse({
     status: "PROJECT_COMPLETED",
     projectId: project.id,

@@ -36,6 +36,7 @@ import {
   StartPipelineBody,
   StartPipelineResponse,
 } from "@workspace/api-zod";
+import { appendLifecycleEvent, lifecycleKey } from "../lib/lifecycle";
 
 const router: IRouter = Router();
 
@@ -82,6 +83,12 @@ router.post("/opportunities", async (req, res): Promise<void> => {
     return;
   }
   const [opportunity] = await db.insert(opportunitiesTable).values(parsed.data).returning();
+  await appendLifecycleEvent({
+    eventKey: lifecycleKey("opportunity", opportunity.id, "CREATED"),
+    sourceType: "opportunity", sourceId: opportunity.id, eventType: "OPPORTUNITY_CREATED",
+    status: opportunity.status, opportunityId: opportunity.id,
+    payload: { source: "API" },
+  });
   res.status(201).json(CreateOpportunityResponse.parse(opportunity));
 });
 
@@ -221,6 +228,12 @@ router.post("/evidence", async (req, res): Promise<void> => {
       gaps: [],
     }).returning();
 
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("evidence", evidence.id, "RECORDED"),
+      sourceType: "evidence", sourceId: evidence.id, eventType: "EVIDENCE_RECORDED",
+      status: evidence.verificationStatus, opportunityId: evidence.opportunityId,
+      payload: { proofType: evidence.proofType },
+    });
     res.status(201).json(CreateEvidenceResponse.parse(evidence));
   } catch (error: unknown) {
     const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
@@ -306,6 +319,18 @@ router.post("/pipeline/start", async (req, res): Promise<void> => {
     status: "PENDING",
     reason: "Revisar la hipótesis y decidir si se permite convertirla en proyecto exploratorio.",
   });
+  await appendLifecycleEvent({
+    eventKey: lifecycleKey("opportunity", opportunity.id, "APPROVAL_PENDING"),
+    sourceType: "opportunity", sourceId: opportunity.id, eventType: "APPROVAL_PENDING",
+    status: "AWAITING_HUMAN_APPROVAL", opportunityId: opportunity.id,
+    payload: { approvalType: "REVIEW_SIMULATED_PIPELINE" },
+  });
+  await appendLifecycleEvent({
+    eventKey: lifecycleKey("execution", execution.id, "PIPELINE_COMPLETED"),
+    sourceType: "execution", sourceId: execution.id, eventType: "PIPELINE_COMPLETED",
+    status: execution.status, opportunityId: opportunity.id,
+    payload: { stages: stageMessages.map(([stage, status]) => ({ stage, status })) },
+  });
 
   res.status(201).json(StartPipelineResponse.parse({
     executionId: execution.id,
@@ -362,6 +387,12 @@ router.post("/approvals/:id/decision", async (req, res): Promise<void> => {
       await tx.update(opportunitiesTable)
         .set({ status: "PROJECT_READY" })
         .where(eq(opportunitiesTable.id, existing.opportunityId));
+      await appendLifecycleEvent({
+        eventKey: lifecycleKey("opportunity", existing.opportunityId, "PROJECT_READY"),
+        sourceType: "opportunity", sourceId: existing.opportunityId,
+        eventType: "OPPORTUNITY_STATE", status: "PROJECT_READY",
+        opportunityId: existing.opportunityId,
+      }, tx);
       const [opportunity] = await tx.select().from(opportunitiesTable).where(eq(opportunitiesTable.id, existing.opportunityId));
       if (opportunity) {
         const [existingProject] = await tx.select({ id: projectsTable.id })
@@ -392,7 +423,19 @@ router.post("/approvals/:id/decision", async (req, res): Promise<void> => {
       await tx.update(opportunitiesTable)
         .set({ status: "REJECTED" })
         .where(eq(opportunitiesTable.id, existing.opportunityId));
+      await appendLifecycleEvent({
+        eventKey: lifecycleKey("opportunity", existing.opportunityId, "REJECTED"),
+        sourceType: "opportunity", sourceId: existing.opportunityId,
+        eventType: "OPPORTUNITY_STATE", status: "REJECTED",
+        opportunityId: existing.opportunityId,
+      }, tx);
     }
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("approval", approval.id, status),
+      sourceType: "approval", sourceId: approval.id, eventType: "APPROVAL_DECIDED",
+      status, opportunityId: approval.opportunityId,
+      payload: { decision: body.data.decision },
+    }, tx);
     return { approval, changed: true };
   });
 

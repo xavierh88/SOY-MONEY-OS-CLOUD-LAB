@@ -22,6 +22,7 @@ import {
   listWorkflowRuns,
   type GitHubRun,
 } from "../lib/github-actions";
+import { appendLifecycleEvent, lifecycleKey, normalizeMarketCycleCandidates } from "../lib/lifecycle";
 
 const router: IRouter = Router();
 const activeStatuses = ["QUEUED", "RUNNING"] as const;
@@ -63,7 +64,15 @@ async function persistRemoteRun(run: GitHubRun, source: "MANUAL" | "SCHEDULED") 
       ? [`GitHub Actions terminó con conclusión ${run.conclusion || "desconocida"}`]
       : [],
   }).onConflictDoNothing().returning();
-  if (created) return created;
+  if (created) {
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("market_cycle", created.id, created.status),
+      sourceType: "market_cycle", sourceId: created.id, eventType: "MARKET_CYCLE_IMPORTED",
+      status: created.status, marketCycleId: created.id,
+      payload: { source },
+    });
+    return created;
+  }
   const [concurrent] = await db.select().from(marketCyclesTable)
     .where(eq(marketCyclesTable.githubRunId, runId));
   return concurrent;
@@ -72,8 +81,14 @@ async function persistRemoteRun(run: GitHubRun, source: "MANUAL" | "SCHEDULED") 
 async function syncCycle(id: number) {
   let [cycle] = await db.select().from(marketCyclesTable).where(eq(marketCyclesTable.id, id));
   const needsCompletedArtifact = cycle?.status === "COMPLETED" && cycle.result === null;
-  if (!cycle || !cycle.githubRunId ||
-    (!activeStatuses.includes(cycle.status as typeof activeStatuses[number]) && !needsCompletedArtifact)) {
+  if (!cycle) return cycle;
+  if (!cycle.githubRunId) {
+    if (cycle.result) {
+      try { await normalizeMarketCycleCandidates(cycle.id); } catch { /* migration may still be rolling out */ }
+    }
+    return cycle;
+  }
+  if (!activeStatuses.includes(cycle.status as typeof activeStatuses[number]) && !needsCompletedArtifact) {
     return cycle;
   }
   try {
@@ -85,6 +100,11 @@ async function syncCycle(id: number) {
         githubRunUrl: run.html_url,
         updatedAt: now,
       }).where(eq(marketCyclesTable.id, id)).returning();
+      if (cycle) await appendLifecycleEvent({
+        eventKey: lifecycleKey("market_cycle", cycle.id, cycle.status),
+        sourceType: "market_cycle", sourceId: cycle.id, eventType: "MARKET_CYCLE_STATE",
+        status: cycle.status, marketCycleId: cycle.id,
+      });
       return cycle;
     }
     if (run.conclusion !== "success") {
@@ -95,6 +115,11 @@ async function syncCycle(id: number) {
         updatedAt: now,
         completedAt: new Date(run.updated_at),
       }).where(eq(marketCyclesTable.id, id)).returning();
+      if (cycle) await appendLifecycleEvent({
+        eventKey: lifecycleKey("market_cycle", cycle.id, "FAILED"),
+        sourceType: "market_cycle", sourceId: cycle.id, eventType: "MARKET_CYCLE_FAILED",
+        status: cycle.status, marketCycleId: cycle.id, payload: { errors: cycle.errors },
+      });
       return cycle;
     }
     const result = await getMarketCycleResult(cycle.githubRunId);
@@ -122,6 +147,13 @@ async function syncCycle(id: number) {
       updatedAt: now,
       completedAt: new Date(run.updated_at),
     }).where(eq(marketCyclesTable.id, id)).returning();
+    await normalizeMarketCycleCandidates(id);
+    if (cycle) await appendLifecycleEvent({
+      eventKey: lifecycleKey("market_cycle", cycle.id, cycle.status),
+      sourceType: "market_cycle", sourceId: cycle.id, eventType: "MARKET_CYCLE_COMPLETED",
+      status: cycle.status, marketCycleId: cycle.id,
+      payload: { candidatesFound: cycle.candidatesFound, paperApproved: cycle.paperApproved },
+    });
     return cycle;
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo sincronizar GitHub";
@@ -129,6 +161,11 @@ async function syncCycle(id: number) {
       errors: [...cycle.errors, message].slice(-3),
       updatedAt: new Date(),
     }).where(eq(marketCyclesTable.id, id)).returning();
+    if (cycle) await appendLifecycleEvent({
+      eventKey: lifecycleKey("market_cycle", cycle.id, "SYNC_ERROR"),
+      sourceType: "market_cycle", sourceId: cycle.id, eventType: "MARKET_CYCLE_SYNC_ERROR",
+      status: cycle.status, marketCycleId: cycle.id, payload: { error: message },
+    });
     return cycle;
   }
 }
@@ -200,6 +237,12 @@ router.post("/money-lab/market-cycle/start", async (req, res): Promise<void> => 
       startedAt: new Date(run.run_started_at || run.created_at),
       updatedAt: new Date(),
     }).where(eq(marketCyclesTable.id, cycle.id)).returning();
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("market_cycle", started.id, started.status),
+      sourceType: "market_cycle", sourceId: started.id, eventType: "MARKET_CYCLE_STARTED",
+      status: started.status, marketCycleId: started.id,
+      payload: { githubRunId: started.githubRunId },
+    });
     res.status(201).json(StartMarketCycleResponse.parse(started));
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo iniciar GitHub Actions";
@@ -209,6 +252,11 @@ router.post("/money-lab/market-cycle/start", async (req, res): Promise<void> => 
       updatedAt: new Date(),
       completedAt: new Date(),
     }).where(eq(marketCyclesTable.id, cycle.id)).returning();
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("market_cycle", failed.id, "FAILED_START"),
+      sourceType: "market_cycle", sourceId: failed.id, eventType: "MARKET_CYCLE_FAILED",
+      status: failed.status, marketCycleId: failed.id, payload: { error: message },
+    });
     res.status(error instanceof GitHubActionsError && error.statusCode === 503 ? 503 : 502)
       .json(StartMarketCycleResponse.parse(failed));
   }

@@ -43,6 +43,7 @@ import {
   StopAutonomyResponse,
 } from "@workspace/api-zod";
 import { AUTONOMY_EXECUTION_LOCKED } from "../lib/autonomy-policy";
+import { appendLifecycleEvent, lifecycleKey } from "../lib/lifecycle";
 
 export const DIRECTOR_CATEGORIES = [
   "BUSINESS", "DIGITAL_PRODUCTS", "SERVICES", "SAAS", "AUTOMATION",
@@ -197,6 +198,12 @@ export async function runSafeAutonomousCycle(input: {
       message: "NO_VALID_OPPORTUNITY: no existing opportunity was available.",
       updatedAt: now,
     }).where(eq(autonomousCyclesTable.id, cycle.id)).returning();
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("autonomous_cycle", cycle.id, "NO_VALID_OPPORTUNITY"),
+      sourceType: "autonomous_cycle", sourceId: cycle.id, eventType: "CYCLE_COMPLETED",
+      status: finished.state, cycleId: finished.id,
+      payload: { stage: finished.stage },
+    });
     return finished;
   }
   const scored = await candidate(selected);
@@ -208,6 +215,12 @@ export async function runSafeAutonomousCycle(input: {
       : "Existing candidate recorded. Score is not demand proof and no execution occurred.",
     updatedAt: now,
   }).where(eq(autonomousCyclesTable.id, cycle.id)).returning();
+  await appendLifecycleEvent({
+    eventKey: lifecycleKey("autonomous_cycle", cycle.id, "CANDIDATE_RECORDED"),
+    sourceType: "autonomous_cycle", sourceId: cycle.id, eventType: "CYCLE_COMPLETED",
+    status: finished.state, cycleId: finished.id,
+    opportunityId: finished.opportunityId, payload: { score: finished.score },
+  });
   await db.insert(autonomyLearningTable).values({
     cycleId: cycle.id, category, signal: "SELECTION",
     observation: scored.scoreIsDemandProof ? "Scored" : "Scored without demand proof",
@@ -391,6 +404,13 @@ router.post("/human-actions/:id/complete", async (req, res): Promise<void> => {
           : `Human action rejected. Cycle remains blocked at checkpoint ${action.checkpoint}.`,
         updatedAt: new Date(),
       }).where(eq(autonomousCyclesTable.id, action.cycleId));
+      await appendLifecycleEvent({
+        eventKey: lifecycleKey("human_action", action.id, completed.status),
+        sourceType: "human_action", sourceId: action.id, eventType: "HUMAN_ACTION_COMPLETED",
+        status: completed.status, actionId: action.id, cycleId: action.cycleId,
+        opportunityId: action.opportunityId, projectId: action.projectId,
+        payload: { checkpoint: action.checkpoint, approved },
+      }, tx);
     }
     return completed;
   });

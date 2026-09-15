@@ -20,3 +20,6 @@
 export * from "./soy-money";
 export * from "./money-lab";
 export * from "./autonomy";
+export * from "./owner-binding";
+export * from "./lifecycle";
+export * from "./money-lab-candidates";

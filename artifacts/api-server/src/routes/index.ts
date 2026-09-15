@@ -6,10 +6,12 @@ import cyclesRouter from "./cycles";
 import moneyLabRouter from "./money-lab";
 import autonomyRouter from "./autonomy";
 import controlTowerRouter from "./control-tower";
+import { requireOwner } from "../middlewares/require-owner";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(requireOwner);
 router.use(projectExecutionRouter);
 router.use(soyMoneyRouter);
 router.use(cyclesRouter);

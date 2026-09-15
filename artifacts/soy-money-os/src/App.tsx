@@ -1,5 +1,8 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { ClerkProvider, Show, SignIn, SignUp, useClerk } from '@clerk/react';
+import { publishableKeyFromHost } from '@clerk/react/internal';
+import { shadcn } from '@clerk/themes';
 import {
   Activity as ActivityIcon,
   ArrowRight,
@@ -33,7 +36,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { Link, Route, Switch, useLocation, useParams } from 'wouter';
+import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import {
   getGetDashboardQueryKey,
   getGetOpportunityQueryKey,
@@ -92,7 +95,7 @@ const navGroups = [
   {
     label: 'Operación',
     items: [
-      { href: '/', label: 'Vista ejecutiva', icon: LayoutDashboard },
+      { href: '/user-portal', label: 'Vista ejecutiva', icon: LayoutDashboard },
       { href: '/torre-control', label: 'Torre de control', icon: Radar },
       { href: '/autonomia', label: 'Motor Autónomo', icon: Sparkles },
       { href: '/acciones', label: 'Cola Humana', icon: ShieldCheck },
@@ -163,7 +166,7 @@ export function Badge({ value, small = false }: { value?: string; small?: boolea
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const pageName = location === '/' ? 'Vista ejecutiva' : navGroups.flatMap((group) => group.items).find((item) => location.startsWith(item.href) && item.href !== '/')?.label || (location === '/configuracion' ? 'Configuración' : 'SOY MONEY OS');
+  const pageName = location === '/user-portal' ? 'Vista ejecutiva' : navGroups.flatMap((group) => group.items).find((item) => location.startsWith(item.href) && item.href !== '/')?.label || (location === '/configuracion' ? 'Configuración' : 'SOY MONEY OS');
   return (
     <div className="app-frame paper-noise">
       <aside className={cx('sidebar', mobileOpen && 'sidebar-open')}>
@@ -475,12 +478,119 @@ function SettingsPage() {
   return <div><PageHeader eyebrow="Sistema / 08" title="Configuración" description="Conexiones, gobernanza y límites que mantienen el sistema serio." action={<button className="button button-primary" onClick={() => setSaved(true)} data-testid="button-save-settings"><Check size={15} /> {saved ? 'Cambios guardados' : 'Guardar cambios'}</button>} /><div className="settings-layout"><section className="panel integrations"><div className="panel-heading"><div><div className="eyebrow">Dependencias externas</div><h3>Integraciones</h3></div><Badge value="NOT_CONFIGURED" small /></div><p className="section-intro">Estas conexiones son explícitas. Nada entra al pipeline sin una fuente identificable.</p>{['Search intelligence', 'Signals warehouse', 'Revenue attribution'].map((name, index) => <div className="integration-row" key={name} data-testid={`row-integration-${index}`}><div className="integration-symbol">{index === 0 ? <Search size={16} /> : index === 1 ? <Database size={16} /> : <BarChart3 size={16} />}</div><div><strong>{name}</strong><span>{index === 0 ? 'Búsqueda y captura de evidencia' : index === 1 ? 'Persistencia de fuentes verificadas' : 'Medición de resultados'}</span></div><Badge value="NOT_CONFIGURED" small /><button className="button button-quiet button-small" onClick={() => setSaved(false)} data-testid={`button-configure-integration-${index}`}><Settings2 size={13} /> Configurar</button></div>)}</section><aside className="settings-side"><div className="panel system-health"><div className="eyebrow">Health check</div><div className="health-value"><span className={cx('pulse-dot', health.data?.status === 'ok' && 'health-ok')} />{health.data?.status ? statusLabel(health.data.status) : health.isLoading ? 'consultando' : 'no disponible'}</div><p>Última comprobación contra el servicio de API.</p><button className="text-link" onClick={() => void health.refetch()} data-testid="button-refresh-health"><RefreshCw size={13} /> Actualizar</button></div><div className="panel"><div className="eyebrow">Política operativa</div><div className="policy-row"><ShieldCheck size={16} /><span>Revisión humana obligatoria</span><strong>ON</strong></div><div className="policy-row"><Clock3 size={16} /><span>Retención de evidencia</span><strong>90 días</strong></div></div></aside></div><ApprovalsPanel /></div>;
 }
 
-function Router() {
-  return <Shell><ErrorBoundary resetKey={window.location.pathname}><Switch><Route path="/" component={DashboardPage} /><Route path="/torre-control" component={TorreControlPage} /><Route path="/oportunidades" component={OpportunitiesPage} /><Route path="/oportunidades/:id" component={OportunidadDetailPage} /><Route path="/demand-proof" component={DemandProofPage} /><Route path="/proyectos" component={ProyectosPage} /><Route path="/proyectos/:id" component={ProyectoDetailPage} /><Route path="/ejecucion" component={EjecucionPage} /><Route path="/resultados" component={ResultsPage} /><Route path="/aprendizaje" component={LearningPage} /><Route path="/money-lab" component={MoneyLabPage} /><Route path="/autonomia" component={AutonomiaPage} /><Route path="/acciones" component={AccionesPage} /><Route path="/finanzas" component={FinanzasPage} /><Route path="/configuracion" component={SettingsPage} /><Route component={NotFound} /></Switch></ErrorBoundary></Shell>;
+function ExistingAppRouter() {
+  return <Shell><ErrorBoundary resetKey={window.location.pathname}><Switch><Route path="/user-portal" component={DashboardPage} /><Route path="/torre-control" component={TorreControlPage} /><Route path="/oportunidades" component={OpportunitiesPage} /><Route path="/oportunidades/:id" component={OportunidadDetailPage} /><Route path="/demand-proof" component={DemandProofPage} /><Route path="/proyectos" component={ProyectosPage} /><Route path="/proyectos/:id" component={ProyectoDetailPage} /><Route path="/ejecucion" component={EjecucionPage} /><Route path="/resultados" component={ResultsPage} /><Route path="/aprendizaje" component={LearningPage} /><Route path="/money-lab" component={MoneyLabPage} /><Route path="/autonomia" component={AutonomiaPage} /><Route path="/acciones" component={AccionesPage} /><Route path="/finanzas" component={FinanzasPage} /><Route path="/configuracion" component={SettingsPage} /><Route component={NotFound} /></Switch></ErrorBoundary></Shell>;
+}
+
+const clerkPubKey = publishableKeyFromHost(
+  window.location.hostname,
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+);
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+function stripBase(path: string): string {
+  return basePath && path.startsWith(basePath)
+    ? path.slice(basePath.length) || '/'
+    : path;
+}
+
+if (!clerkPubKey) {
+  throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in .env file');
+}
+
+const clerkAppearance = {
+  theme: shadcn,
+  cssLayerName: 'clerk',
+  options: {
+    logoPlacement: 'inside' as const,
+    logoLinkUrl: basePath || '/',
+    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+  },
+  variables: {
+    colorPrimary: '#c7ed45',
+    colorForeground: '#152b31',
+    colorMutedForeground: '#60747a',
+    colorDanger: '#b7473e',
+    colorBackground: '#f7f7f1',
+    colorInput: '#ffffff',
+    colorInputForeground: '#152b31',
+    colorNeutral: '#c7d1cc',
+    fontFamily: 'DM Sans, sans-serif',
+    borderRadius: '0.5rem',
+  },
+  elements: {
+    rootBox: 'w-full flex justify-center',
+    cardBox: 'bg-[#f7f7f1] rounded-2xl w-[440px] max-w-full overflow-hidden',
+    card: '!shadow-none !border-0 !bg-transparent !rounded-none',
+    footer: '!shadow-none !border-0 !bg-transparent !rounded-none',
+    headerTitle: 'text-[#152b31]',
+    headerSubtitle: 'text-[#60747a]',
+    socialButtonsBlockButtonText: 'text-[#152b31]',
+    formFieldLabel: 'text-[#152b31]',
+    footerActionLink: 'text-[#356875]',
+    footerActionText: 'text-[#60747a]',
+    dividerText: 'text-[#60747a]',
+    identityPreviewEditButton: 'text-[#356875]',
+    formFieldSuccessText: 'text-[#356875]',
+    alertText: 'text-[#b7473e]',
+    logoBox: 'rounded-lg overflow-hidden',
+    logoImage: 'rounded-lg',
+    socialButtonsBlockButton: 'border-[#c7d1cc] bg-white',
+    formButtonPrimary: 'bg-[#152b31] text-[#f7f7f1] hover:bg-[#284a53]',
+    formFieldInput: 'border-[#c7d1cc] bg-white text-[#152b31]',
+    footerAction: 'bg-transparent',
+    dividerLine: 'bg-[#c7d1cc]',
+    alert: 'bg-[#fff0ed] border-[#e6b8b2]',
+    otpCodeFieldInput: 'border-[#c7d1cc] bg-white text-[#152b31]',
+    formFieldRow: 'text-[#152b31]',
+    main: 'bg-[#f7f7f1]',
+  },
+};
+
+function SignInPage() {
+  return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4"><SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /></div>;
+}
+
+function SignUpPage() {
+  return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4"><SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} /></div>;
+}
+
+function HomePage() {
+  const [, setLocation] = useLocation();
+  return <div className="app-frame paper-noise"><main className="mx-auto flex min-h-[100dvh] w-full max-w-5xl items-center justify-center px-6 py-16"><section className="panel w-full max-w-2xl p-8 md:p-12"><div className="brand-block !px-0"><div className="brand-mark"><span>SM</span><i /></div><div><div className="brand-name">SOY MONEY</div><div className="brand-sub">OPERATING SYSTEM <span>v0.1</span></div></div></div><div className="eyebrow mt-12">Inteligencia operativa</div><h1 className="mt-3">El dinero está en las señales.</h1><p className="mt-5 max-w-xl text-muted-foreground">Detecta, verifica y decide qué merece convertirse en una operación.</p><div className="mt-8 flex flex-wrap gap-3"><button className="button button-primary" onClick={() => setLocation('/sign-in')}>Iniciar sesión</button><button className="button button-secondary" onClick={() => setLocation('/sign-up')}>Crear cuenta</button></div></section></main></div>;
+}
+
+function HomeRedirect() {
+  return <><Show when="signed-in"><Redirect to="/user-portal" /></Show><Show when="signed-out"><HomePage /></Show></>;
+}
+
+function ClerkQueryClientCacheInvalidator() {
+  const { addListener } = useClerk();
+  const client = useQueryClient();
+  const previousUserId = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const unsubscribe = addListener(({ user }) => {
+      const userId = user?.id ?? null;
+      if (previousUserId.current !== undefined && previousUserId.current !== userId) client.clear();
+      previousUserId.current = userId;
+    });
+    return unsubscribe;
+  }, [addListener, client]);
+  return null;
+}
+
+function SignedInRoutes() {
+  return <><Show when="signed-in"><ExistingAppRouter /></Show><Show when="signed-out"><Redirect to="/" /></Show></>;
+}
+
+function ClerkProviderWithRoutes() {
+  const [, setLocation] = useLocation();
+  return <ClerkProvider publishableKey={clerkPubKey} proxyUrl={clerkProxyUrl} appearance={clerkAppearance} signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} localization={{ signIn: { start: { title: 'Welcome back', subtitle: 'Sign in to access SOY MONEY OS' } }, signUp: { start: { title: 'Create your account', subtitle: 'Get started with SOY MONEY OS' } } }} routerPush={(to) => setLocation(stripBase(to))} routerReplace={(to) => setLocation(stripBase(to), { replace: true })}><QueryClientProvider client={queryClient}><ClerkQueryClientCacheInvalidator /><Switch><Route path="/" component={HomeRedirect} /><Route path="/sign-in/*?" component={SignInPage} /><Route path="/sign-up/*?" component={SignUpPage} /><Route component={SignedInRoutes} /></Switch><TooltipProvider><Toaster /></TooltipProvider></QueryClientProvider></ClerkProvider>;
 }
 
 function App() {
-  return <QueryClientProvider client={queryClient}><TooltipProvider><Router /><Toaster /></TooltipProvider></QueryClientProvider>;
+  return <WouterRouter base={basePath}><ClerkProviderWithRoutes /></WouterRouter>;
 }
 
 export default App;

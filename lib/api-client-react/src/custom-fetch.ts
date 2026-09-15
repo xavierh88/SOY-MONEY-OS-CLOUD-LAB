@@ -360,7 +360,14 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const response = await fetch(input, {
+    ...init,
+    method,
+    headers,
+    // Browser API calls use the Clerk session cookie. Mobile callers may
+    // still provide a bearer token through the shared mobile-only getter.
+    credentials: init.credentials ?? "include",
+  });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

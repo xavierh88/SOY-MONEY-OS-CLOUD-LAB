@@ -16,6 +16,8 @@ import {
   projectsTable,
   resultsTable,
   structuredErrorsTable,
+  marketCycleCandidatesTable,
+  lifecycleEventsTable,
 } from "@workspace/db";
 import {
   GetControlTowerOpportunityParams,
@@ -27,6 +29,7 @@ import {
   ListMarketCycleCandidatesParams,
   ListMarketCycleCandidatesResponse,
 } from "@workspace/api-zod";
+import { normalizeMarketCycleCandidates, normalizeStatus } from "../lib/lifecycle";
 
 const router: IRouter = Router();
 
@@ -79,7 +82,7 @@ function presentationStatus(
       COMPLETED: "COMPLETED",
       REJECTED: "REJECTED",
     };
-    return projectMapping[projectStatus] ?? projectStatus;
+    return normalizeStatus(projectMapping[normalizeStatus(projectStatus)] ?? projectStatus);
   }
   const mapping: Record<string, string> = {
     DISCOVERED: "DETECTED",
@@ -92,7 +95,7 @@ function presentationStatus(
     NO_VALID_OPPORTUNITY: "NO_VALID_OPPORTUNITY",
     EXPIRED: "EXPIRED",
   };
-  return mapping[opportunity.status] ?? opportunity.status;
+  return normalizeStatus(mapping[normalizeStatus(opportunity.status)] ?? opportunity.status);
 }
 
 const event = (input: {
@@ -111,6 +114,8 @@ const event = (input: {
   nextAction?: string | null;
 }) => ({
   ...input,
+  eventType: normalizeStatus(input.eventType),
+  status: normalizeStatus(input.status),
   sourceId: String(input.sourceId),
   opportunityId: input.opportunityId ?? null,
   projectId: input.projectId ?? null,
@@ -207,7 +212,7 @@ router.get("/control-tower/overview", async (_req, res): Promise<void> => {
 router.get("/control-tower/timeline", async (_req, res): Promise<void> => {
   const [
     opportunities, evidence, approvals, projects, executions, activities,
-    results, learning, autonomyLearning, humanActions, autonomousCycles, errors, marketCycles,
+    results, learning, autonomyLearning, humanActions, autonomousCycles, errors, marketCycles, lifecycleEvents,
   ] = await Promise.all([
     db.select().from(opportunitiesTable),
     db.select().from(evidenceTable),
@@ -222,11 +227,27 @@ router.get("/control-tower/timeline", async (_req, res): Promise<void> => {
     db.select().from(autonomousCyclesTable),
     db.select().from(structuredErrorsTable),
     db.select().from(marketCyclesTable),
+    db.select().from(lifecycleEventsTable),
   ]);
   const opportunityByProject = new Map(projects.map((row) => [row.id, row.opportunityId]));
   const opportunityByExecution = new Map(executions.map((row) => [row.id, row.opportunityId]));
   const projectByExecution = new Map(executions.map((row) => [row.id, row.projectId]));
   const timeline = [
+    ...lifecycleEvents.map((row) => event({
+      sourceType: row.sourceType,
+      sourceId: row.sourceId,
+      eventType: row.eventType,
+      status: row.status,
+      timestamp: row.occurredAt,
+      opportunityId: row.opportunityId,
+      projectId: row.projectId,
+      marketCycleId: row.marketCycleId,
+      title: row.eventType,
+      description: String(row.payload.description ?? row.payload.message ?? row.eventType),
+      actor: typeof row.payload.actor === "string" ? row.payload.actor : null,
+      currentAction: typeof row.payload.currentAction === "string" ? row.payload.currentAction : null,
+      nextAction: typeof row.payload.nextAction === "string" ? row.payload.nextAction : null,
+    })),
     ...opportunities.map((row) => event({
       sourceType: "opportunity", sourceId: row.id, eventType: "OPPORTUNITY_STATE",
       status: row.status, timestamp: row.updatedAt, opportunityId: row.id,
@@ -413,48 +434,84 @@ router.get("/money-lab/market-cycles/:id/candidates", async (req, res): Promise<
     res.status(404).json({ error: "Market cycle not found" });
     return;
   }
-  const result = sourceObject(cycle.result);
-  const values = result?.results;
-  const candidates = Array.isArray(values) ? values : [];
-  const mapped = candidates.flatMap((value, sourceIndex) => {
-    const raw = sourceObject(value);
-    if (!raw) return [];
-    const inSample = sourceObject(raw.in_sample) ?? sourceObject(raw.inSample);
-    const validation = sourceObject(raw.validation);
-    const bestParams = sourceObject(raw.best_params) ?? sourceObject(raw.bestParams);
-    const outOfSample = sourceObject(raw.out_of_sample) ?? sourceObject(raw.outOfSample);
-    const validUntil = sourceDate(raw.valid_until ?? raw.validUntil);
-    const expiresAt = sourceDate(raw.expires_at ?? raw.expiresAt);
-    const metrics: Record<string, unknown> = {};
-    if (inSample) metrics.inSample = inSample;
-    if (validation) metrics.validation = validation;
-    if (bestParams) metrics.bestParams = bestParams;
-    if (outOfSample) metrics.outOfSample = outOfSample;
-    return [{
-      sourceIndex,
-      id: `${cycle.id}:${sourceIndex}`,
-      raw,
-      symbol: sourceString(raw.symbol),
-      gate: sourceString(raw.v2_gate) ?? sourceString(raw.gate),
-      classification: sourceString(raw.classification),
-       strategyKind: sourceString(raw.strategy_kind) ?? sourceString(raw.strategyKind) ?? sourceString(bestParams?.kind),
-      metrics,
-      cycleTimestamp: cycle.completedAt ?? cycle.updatedAt ?? cycle.createdAt,
-       guardrails: {
-         realMoneyUsed: cycle.realMoneyUsed,
-         financialExecution: cycle.financialExecution,
-         realVerified: cycle.realVerified,
-       },
-      validUntil,
-      expiresAt,
-      detailsAvailable: Boolean(inSample || validation || bestParams || outOfSample),
-      provenance: { sourceType: "market_cycle_result", sourceId: String(cycle.id), sourceIndex },
-      inSample,
-      validation,
-      bestParams,
-      outOfSample,
-    }];
-  });
+  let candidates: Array<any> = [];
+  try {
+    await normalizeMarketCycleCandidates(cycle.id);
+    candidates = await db.select().from(marketCycleCandidatesTable)
+      .where(eq(marketCycleCandidatesTable.marketCycleId, cycle.id))
+      .orderBy(marketCycleCandidatesTable.sourceIndex);
+  } catch {
+    // A rolling deployment can serve historical JSON before the additive
+    // candidate table migration has been applied.
+    candidates = [];
+  }
+  // Compatibility for an installation where the table migration has not yet
+  // run: read the historical JSON result exactly as the old endpoint did.
+  if (!candidates.length) {
+    const result = sourceObject(cycle.result);
+    const values = result?.results;
+    candidates = (Array.isArray(values) ? values : []).flatMap((value, sourceIndex) => {
+      const raw = sourceObject(value);
+      if (!raw) return [];
+      return [{
+        id: 0,
+        marketCycleId: cycle.id,
+        recordKey: `${cycle.id}:${sourceIndex}`,
+        sourceIndex,
+        raw,
+        symbol: sourceString(raw.symbol),
+        gate: sourceString(raw.v2_gate) ?? sourceString(raw.gate),
+        classification: sourceString(raw.classification),
+        strategyKind: sourceString(raw.strategy_kind) ?? sourceString(raw.strategyKind)
+          ?? sourceString(sourceObject(raw.best_params)?.kind),
+        metrics: (() => {
+          const metrics: Record<string, unknown> = {};
+          const inSample = sourceObject(raw.in_sample) ?? sourceObject(raw.inSample);
+          const validation = sourceObject(raw.validation);
+          const bestParams = sourceObject(raw.best_params) ?? sourceObject(raw.bestParams);
+          const outOfSample = sourceObject(raw.out_of_sample) ?? sourceObject(raw.outOfSample);
+          if (inSample) metrics.inSample = inSample;
+          if (validation) metrics.validation = validation;
+          if (bestParams) metrics.bestParams = bestParams;
+          if (outOfSample) metrics.outOfSample = outOfSample;
+          return metrics;
+        })(),
+        inSample: sourceObject(raw.in_sample) ?? sourceObject(raw.inSample),
+        validation: sourceObject(raw.validation),
+        bestParams: sourceObject(raw.best_params) ?? sourceObject(raw.bestParams),
+        outOfSample: sourceObject(raw.out_of_sample) ?? sourceObject(raw.outOfSample),
+        validUntil: sourceDate(raw.valid_until ?? raw.validUntil),
+        expiresAt: sourceDate(raw.expires_at ?? raw.expiresAt),
+        createdAt: cycle.createdAt,
+      }];
+    });
+  }
+  const mapped = candidates.map((candidate) => ({
+    sourceIndex: candidate.sourceIndex,
+    // Preserve the historical response identifier while recordKey remains
+    // the durable database identity.
+    id: `${cycle.id}:${candidate.sourceIndex}`,
+    raw: candidate.raw,
+    symbol: candidate.symbol,
+    gate: candidate.gate,
+    classification: candidate.classification,
+    strategyKind: candidate.strategyKind,
+    metrics: candidate.metrics,
+    cycleTimestamp: cycle.completedAt ?? cycle.updatedAt ?? cycle.createdAt,
+    guardrails: {
+      realMoneyUsed: cycle.realMoneyUsed,
+      financialExecution: cycle.financialExecution,
+      realVerified: cycle.realVerified,
+    },
+    validUntil: candidate.validUntil,
+    expiresAt: candidate.expiresAt,
+    detailsAvailable: Boolean(candidate.inSample || candidate.validation || candidate.bestParams || candidate.outOfSample),
+    provenance: { sourceType: "market_cycle_result", sourceId: String(cycle.id), sourceIndex: candidate.sourceIndex },
+    inSample: candidate.inSample,
+    validation: candidate.validation,
+    bestParams: candidate.bestParams,
+    outOfSample: candidate.outOfSample,
+  }));
   res.json(ListMarketCycleCandidatesResponse.parse(mapped));
 });
 

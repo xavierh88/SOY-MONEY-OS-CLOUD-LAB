@@ -19,6 +19,7 @@ import {
   StartCycleResponse,
 } from "@workspace/api-zod";
 import { getJob, runFlow, WindmillError } from "../lib/windmill";
+import { appendLifecycleEvent, lifecycleKey } from "../lib/lifecycle";
 
 const router: IRouter = Router();
 const terminalStates = ["COMPLETED", "REJECTED", "FAILED"] as const;
@@ -70,6 +71,12 @@ async function syncCycle(id: number) {
         updatedAt: now,
         completedAt: now,
       }).where(eq(cyclesTable.id, id)).returning();
+      if (cycle) await appendLifecycleEvent({
+        eventKey: lifecycleKey("cycle", cycle.id, "FAILED"),
+        sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_FAILED",
+        status: cycle.state, opportunityId: cycle.opportunityId, projectId: cycle.projectId,
+        payload: { error: cycle.error },
+      });
       return cycle;
     }
 
@@ -90,6 +97,12 @@ async function syncCycle(id: number) {
         updatedAt: now,
         completedAt: completed ? now : null,
       }).where(eq(cyclesTable.id, id)).returning();
+      if (cycle) await appendLifecycleEvent({
+        eventKey: lifecycleKey("cycle", cycle.id, cycle.state),
+        sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_STATE",
+        status: cycle.state, opportunityId: cycle.opportunityId, projectId: cycle.projectId,
+        payload: { stage: cycle.stage },
+      });
       return cycle;
     }
 
@@ -102,6 +115,11 @@ async function syncCycle(id: number) {
         message: "Decisión humana requerida",
         updatedAt: now,
       }).where(eq(cyclesTable.id, id)).returning();
+      if (cycle) await appendLifecycleEvent({
+        eventKey: lifecycleKey("cycle", cycle.id, "WAITING_APPROVAL"),
+        sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_WAITING_APPROVAL",
+        status: cycle.state, opportunityId: cycle.opportunityId,
+      });
     }
     return cycle;
   } catch (error) {
@@ -112,6 +130,12 @@ async function syncCycle(id: number) {
       errorStatusCode: statusCode,
       updatedAt: new Date(),
     }).where(eq(cyclesTable.id, id)).returning();
+    if (cycle) await appendLifecycleEvent({
+      eventKey: lifecycleKey("cycle", cycle.id, "SYNC_ERROR"),
+      sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_SYNC_ERROR",
+      status: cycle.state, opportunityId: cycle.opportunityId, projectId: cycle.projectId,
+      payload: { error: cycle.error },
+    });
     return cycle;
   }
 }
@@ -164,6 +188,12 @@ router.post("/cycles", async (req, res): Promise<void> => {
       message: "Discovery en ejecución",
       updatedAt: new Date(),
     }).where(eq(cyclesTable.id, cycle.id)).returning();
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("cycle", cycle.id, "RUNNING"),
+      sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_STARTED",
+      status: started.state, opportunityId: started.opportunityId,
+      payload: { discoveryJobId: started.discoveryJobId },
+    });
     res.status(201).json(StartCycleResponse.parse(started));
   } catch (error) {
     const [failed] = await db.update(cyclesTable).set({
@@ -175,6 +205,12 @@ router.post("/cycles", async (req, res): Promise<void> => {
       updatedAt: new Date(),
       completedAt: new Date(),
     }).where(eq(cyclesTable.id, cycle.id)).returning();
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("cycle", cycle.id, "FAILED_START"),
+      sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_FAILED",
+      status: failed.state, opportunityId: failed.opportunityId,
+      payload: { error: failed.error },
+    });
     res.status(502).json(StartCycleResponse.parse(failed));
   }
 });
@@ -230,6 +266,14 @@ router.post("/cycles/:id/decision", async (req, res): Promise<void> => {
         status: body.data.decision === "approved" ? "PROJECT_READY" : "REJECTED",
         updatedAt: new Date(),
       }).where(eq(opportunitiesTable.id, cycle.opportunityId!));
+      await appendLifecycleEvent({
+        eventKey: lifecycleKey("opportunity", cycle.opportunityId!, body.data.decision === "approved" ? "PROJECT_READY" : "REJECTED"),
+        sourceType: "opportunity", sourceId: cycle.opportunityId!,
+        eventType: "OPPORTUNITY_STATE",
+        status: body.data.decision === "approved" ? "PROJECT_READY" : "REJECTED",
+        opportunityId: cycle.opportunityId!,
+        cycleId: cycle.id,
+      }, tx);
       if (body.data.decision === "approved") {
         const [existingProject] = await tx.select().from(projectsTable)
           .where(eq(projectsTable.opportunityId, cycle.opportunityId!)).orderBy(desc(projectsTable.id)).limit(1);
@@ -265,6 +309,11 @@ router.post("/cycles/:id/decision", async (req, res): Promise<void> => {
       updatedAt: new Date(),
       completedAt: new Date(),
     }).where(eq(cyclesTable.id, cycle.id)).returning();
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("cycle", cycle.id, "REJECTED"),
+      sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_REJECTED",
+      status: rejected.state, opportunityId: rejected.opportunityId, projectId: rejected.projectId,
+    });
     res.json(DecideCycleResponse.parse(rejected));
     return;
   }
@@ -302,6 +351,12 @@ router.post("/cycles/:id/decision", async (req, res): Promise<void> => {
       message: "Aprobación registrada. Continuación iniciada.",
       updatedAt: new Date(),
     }).where(eq(cyclesTable.id, cycle.id)).returning();
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("cycle", cycle.id, "APPROVED"),
+      sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_APPROVED",
+      status: continued.state, opportunityId: continued.opportunityId, projectId: continued.projectId,
+      payload: { continuationJobId: continued.continuationJobId },
+    });
     res.json(DecideCycleResponse.parse(continued));
   } catch (error) {
     const [failed] = await db.update(cyclesTable).set({
@@ -313,6 +368,12 @@ router.post("/cycles/:id/decision", async (req, res): Promise<void> => {
       updatedAt: new Date(),
       completedAt: new Date(),
     }).where(eq(cyclesTable.id, cycle.id)).returning();
+    await appendLifecycleEvent({
+      eventKey: lifecycleKey("cycle", cycle.id, "FAILED_CONTINUATION"),
+      sourceType: "cycle", sourceId: cycle.id, eventType: "CYCLE_FAILED",
+      status: failed.state, opportunityId: failed.opportunityId, projectId: failed.projectId,
+      payload: { error: failed.error },
+    });
     res.status(502).json(DecideCycleResponse.parse(failed));
   }
 });

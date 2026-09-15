@@ -1,0 +1,59 @@
+Continúa con la implementación actual y resuelve COMPLETAMENTE los 7 REMAINING_BLOCKERS que acabas de identificar.
+
+No rediseñes la interfaz.
+No elimines ni reemplaces funcionalidades existentes.
+No rompas GitHub Actions, Money Lab, Windmill ni los ciclos ya verificados.
+
+Implementa y prueba:
+
+1. Historial append-only durable para TODAS las transiciones importantes de estado.
+2. Finalizador durable de expiraciones que persista EXPIRED, expiredAt, razón, resultado y evento histórico.
+3. Un único normalizador central de estados usado por APIs, listas, detalles y timelines.
+4. Normalización durable de candidatos Money Lab en registros individuales para consulta histórica, preservando compatibilidad con los ciclos existentes.
+5. Autenticación y autorización real de propietario para TODOS los endpoints de control sensibles.
+6. Worker durable que procese RESUME_PENDING y continúe exactamente desde el checkpoint correspondiente, con idempotencia y sin duplicar ciclo/proyecto.
+7. Mantén AUTONOMY_EXECUTION_LOCKED=true y autonomía OFF durante toda la implementación y las pruebas.
+
+IMPORTANTE SOBRE SEGURIDAD:
+No habilites dinero real, trading real, apuestas reales, pagos, compras, publicaciones comerciales ni operaciones financieras.
+No autoapruebes Human Actions.
+No expongas tokens, secretos ni credenciales.
+No elimines los guardrails actuales.
+
+PRUEBA END-TO-END OBLIGATORIA:
+Debes demostrar:
+Human Action bloquea una rama → propietario resuelve → mismo cycle_id → mismo project_id → RESUME_PENDING → worker continúa → siguiente checkpoint/estado correcto → sin duplicados.
+
+También prueba:
+- expiración durable;
+- historial append-only;
+- candidatos Money Lab históricos;
+- autorización de endpoints;
+- idempotencia;
+- separación REAL/SIMULATED/POTENTIAL;
+- regresión GitHub/Money Lab;
+- regresión Windmill si la integración existente puede verificarse sin modificarla.
+
+NO actives todavía la autonomía.
+
+Al terminar entrégame:
+
+FINAL_IMPLEMENTATION_STATUS
+BLOCKERS_RESOLVED
+BLOCKERS_REMAINING
+DATABASE_CHANGES
+FILES_CHANGED
+AUTHORIZATION_STATUS
+APPEND_ONLY_HISTORY_STATUS
+EXPIRATION_WORKER_STATUS
+MONEY_LAB_NORMALIZATION_STATUS
+RESUME_WORKER_STATUS
+END_TO_END_TEST
+GITHUB_REGRESSION
+WINDMILL_REGRESSION
+DUPLICATES_FOUND
+SECURITY_STATUS
+AUTONOMY_STATUS
+READY_FOR_FINAL_AUDIT = YES/NO
+
+No declares READY_FOR_FINAL_AUDIT=YES si queda cualquiera de los 7 bloqueadores sin resolver.
