@@ -1,0 +1,60 @@
+SOY MONEY OS — IMPLEMENTAR P1 COMPLETO
+
+P0 ya está PASS. Trabaja SOLO en P1 reutilizando la arquitectura existente. No reconstruyas módulos completos ni hagas refactors cosméticos.
+
+Mantener:
+autonomy=OFF
+AUTONOMY_EXECUTION_LOCKED=true
+Finance REAL=0
+Windmill=LEGACY_UNUSED
+NO Republish
+NO pagos ni operaciones financieras reales
+NO Discovery externo ni consumo de Brave
+
+OBJETIVO: completar la operación controlada desde el dashboard.
+
+EVIDENCE UI
+Completar captura, edición/corrección, verificación manual, contradicciones, provenance, freshness, clasificación y navegación entre evidencia y oportunidad. Nunca permitir que una acción manual convierta evidencia automáticamente en DEMAND_PROOF o REAL_VERIFIED sin cumplir sus reglas.
+PROJECT DETAIL
+Añadir acciones reales desde UI para tareas, gates, QA, retry seguro, resultados, learning, completar proyecto y descargar artefactos. Todas deben usar backend/lifecycle existente, conservar idempotencia y respetar checkpoints humanos.
+CONFIGURACIÓN
+Reemplazar el skeleton por configuración persistida real: estado de integraciones, configuración owner, políticas operativas y seguridad. Secrets nunca visibles ni almacenados en frontend. No conectar servicios comerciales todavía.
+OWNER / SESSION UX
+Completar identidad visible del owner, menú de usuario, sign-out y pantallas claras para 401/403/503 y sesión expirada.
+NOTIFICACIONES INTERNAS
+Crear sistema de notificaciones dentro del dashboard para Human Actions, checkpoints, QA failures y errores operativos. No integrar email/SMS de pago todavía. Debe permitir leído/no leído y navegación al elemento correspondiente.
+HEALTH / READINESS
+Ampliar health/readiness para DB, storage y workers. Mostrar estados independientes y diagnóstico seguro sin Secrets.
+OBSERVABILIDAD
+Completar métricas operativas básicas, correlation IDs, errores API uniformes, alertas internas, incident acknowledgment y operación segura de DLQ/retry cuando corresponda. No añadir servicios externos pagados.
+APP STORAGE
+Completar validación E2E: upload/read/download, hashes, errores, permisos, path traversal y metadata. Nunca usar producción.
+TESTS
+Extender P0 para cubrir todo P1 con API tests y Playwright. release:gate debe continuar PASS.
+SEGURIDAD
+No autonomía, pagos, publicación, ventas, trading, betting, inversión, transferencias ni movimientos REAL. No usar APIs externas durante tests. No tocar Money Lab salvo comprobar aislamiento.
+
+Al terminar ejecutar únicamente tests locales/offline seguros.
+
+NO implementar todavía P2/P3.
+NO Republish.
+
+Devuelve:
+
+P1_IMPLEMENTATION_STATUS
+FILES_CHANGED
+EVIDENCE_UI_STATUS
+PROJECT_ACTIONS_STATUS
+CONFIGURATION_STATUS
+OWNER_SESSION_STATUS
+NOTIFICATIONS_STATUS
+HEALTH_READINESS_STATUS
+OBSERVABILITY_STATUS
+APP_STORAGE_STATUS
+PLAYWRIGHT_STATUS
+RELEASE_GATE_STATUS
+AUTONOMY_STATUS
+FINANCE_REAL
+WINDMILL_STATUS
+FAILURES_REMAINING
+READY_FOR_P2

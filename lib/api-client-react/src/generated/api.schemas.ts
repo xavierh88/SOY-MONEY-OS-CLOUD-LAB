@@ -1437,6 +1437,215 @@ export interface ServiceReceipt {
   /** @nullable */
   payloadHash?: string | null;
   payload?: ServiceReceiptPayload;
+}
+
+export type ReadinessStatusStatus = typeof ReadinessStatusStatus[keyof typeof ReadinessStatusStatus];
+
+
+export const ReadinessStatusStatus = {
+  ready: 'ready',
+  not_ready: 'not_ready',
+} as const;
+
+export type ReadinessStatusChecksStatus = typeof ReadinessStatusChecksStatus[keyof typeof ReadinessStatusChecksStatus];
+
+
+export const ReadinessStatusChecksStatus = {
+  ready: 'ready',
+  unavailable: 'unavailable',
+  degraded: 'degraded',
+} as const;
+
+export type ReadinessStatusChecks = {[key: string]: {
+  status: ReadinessStatusChecksStatus;
+  diagnostic?: string;
+}};
+
+export interface ReadinessStatus {
+  status: ReadinessStatusStatus;
+  checks: ReadinessStatusChecks;
+}
+
+export type OperationalMetricsByRoute = {[key: string]: number};
+
+export interface OperationalMetrics {
+  requests: number;
+  errors: number;
+  byRoute: OperationalMetricsByRoute;
+}
+
+export type OwnerConfigurationFinanceMode = typeof OwnerConfigurationFinanceMode[keyof typeof OwnerConfigurationFinanceMode];
+
+
+export const OwnerConfigurationFinanceMode = {
+  REAL_ZERO: 'REAL_ZERO',
+} as const;
+
+export type OwnerConfigurationIntegrationStatuses = {[key: string]: 'NOT_CONFIGURED' | 'AVAILABLE' | 'DEGRADED' | 'DISABLED'};
+
+export interface OwnerConfiguration {
+  id: string;
+  autonomyEnabled: boolean;
+  autonomyExecutionLocked: true;
+  financeMode: OwnerConfigurationFinanceMode;
+  windmillLegacyUnused: true;
+  externalApisAllowed: false;
+  publishingAllowed: false;
+  paymentsAllowed: false;
+  integrationStatuses: OwnerConfigurationIntegrationStatuses;
+  updatedAt: string;
+}
+
+export type OwnerConfigurationUpdateIntegrationStatuses = {[key: string]: 'NOT_CONFIGURED' | 'AVAILABLE' | 'DEGRADED' | 'DISABLED'};
+
+export interface OwnerConfigurationUpdate {
+  autonomyEnabled?: boolean;
+  integrationStatuses?: OwnerConfigurationUpdateIntegrationStatuses;
+}
+
+export interface Notification {
+  id: number;
+  title: string;
+  body: string;
+  /** @nullable */
+  targetPath: string | null;
+  /** @nullable */
+  readAt: string | null;
+  createdAt: string;
+}
+
+export type IncidentSeverity = typeof IncidentSeverity[keyof typeof IncidentSeverity];
+
+
+export const IncidentSeverity = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
+} as const;
+
+export type IncidentStatus = typeof IncidentStatus[keyof typeof IncidentStatus];
+
+
+export const IncidentStatus = {
+  OPEN: 'OPEN',
+  ACKNOWLEDGED: 'ACKNOWLEDGED',
+  RESOLVED: 'RESOLVED',
+} as const;
+
+export interface Incident {
+  id: number;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  title: string;
+  summary: string;
+  /** @nullable */
+  correlationId: string | null;
+  /** @nullable */
+  acknowledgedAt: string | null;
+  /** @nullable */
+  acknowledgedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type EvidenceTransitionInputAction = typeof EvidenceTransitionInputAction[keyof typeof EvidenceTransitionInputAction];
+
+
+export const EvidenceTransitionInputAction = {
+  MANUAL_CORRECTION: 'MANUAL_CORRECTION',
+  MANUAL_VERIFICATION: 'MANUAL_VERIFICATION',
+  MANUAL_CONTRADICTION: 'MANUAL_CONTRADICTION',
+  MARK_FRESH: 'MARK_FRESH',
+  MARK_STALE: 'MARK_STALE',
+} as const;
+
+export type EvidenceTransitionInputToStatus = typeof EvidenceTransitionInputToStatus[keyof typeof EvidenceTransitionInputToStatus];
+
+
+export const EvidenceTransitionInputToStatus = {
+  NOT_VERIFIED: 'NOT_VERIFIED',
+  REAL_VERIFIED: 'REAL_VERIFIED',
+  CONTRADICTED: 'CONTRADICTED',
+  EXPIRED: 'EXPIRED',
+} as const;
+
+export type EvidenceTransitionInputProvenance = { [key: string]: unknown };
+
+export interface EvidenceTransitionInput {
+  action: EvidenceTransitionInputAction;
+  toStatus: EvidenceTransitionInputToStatus;
+  /** @minLength 1 */
+  reason: string;
+  provenance: EvidenceTransitionInputProvenance;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  freshnessScore?: number;
+}
+
+export type EvidenceTransitionResponseTransitionProvenance = { [key: string]: unknown };
+
+export type EvidenceTransitionResponseTransition = {
+  id: number;
+  action: string;
+  /** @nullable */
+  fromStatus: string | null;
+  toStatus: string;
+  reason: string;
+  provenance: EvidenceTransitionResponseTransitionProvenance;
+  createdAt: string;
+};
+
+export interface EvidenceTransitionResponse {
+  evidence: Evidence;
+  transition: EvidenceTransitionResponseTransition;
+}
+
+export interface DeadLetterEvent {
+  id: number;
+  eventKey: string;
+  eventType: string;
+  aggregateType: string;
+  aggregateId: string;
+  status: string;
+  attemptCount: number;
+  availableAt: string;
+  /** @nullable */
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DlqRetryInput {
+  /** @minLength 8 */
+  idempotencyKey: string;
+  humanCheckpoint: true;
+}
+
+export type StorageObjectInputMetadata = {[key: string]: string};
+
+export interface StorageObjectInput {
+  /** @minLength 1 */
+  fileName: string;
+  /** @minLength 1 */
+  contentType: string;
+  /** @minLength 1 */
+  contentBase64: string;
+  metadata?: StorageObjectInputMetadata;
+}
+
+export type StorageObjectMetadata = {[key: string]: string};
+
+export interface StorageObject {
+  id: number;
+  fileName: string;
+  objectPath: string;
+  contentType: string;
+  byteSize: number;
+  sha256: string;
+  metadata: StorageObjectMetadata;
   createdAt: string;
 }
 
@@ -1491,6 +1700,10 @@ export type ServicePathParameter = typeof ServicePathParameter[keyof typeof Serv
 export const ServicePathParameter = {
   '/api/service/v1/callback': '/api/service/v1/callback',
 } as const;
+
+export type ListNotificationsParams = {
+unreadOnly?: boolean;
+};
 
 export type ListEvidenceParams = {
 opportunityId?: number;

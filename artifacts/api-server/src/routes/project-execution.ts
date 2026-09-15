@@ -1,4 +1,7 @@
 import { Router, type IRouter } from "express";
+import { createHash } from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
@@ -121,6 +124,61 @@ router.get("/projects/:id", async (req, res): Promise<void> => {
     result: result ?? null,
     learning: learning ?? null,
   }));
+});
+
+router.get("/projects/:id/artifacts/*path", async (req, res): Promise<void> => {
+  const params = GetProjectParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const project = await getProject(params.data.id);
+  if (!project) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+  const execution = await getExecution(project.id);
+  const manifest = execution?.deliverable?.artifactManifest as {
+    root?: unknown;
+    files?: Array<{ path?: unknown; sha256?: unknown; bytes?: unknown; objectPath?: unknown }>;
+  } | undefined;
+  const rawPath = Array.isArray(req.params.path) ? req.params.path.join("/") : req.params.path;
+  if (!manifest || typeof manifest.root !== "string" || !Array.isArray(manifest.files) || !rawPath ||
+      rawPath.includes("\0") || path.posix.isAbsolute(rawPath) || rawPath.split("/").some((part) => part === ".." || part === "")) {
+    res.status(400).json({ error: "Unsafe or unavailable artifact path" });
+    return;
+  }
+  const entry = manifest.files.find((file) => file.path === rawPath);
+  if (!entry || typeof entry.sha256 !== "string" || typeof entry.bytes !== "number") {
+    res.status(404).json({ error: "Artifact file not found" });
+    return;
+  }
+  const artifactRoot = path.resolve(process.env.PROJECT_ARTIFACT_ROOT ?? path.join(process.cwd(), "workspace", "project-artifacts"));
+  const root = path.resolve(process.cwd(), manifest.root);
+  if ((root !== artifactRoot && !root.startsWith(`${artifactRoot}${path.sep}`)) ||
+      !root.startsWith(`${artifactRoot}${path.sep}`) && root !== artifactRoot) {
+    res.status(400).json({ error: "Artifact root is outside the configured storage root" });
+    return;
+  }
+  const absolute = path.resolve(root, rawPath);
+  if (!absolute.startsWith(`${root}${path.sep}`)) {
+    res.status(400).json({ error: "Unsafe artifact path" });
+    return;
+  }
+  let content: Buffer;
+  try {
+    content = await fs.readFile(absolute);
+  } catch {
+    res.status(404).json({ error: "Artifact bytes are unavailable" });
+    return;
+  }
+  if (content.byteLength !== entry.bytes || createHash("sha256").update(content).digest("hex") !== entry.sha256) {
+    res.status(409).json({ error: "Artifact integrity check failed" });
+    return;
+  }
+  res.type(path.extname(rawPath) || "application/octet-stream")
+    .setHeader("content-disposition", `attachment; filename="${path.basename(rawPath).replace(/[^a-zA-Z0-9._-]/g, "_")}"`)
+    .send(content);
 });
 
 /**

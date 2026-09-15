@@ -29,3 +29,4 @@ export * from "./outbox";
 export * from "./service-receipts";
 export * from "./candidate-decisions";
 export * from "./discovery";
+export * from "./p1-operations";

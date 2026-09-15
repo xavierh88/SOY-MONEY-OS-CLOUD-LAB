@@ -29,5 +29,4 @@ export interface ServiceReceipt {
   /** @nullable */
   payloadHash?: string | null;
   payload?: ServiceReceiptPayload;
-  createdAt: Date;
 }

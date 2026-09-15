@@ -189,6 +189,13 @@ router.post("/evidence", async (req, res): Promise<void> => {
   }
 
   const { opportunityId, source, url, claim, collectedAt, proofType, verificationStatus } = parsed.data;
+  if (String(verificationStatus) === "REAL_VERIFIED" || String(proofType) === "DEMAND_PROOF") {
+    res.status(409).json({
+      error: "REAL_VERIFIED and DEMAND_PROOF require an explicit manual checkpoint transition",
+      code: "MANUAL_EVIDENCE_CHECKPOINT_REQUIRED",
+    });
+    return;
+  }
   const [opportunity] = await db
     .select({ id: opportunitiesTable.id })
     .from(opportunitiesTable)

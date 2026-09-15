@@ -9,6 +9,7 @@ import controlTowerRouter from "./control-tower";
 import { requireOwner } from "../middlewares/require-owner";
 import serviceCallbacksRouter from "./service-callbacks";
 import discoveryRouter from "./discovery";
+import p1OperationsRouter from "./p1-operations";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,7 @@ router.use(healthRouter);
 // timestamp, dispatch and replay validation.
 router.use(serviceCallbacksRouter);
 router.use(requireOwner);
+router.use(p1OperationsRouter);
 router.use(projectExecutionRouter);
 router.use(soyMoneyRouter);
 router.use(cyclesRouter);

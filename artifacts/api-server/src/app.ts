@@ -1,4 +1,5 @@
 import express, { type ErrorRequestHandler, type Express, type RequestHandler } from "express";
+import { randomUUID } from "node:crypto";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
@@ -10,12 +11,19 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { recordRequest } from "./lib/operational-metrics";
 
 const app: Express = express();
 
 app.use(
   pinoHttp({
     logger,
+    genReqId: (req) => {
+      const supplied = req.headers["x-correlation-id"];
+      return (typeof supplied === "string" && /^[a-zA-Z0-9._:-]{1,128}$/.test(supplied))
+        ? supplied
+        : randomUUID();
+    },
     serializers: {
       req(req) {
         return {
@@ -32,6 +40,27 @@ app.use(
     },
   }),
 );
+app.use((req, res, next) => {
+  const id = String(req.id);
+  res.setHeader("x-correlation-id", id);
+  res.on("finish", () => recordRequest(req.route?.path ?? req.path, res.statusCode >= 500));
+  next();
+});
+app.use((req, res, next) => {
+  const json = res.json.bind(res);
+  res.json = ((body: unknown) => {
+    if (res.statusCode >= 400 && body && typeof body === "object" && !Array.isArray(body)) {
+      const value = body as Record<string, unknown>;
+      body = {
+        ...value,
+        code: value.code ?? (res.statusCode >= 500 ? "INTERNAL_ERROR" : `HTTP_${res.statusCode}`),
+        correlationId: value.correlationId ?? String(req.id),
+      };
+    }
+    return json(body);
+  }) as typeof res.json;
+  next();
+});
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 const sameOriginCors: RequestHandler = (req, res, next) => {
@@ -91,7 +120,11 @@ const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     next(error);
     return;
   }
-  res.status(500).json({ error: "Internal server error" });
+  res.status(500).json({
+    error: "Internal server error",
+    code: "INTERNAL_ERROR",
+    correlationId: req.id,
+  });
 };
 app.use(errorHandler);
 

@@ -46,6 +46,228 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /readyz:
+    get:
+      operationId: readinessCheck
+      tags: [health]
+      summary: Check database, storage, and worker readiness
+      responses:
+        "200":
+          description: Readiness diagnostics without secrets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReadinessStatus" }
+        "503":
+          description: One or more dependencies are not ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReadinessStatus" }
+  /metrics:
+    get:
+      operationId: getOperationalMetrics
+      tags: [health]
+      summary: Read basic in-process operational metrics
+      responses:
+        "200":
+          description: Operational counters
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationalMetrics" }
+  /owner/config:
+    get:
+      operationId: getOwnerConfiguration
+      tags: [control-tower]
+      summary: Read persisted owner policies and integration status
+      responses:
+        "200":
+          description: Owner configuration (never contains secrets)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerConfiguration" }
+    patch:
+      operationId: updateOwnerConfiguration
+      tags: [control-tower]
+      summary: Update allowlisted operational and security policies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OwnerConfigurationUpdate" }
+      responses:
+        "200":
+          description: Updated owner configuration
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerConfiguration" }
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [control-tower]
+      summary: List owner notifications
+      parameters:
+        - in: query
+          name: unreadOnly
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Notification" }
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [control-tower]
+      summary: Mark an owner notification read
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Notification" }
+  /incidents:
+    get:
+      operationId: listIncidents
+      tags: [control-tower]
+      summary: List owner incidents
+      responses:
+        "200":
+          description: Incidents
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Incident" }
+  /incidents/{id}/acknowledge:
+    post:
+      operationId: acknowledgeIncident
+      tags: [control-tower]
+      summary: Acknowledge an incident
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Acknowledged incident
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Incident" }
+  /evidence/{id}/transition:
+    post:
+      operationId: transitionEvidence
+      tags: [evidence]
+      summary: Apply an explicit human evidence correction or verification transition
+      description: Never creates DEMAND_PROOF or REAL_VERIFIED automatically; every transition records audit provenance.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceTransitionInput" }
+      responses:
+        "200":
+          description: Updated evidence and audit transition
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvidenceTransitionResponse" }
+        "409":
+          description: Unsafe or conflicting transition
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /operations/dlq:
+    get:
+      operationId: listDeadLetterEvents
+      tags: [control-tower]
+      summary: List failed transactional outbox events
+      responses:
+        "200":
+          description: Dead letter events
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DeadLetterEvent" }
+  /operations/dlq/{id}/retry:
+    post:
+      operationId: retryDeadLetterEvent
+      tags: [control-tower]
+      summary: Retry one failed event after a human checkpoint
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DlqRetryInput" }
+      responses:
+        "200":
+          description: Retried event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeadLetterEvent" }
+        "409":
+          description: Human checkpoint or idempotency conflict
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /storage/objects:
+    get:
+      operationId: listStorageObjects
+      tags: [control-tower]
+      summary: List owner-scoped offline App Storage objects
+      responses:
+        "200":
+          description: Object metadata only
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StorageObject" }
+    post:
+      operationId: uploadStorageObject
+      tags: [control-tower]
+      summary: Upload an owner-scoped object to offline App Storage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StorageObjectInput" }
+      responses:
+        "201":
+          description: Stored object metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StorageObject" }
+  /storage/objects/{id}:
+    get:
+      operationId: getStorageObject
+      tags: [control-tower]
+      summary: Read owner-scoped object metadata
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Object metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StorageObject" }
+  /storage/objects/{id}/download:
+    get:
+      operationId: downloadStorageObject
+      tags: [control-tower]
+      summary: Safely download an owner-scoped object
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Object bytes
+          content:
+            application/octet-stream: {}
   /dashboard:
     get:
       operationId: getDashboard
@@ -309,6 +531,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProjectDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /projects/{id}/artifacts/{path}:
+    get:
+      operationId: downloadProjectArtifact
+      tags: [projects]
+      summary: Download one generated artifact file safely
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - name: path
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Generated artifact bytes
+          content:
+            application/octet-stream: {}
+        "400":
+          description: Unsafe artifact path
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "404":
           $ref: "#/components/responses/NotFound"
   /projects/{id}/start:
@@ -2659,5 +2904,147 @@ components:
         status: { type: string }
         payloadHash: { type: ["string", "null"] }
         payload: { type: object, additionalProperties: true }
+    ReadinessStatus:
+      type: object
+      required: [status, checks]
+      properties:
+        status: { type: string, enum: [ready, not_ready] }
+        checks:
+          type: object
+          additionalProperties:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [ready, unavailable, degraded] }
+              diagnostic: { type: string }
+    OperationalMetrics:
+      type: object
+      required: [requests, errors, byRoute]
+      properties:
+        requests: { type: integer }
+        errors: { type: integer }
+        byRoute:
+          type: object
+          additionalProperties: { type: integer }
+    OwnerConfiguration:
+      type: object
+      required: [id, autonomyEnabled, autonomyExecutionLocked, financeMode, windmillLegacyUnused, externalApisAllowed, publishingAllowed, paymentsAllowed, integrationStatuses, updatedAt]
+      properties:
+        id: { type: string }
+        autonomyEnabled: { type: boolean }
+        autonomyExecutionLocked: { type: boolean, const: true }
+        financeMode: { type: string, enum: [REAL_ZERO] }
+        windmillLegacyUnused: { type: boolean, const: true }
+        externalApisAllowed: { type: boolean, const: false }
+        publishingAllowed: { type: boolean, const: false }
+        paymentsAllowed: { type: boolean, const: false }
+        integrationStatuses:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [NOT_CONFIGURED, AVAILABLE, DEGRADED, DISABLED]
+        updatedAt: { type: string, format: date-time }
+    OwnerConfigurationUpdate:
+      type: object
+      properties:
+        autonomyEnabled: { type: boolean }
+        integrationStatuses:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [NOT_CONFIGURED, AVAILABLE, DEGRADED, DISABLED]
+    Notification:
+      type: object
+      required: [id, title, body, targetPath, readAt, createdAt]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        body: { type: string }
+        targetPath: { type: ["string", "null"] }
+        readAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+    Incident:
+      type: object
+      required: [id, severity, status, title, summary, correlationId, acknowledgedAt, acknowledgedBy, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+        status: { type: string, enum: [OPEN, ACKNOWLEDGED, RESOLVED] }
+        title: { type: string }
+        summary: { type: string }
+        correlationId: { type: ["string", "null"] }
+        acknowledgedAt: { type: ["string", "null"], format: date-time }
+        acknowledgedBy: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    EvidenceTransitionInput:
+      type: object
+      required: [action, toStatus, reason, provenance]
+      properties:
+        action: { type: string, enum: [MANUAL_CORRECTION, MANUAL_VERIFICATION, MANUAL_CONTRADICTION, MARK_FRESH, MARK_STALE] }
+        toStatus: { type: string, enum: [NOT_VERIFIED, REAL_VERIFIED, CONTRADICTED, EXPIRED] }
+        reason: { type: string, minLength: 1 }
+        provenance: { type: object, additionalProperties: true }
+        freshnessScore: { type: integer, minimum: 0, maximum: 100 }
+    EvidenceTransitionResponse:
+      type: object
+      required: [evidence, transition]
+      properties:
+        evidence: { $ref: "#/components/schemas/Evidence" }
+        transition:
+          type: object
+          required: [id, action, fromStatus, toStatus, reason, provenance, createdAt]
+          properties:
+            id: { type: integer }
+            action: { type: string }
+            fromStatus: { type: ["string", "null"] }
+            toStatus: { type: string }
+            reason: { type: string }
+            provenance: { type: object, additionalProperties: true }
+            createdAt: { type: string, format: date-time }
+    DeadLetterEvent:
+      type: object
+      required: [id, eventKey, eventType, aggregateType, aggregateId, status, attemptCount, availableAt, lastError, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        eventKey: { type: string }
+        eventType: { type: string }
+        aggregateType: { type: string }
+        aggregateId: { type: string }
+        status: { type: string }
+        attemptCount: { type: integer }
+        availableAt: { type: string, format: date-time }
+        lastError: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    DlqRetryInput:
+      type: object
+      required: [idempotencyKey, humanCheckpoint]
+      properties:
+        idempotencyKey: { type: string, minLength: 8 }
+        humanCheckpoint: { type: boolean, const: true }
+    StorageObjectInput:
+      type: object
+      required: [fileName, contentType, contentBase64]
+      properties:
+        fileName: { type: string, minLength: 1 }
+        contentType: { type: string, minLength: 1 }
+        contentBase64: { type: string, minLength: 1 }
+        metadata:
+          type: object
+          additionalProperties: { type: string }
+    StorageObject:
+      type: object
+      required: [id, fileName, objectPath, contentType, byteSize, sha256, metadata, createdAt]
+      properties:
+        id: { type: integer }
+        fileName: { type: string }
+        objectPath: { type: string }
+        contentType: { type: string }
+        byteSize: { type: integer }
+        sha256: { type: string }
+        metadata:
+          type: object
+          additionalProperties: { type: string }
         createdAt: { type: string, format: date-time }
 

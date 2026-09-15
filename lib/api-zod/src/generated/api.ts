@@ -18,6 +18,315 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Check database, storage, and worker readiness
+ */
+export const ReadinessCheckResponse = zod.object({
+  "status": zod.enum(['ready', 'not_ready']),
+  "checks": zod.record(zod.string(), zod.object({
+  "status": zod.enum(['ready', 'unavailable', 'degraded']),
+  "diagnostic": zod.string().optional()
+}))
+})
+
+
+/**
+ * @summary Read basic in-process operational metrics
+ */
+export const GetOperationalMetricsResponse = zod.object({
+  "requests": zod.number().int(),
+  "errors": zod.number().int(),
+  "byRoute": zod.record(zod.string(), zod.number().int())
+})
+
+
+/**
+ * @summary Read persisted owner policies and integration status
+ */
+export const GetOwnerConfigurationResponse = zod.object({
+  "id": zod.string(),
+  "autonomyEnabled": zod.boolean(),
+  "autonomyExecutionLocked": zod.literal(true),
+  "financeMode": zod.enum(['REAL_ZERO']),
+  "windmillLegacyUnused": zod.literal(true),
+  "externalApisAllowed": zod.literal(false),
+  "publishingAllowed": zod.literal(false),
+  "paymentsAllowed": zod.literal(false),
+  "integrationStatuses": zod.record(zod.string(), zod.enum(['NOT_CONFIGURED', 'AVAILABLE', 'DEGRADED', 'DISABLED'])),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update allowlisted operational and security policies
+ */
+export const UpdateOwnerConfigurationBody = zod.object({
+  "autonomyEnabled": zod.boolean().optional(),
+  "integrationStatuses": zod.record(zod.string(), zod.enum(['NOT_CONFIGURED', 'AVAILABLE', 'DEGRADED', 'DISABLED'])).optional()
+})
+
+export const UpdateOwnerConfigurationResponse = zod.object({
+  "id": zod.string(),
+  "autonomyEnabled": zod.boolean(),
+  "autonomyExecutionLocked": zod.literal(true),
+  "financeMode": zod.enum(['REAL_ZERO']),
+  "windmillLegacyUnused": zod.literal(true),
+  "externalApisAllowed": zod.literal(false),
+  "publishingAllowed": zod.literal(false),
+  "paymentsAllowed": zod.literal(false),
+  "integrationStatuses": zod.record(zod.string(), zod.enum(['NOT_CONFIGURED', 'AVAILABLE', 'DEGRADED', 'DISABLED'])),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List owner notifications
+ */
+export const listNotificationsQueryUnreadOnlyDefault = false;
+
+export const ListNotificationsQueryParams = zod.object({
+  "unreadOnly": zod.coerce.boolean().default(listNotificationsQueryUnreadOnlyDefault)
+})
+
+export const ListNotificationsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "body": zod.string(),
+  "targetPath": zod.string().nullable(),
+  "readAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+export const ListNotificationsResponse = zod.array(ListNotificationsResponseItem)
+
+
+/**
+ * @summary Mark an owner notification read
+ */
+export const MarkNotificationReadParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const MarkNotificationReadResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "body": zod.string(),
+  "targetPath": zod.string().nullable(),
+  "readAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List owner incidents
+ */
+export const ListIncidentsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "severity": zod.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+  "status": zod.enum(['OPEN', 'ACKNOWLEDGED', 'RESOLVED']),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "correlationId": zod.string().nullable(),
+  "acknowledgedAt": zod.coerce.date().nullable(),
+  "acknowledgedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListIncidentsResponse = zod.array(ListIncidentsResponseItem)
+
+
+/**
+ * @summary Acknowledge an incident
+ */
+export const AcknowledgeIncidentParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const AcknowledgeIncidentResponse = zod.object({
+  "id": zod.number().int(),
+  "severity": zod.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+  "status": zod.enum(['OPEN', 'ACKNOWLEDGED', 'RESOLVED']),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "correlationId": zod.string().nullable(),
+  "acknowledgedAt": zod.coerce.date().nullable(),
+  "acknowledgedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * Never creates DEMAND_PROOF or REAL_VERIFIED automatically; every transition records audit provenance.
+ * @summary Apply an explicit human evidence correction or verification transition
+ */
+export const TransitionEvidenceParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+export const transitionEvidenceBodyFreshnessScoreMin = 0;
+export const transitionEvidenceBodyFreshnessScoreMax = 100;
+
+
+
+export const TransitionEvidenceBody = zod.object({
+  "action": zod.enum(['MANUAL_CORRECTION', 'MANUAL_VERIFICATION', 'MANUAL_CONTRADICTION', 'MARK_FRESH', 'MARK_STALE']),
+  "toStatus": zod.enum(['NOT_VERIFIED', 'REAL_VERIFIED', 'CONTRADICTED', 'EXPIRED']),
+  "reason": zod.string().min(1),
+  "provenance": zod.record(zod.string(), zod.unknown()),
+  "freshnessScore": zod.number().int().min(transitionEvidenceBodyFreshnessScoreMin).max(transitionEvidenceBodyFreshnessScoreMax).optional()
+})
+
+export const TransitionEvidenceResponse = zod.object({
+  "evidence": zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "source": zod.string(),
+  "url": zod.string(),
+  "collectedAt": zod.coerce.date(),
+  "claim": zod.string(),
+  "verificationStatus": zod.string(),
+  "contradictions": zod.array(zod.string()),
+  "gaps": zod.array(zod.string()),
+  "proofType": zod.string(),
+  "evidenceRef": zod.string().nullish(),
+  "independenceKey": zod.string().nullish(),
+  "freshnessScore": zod.number().nullish()
+}),
+  "transition": zod.object({
+  "id": zod.number().int(),
+  "action": zod.string(),
+  "fromStatus": zod.string().nullable(),
+  "toStatus": zod.string(),
+  "reason": zod.string(),
+  "provenance": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary List failed transactional outbox events
+ */
+export const ListDeadLetterEventsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "eventKey": zod.string(),
+  "eventType": zod.string(),
+  "aggregateType": zod.string(),
+  "aggregateId": zod.string(),
+  "status": zod.string(),
+  "attemptCount": zod.number().int(),
+  "availableAt": zod.coerce.date(),
+  "lastError": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListDeadLetterEventsResponse = zod.array(ListDeadLetterEventsResponseItem)
+
+
+/**
+ * @summary Retry one failed event after a human checkpoint
+ */
+export const RetryDeadLetterEventParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const retryDeadLetterEventBodyIdempotencyKeyMin = 8;
+
+
+
+export const RetryDeadLetterEventBody = zod.object({
+  "idempotencyKey": zod.string().min(retryDeadLetterEventBodyIdempotencyKeyMin),
+  "humanCheckpoint": zod.literal(true)
+})
+
+export const RetryDeadLetterEventResponse = zod.object({
+  "id": zod.number().int(),
+  "eventKey": zod.string(),
+  "eventType": zod.string(),
+  "aggregateType": zod.string(),
+  "aggregateId": zod.string(),
+  "status": zod.string(),
+  "attemptCount": zod.number().int(),
+  "availableAt": zod.coerce.date(),
+  "lastError": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List owner-scoped offline App Storage objects
+ */
+export const ListStorageObjectsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "fileName": zod.string(),
+  "objectPath": zod.string(),
+  "contentType": zod.string(),
+  "byteSize": zod.number().int(),
+  "sha256": zod.string(),
+  "metadata": zod.record(zod.string(), zod.string()),
+  "createdAt": zod.coerce.date()
+})
+export const ListStorageObjectsResponse = zod.array(ListStorageObjectsResponseItem)
+
+
+/**
+ * @summary Upload an owner-scoped object to offline App Storage
+ */
+
+
+
+
+
+export const UploadStorageObjectBody = zod.object({
+  "fileName": zod.string().min(1),
+  "contentType": zod.string().min(1),
+  "contentBase64": zod.string().min(1),
+  "metadata": zod.record(zod.string(), zod.string()).optional()
+})
+
+export const UploadStorageObjectResponse = zod.object({
+  "id": zod.number().int(),
+  "fileName": zod.string(),
+  "objectPath": zod.string(),
+  "contentType": zod.string(),
+  "byteSize": zod.number().int(),
+  "sha256": zod.string(),
+  "metadata": zod.record(zod.string(), zod.string()),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Read owner-scoped object metadata
+ */
+export const GetStorageObjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetStorageObjectResponse = zod.object({
+  "id": zod.number().int(),
+  "fileName": zod.string(),
+  "objectPath": zod.string(),
+  "contentType": zod.string(),
+  "byteSize": zod.number().int(),
+  "sha256": zod.string(),
+  "metadata": zod.record(zod.string(), zod.string()),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Safely download an owner-scoped object
+ */
+export const DownloadStorageObjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DownloadStorageObjectResponse = zod.unknown()
+
+
+/**
  * @summary Get executive dashboard
  */
 export const GetDashboardResponse = zod.object({
@@ -625,6 +934,20 @@ export const GetProjectResponse = zod.object({
 
 
 /**
+ * @summary Download one generated artifact file safely
+ */
+
+
+
+export const DownloadProjectArtifactParams = zod.object({
+  "id": zod.coerce.number().int(),
+  "path": zod.coerce.string().min(1)
+})
+
+export const DownloadProjectArtifactResponse = zod.unknown()
+
+
+/**
  * @summary Build a structured deliverable for an approved planned project
  */
 export const StartProjectBuildParams = zod.object({
@@ -694,7 +1017,8 @@ export const PrepareProjectSellReadyResponse = zod.object({
 
 
 /**
- * @summary Record preparation result without claiming a sale
+ * Idempotently records the safe preparation result for this exact project after its MONETIZATION_REVIEW action was explicitly approved. It never creates another project, claims a sale, publishes, or performs payment.
+ * @summary Continue the same project after monetization review
  */
 export const RecordProjectResultParams = zod.object({
   "id": zod.coerce.number().int()
