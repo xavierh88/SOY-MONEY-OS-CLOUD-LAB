@@ -172,6 +172,7 @@ type BraveSearchDependencies = {
   fetch?: typeof fetch;
   getApiKey?: () => string | undefined;
   now?: () => Date;
+  timeoutMs?: number;
   category?: DiscoveryCategory;
   query?: string;
   completedQueries?: readonly string[];
@@ -186,6 +187,20 @@ type BraveSearchDependencies = {
     normalizedResults?: Record<string, unknown>[],
   ) => void | Promise<void>;
   maxRequests?: number;
+};
+
+/**
+ * Public-source adapters intentionally accept only transport dependencies.
+ * This keeps contract tests deterministic without changing the production
+ * provider URLs, response handling, or discovery rules.
+ */
+export type PublicProviderDependencies = {
+  fetch?: typeof fetch;
+  timeoutMs?: number;
+};
+
+export type PublicProviderPage = {
+  page?: number;
 };
 
 const stopWords = new Set([
@@ -329,13 +344,21 @@ export function normalizeBraveResult(
   };
 }
 
-async function getJson(url: string): Promise<unknown> {
-  const response = await fetch(url, {
+async function getJson(
+  url: string,
+  dependencies: PublicProviderDependencies,
+  provider: string,
+): Promise<unknown> {
+  const response = await (dependencies.fetch ?? fetch)(url, {
     headers: { accept: "application/json", "user-agent": "soy-money-os-discovery/1.0" },
-    signal: AbortSignal.timeout(12_000),
+    signal: AbortSignal.timeout(dependencies.timeoutMs ?? 12_000),
   });
   if (!response.ok) throw new Error(`DISCOVERY_SOURCE_HTTP_${response.status}`);
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    throw new Error(`${provider}_MALFORMED_PAYLOAD`);
+  }
 }
 
 function braveApiKey() {
@@ -352,26 +375,43 @@ export function createBraveSearchAdapter(dependencies: BraveSearchDependencies =
   const transport = dependencies.fetch ?? fetch;
   const getApiKey = dependencies.getApiKey ?? braveApiKey;
   const now = dependencies.now ?? (() => new Date());
-  return async (query: string): Promise<SourceResult> => {
+  return async (query: string, options: PublicProviderPage = {}): Promise<SourceResult> => {
     const apiKey = getApiKey();
     if (!apiKey) throw new Error("BRAVE_SEARCH_API_KEY_MISSING");
     const endpoint = new URL(BRAVE_SEARCH_ENDPOINT);
     endpoint.searchParams.set("q", query);
     endpoint.searchParams.set("count", "20");
+    if (Number.isInteger(options.page) && (options.page ?? 0) >= 1) {
+      endpoint.searchParams.set("offset", String((options.page! - 1) * 20));
+    }
     const response = await transport(endpoint.toString(), {
       method: "GET",
       headers: {
         accept: "application/json",
         "X-Subscription-Token": apiKey,
       },
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(dependencies.timeoutMs ?? 12_000),
     });
     if (!response.ok) throw new Error(`BRAVE_SEARCH_HTTP_${response.status}`);
-    const payload = await response.json() as {
-      web?: { results?: unknown[] };
-    };
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error("BRAVE_SEARCH_MALFORMED_PAYLOAD");
+    }
+    if (
+      !payload
+      || typeof payload !== "object"
+      || !("web" in payload)
+      || !payload.web
+      || typeof payload.web !== "object"
+      || !Array.isArray((payload.web as { results?: unknown }).results)
+    ) {
+      throw new Error("BRAVE_SEARCH_MALFORMED_PAYLOAD");
+    }
+    const braveResults = (payload.web as { results: unknown[] }).results;
     const retrievedAt = now();
-    const findings = (payload.web?.results ?? []).flatMap((item) => {
+    const findings = braveResults.flatMap((item) => {
       const normalized = normalizeBraveResult(item, retrievedAt);
       if (!normalized) return [];
       return [findingFromBraveResult(normalized)];
@@ -799,66 +839,130 @@ async function completeProviderAttempt(
   });
 }
 
-async function hackerNews(query: string): Promise<SourceResult> {
-  const endpoint = `https://hn.algolia.com/api/v1/search_by_date?tags=story&hitsPerPage=20&query=${encodeURIComponent(query)}`;
-  const payload = await getJson(endpoint) as { hits?: Array<Record<string, unknown>> };
-  const findings = (payload.hits ?? []).flatMap((hit) => {
-    const title = typeof hit.title === "string" ? hit.title.trim() : "";
+async function hackerNews(
+  query: string,
+  dependencies: PublicProviderDependencies = {},
+  options: PublicProviderPage = {},
+): Promise<SourceResult> {
+  const endpoint = new URL("https://hn.algolia.com/api/v1/search_by_date");
+  endpoint.searchParams.set("tags", "story");
+  endpoint.searchParams.set("hitsPerPage", "20");
+  endpoint.searchParams.set("query", query);
+  if (Number.isInteger(options.page) && (options.page ?? 0) >= 0) {
+    endpoint.searchParams.set("page", String(options.page));
+  }
+  const payload = await getJson(endpoint.toString(), dependencies, "HACKER_NEWS");
+  if (!payload || typeof payload !== "object" || !Array.isArray((payload as { hits?: unknown }).hits)) {
+    throw new Error("HACKER_NEWS_MALFORMED_PAYLOAD");
+  }
+  const hits = (payload as { hits: unknown[] }).hits;
+  const findings = hits.flatMap((hit) => {
+    if (!hit || typeof hit !== "object") return [];
+    const record = hit as Record<string, unknown>;
+    const title = typeof record.title === "string" ? record.title.trim() : "";
     if (!title) return [];
-    const objectId = String(hit.objectID ?? "");
-    const detectedAt = typeof hit.created_at === "string" ? new Date(hit.created_at) : new Date();
+    const objectId = String(record.objectID ?? "");
+    const detectedAt = typeof record.created_at === "string" ? new Date(record.created_at) : new Date();
     return [{
       source: "HACKER_NEWS",
-      sourceUrl: urlFor(hit.url, `https://news.ycombinator.com/item?id=${objectId}`),
+      sourceUrl: urlFor(record.url, `https://news.ycombinator.com/item?id=${objectId}`),
       detectedAt: Number.isNaN(detectedAt.getTime()) ? new Date() : detectedAt,
       titleClaim: title,
-      excerpt: typeof hit.story_text === "string" ? hit.story_text.slice(0, 2_000) : "",
+      excerpt: typeof record.story_text === "string" ? record.story_text.slice(0, 2_000) : "",
       independenceKey: "news.ycombinator.com",
-      raw: hit,
+      raw: record,
     }];
   });
   return { source: "HACKER_NEWS", independenceKey: "news.ycombinator.com", findings };
 }
 
-async function stackExchange(query: string): Promise<SourceResult> {
-  const endpoint = `https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=activity&pagesize=20&site=stackoverflow&q=${encodeURIComponent(query)}`;
-  const payload = await getJson(endpoint) as { items?: Array<Record<string, unknown>> };
-  const findings = (payload.items ?? []).flatMap((item) => {
-    const title = typeof item.title === "string" ? item.title.trim() : "";
+async function stackExchange(
+  query: string,
+  dependencies: PublicProviderDependencies = {},
+  options: PublicProviderPage = {},
+): Promise<SourceResult> {
+  const endpoint = new URL("https://api.stackexchange.com/2.3/search/advanced");
+  endpoint.searchParams.set("order", "desc");
+  endpoint.searchParams.set("sort", "activity");
+  endpoint.searchParams.set("pagesize", "20");
+  endpoint.searchParams.set("site", "stackoverflow");
+  endpoint.searchParams.set("q", query);
+  if (Number.isInteger(options.page) && (options.page ?? 0) >= 1) {
+    endpoint.searchParams.set("page", String(options.page));
+  }
+  const payload = await getJson(endpoint.toString(), dependencies, "STACK_EXCHANGE");
+  if (!payload || typeof payload !== "object" || !Array.isArray((payload as { items?: unknown }).items)) {
+    throw new Error("STACK_EXCHANGE_MALFORMED_PAYLOAD");
+  }
+  const items = (payload as { items: unknown[] }).items;
+  const findings = items.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const title = typeof record.title === "string" ? record.title.trim() : "";
     if (!title) return [];
-    const epoch = Number(item.creation_date);
+    const epoch = Number(record.creation_date);
     return [{
       source: "STACK_EXCHANGE",
-      sourceUrl: urlFor(item.link, endpoint),
+      sourceUrl: urlFor(record.link, endpoint.toString()),
       detectedAt: Number.isFinite(epoch) ? new Date(epoch * 1_000) : new Date(),
       titleClaim: title.replace(/<[^>]+>/g, ""),
-      excerpt: typeof item.tags === "object" && Array.isArray(item.tags)
-        ? item.tags.map(String).join(", ").slice(0, 2_000) : "",
+      excerpt: typeof record.tags === "object" && Array.isArray(record.tags)
+        ? record.tags.map(String).join(", ").slice(0, 2_000) : "",
       independenceKey: "stackexchange.com",
-      raw: item,
+      raw: record,
     }];
   });
   return { source: "STACK_EXCHANGE", independenceKey: "stackexchange.com", findings };
 }
 
-async function github(query: string): Promise<SourceResult> {
-  const endpoint = `https://api.github.com/search/issues?per_page=20&q=${encodeURIComponent(`${query} is:issue`)}`;
-  const payload = await getJson(endpoint) as { items?: Array<Record<string, unknown>> };
-  const findings = (payload.items ?? []).flatMap((item) => {
-    const title = typeof item.title === "string" ? item.title.trim() : "";
+async function github(
+  query: string,
+  dependencies: PublicProviderDependencies = {},
+  options: PublicProviderPage = {},
+): Promise<SourceResult> {
+  const endpoint = new URL("https://api.github.com/search/issues");
+  endpoint.searchParams.set("per_page", "20");
+  endpoint.searchParams.set("q", `${query} is:issue`);
+  if (Number.isInteger(options.page) && (options.page ?? 0) >= 1) {
+    endpoint.searchParams.set("page", String(options.page));
+  }
+  const payload = await getJson(endpoint.toString(), dependencies, "GITHUB_PUBLIC");
+  if (!payload || typeof payload !== "object" || !Array.isArray((payload as { items?: unknown }).items)) {
+    throw new Error("GITHUB_PUBLIC_MALFORMED_PAYLOAD");
+  }
+  const items = (payload as { items: unknown[] }).items;
+  const findings = items.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const title = typeof record.title === "string" ? record.title.trim() : "";
     if (!title) return [];
-    const created = typeof item.created_at === "string" ? new Date(item.created_at) : new Date();
+    const created = typeof record.created_at === "string" ? new Date(record.created_at) : new Date();
     return [{
       source: "GITHUB_PUBLIC",
-      sourceUrl: urlFor(item.html_url, endpoint),
+      sourceUrl: urlFor(record.html_url, endpoint.toString()),
       detectedAt: Number.isNaN(created.getTime()) ? new Date() : created,
       titleClaim: title,
-      excerpt: typeof item.body === "string" ? item.body.slice(0, 2_000) : "",
+      excerpt: typeof record.body === "string" ? record.body.slice(0, 2_000) : "",
       independenceKey: "github.com",
-      raw: item,
+      raw: record,
     }];
   });
   return { source: "GITHUB_PUBLIC", independenceKey: "github.com", findings };
+}
+
+export function createHackerNewsAdapter(dependencies: PublicProviderDependencies = {}) {
+  return (query: string, options: PublicProviderPage = {}) =>
+    hackerNews(query, dependencies, options);
+}
+
+export function createStackExchangeAdapter(dependencies: PublicProviderDependencies = {}) {
+  return (query: string, options: PublicProviderPage = {}) =>
+    stackExchange(query, dependencies, options);
+}
+
+export function createGithubPublicAdapter(dependencies: PublicProviderDependencies = {}) {
+  return (query: string, options: PublicProviderPage = {}) =>
+    github(query, dependencies, options);
 }
 
 /**

@@ -488,6 +488,14 @@ const clerkPubKey = publishableKeyFromHost(
 );
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+// This branch is intentionally unavailable in normal Vite modes. Playwright
+// starts Vite with --mode e2e and must opt in with the second explicit flag.
+const e2eFixtureMode =
+  import.meta.env.DEV &&
+  !import.meta.env.PROD &&
+  import.meta.env.MODE === 'e2e' &&
+  import.meta.env.VITE_E2E === 'true' &&
+  import.meta.env.VITE_E2E_FIXTURES === 'true';
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
@@ -495,7 +503,7 @@ function stripBase(path: string): string {
     : path;
 }
 
-if (!clerkPubKey) {
+if (!e2eFixtureMode && !clerkPubKey) {
   throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in .env file');
 }
 
@@ -558,7 +566,7 @@ function SignUpPage() {
 
 function HomePage() {
   const [, setLocation] = useLocation();
-  return <div className="app-frame paper-noise"><main className="mx-auto flex min-h-[100dvh] w-full max-w-5xl items-center justify-center px-6 py-16"><section className="panel w-full max-w-2xl p-8 md:p-12"><div className="brand-block !px-0"><div className="brand-mark"><span>SM</span><i /></div><div><div className="brand-name">SOY MONEY</div><div className="brand-sub">OPERATING SYSTEM <span>v0.1</span></div></div></div><div className="eyebrow mt-12">Inteligencia operativa</div><h1 className="mt-3">El dinero está en las señales.</h1><p className="mt-5 max-w-xl text-muted-foreground">Detecta, verifica y decide qué merece convertirse en una operación.</p><div className="mt-8 flex flex-wrap gap-3"><button className="button button-primary" onClick={() => setLocation('/sign-in')}>Iniciar sesión</button><button className="button button-secondary" onClick={() => setLocation('/sign-up')}>Crear cuenta</button></div></section></main></div>;
+  return <div className="app-frame paper-noise"><main className="mx-auto flex min-h-[100dvh] w-full max-w-5xl items-center justify-center px-6 py-16"><section className="panel w-full max-w-2xl p-8 md:p-12"><div className="brand-block !px-0"><div className="brand-mark"><span>SM</span><i /></div><div><div className="brand-name">SOY MONEY</div><div className="brand-sub">OPERATING SYSTEM <span>v0.1</span></div></div></div><div className="eyebrow mt-12">Inteligencia operativa</div><h1 className="mt-3">El dinero está en las señales.</h1><p className="mt-5 max-w-xl text-muted-foreground">Detecta, verifica y decide qué merece convertirse en una operación.</p><div className="mt-8 flex flex-wrap gap-3"><button className="button button-primary" onClick={() => setLocation('/sign-in')} data-testid="button-sign-in">Iniciar sesión</button><button className="button button-secondary" onClick={() => setLocation('/sign-up')} data-testid="button-sign-up">Crear cuenta</button></div></section></main></div>;
 }
 
 function HomeRedirect() {
@@ -589,8 +597,25 @@ function ClerkProviderWithRoutes() {
   return <ClerkProvider publishableKey={clerkPubKey} proxyUrl={clerkProxyUrl} appearance={clerkAppearance} signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} localization={{ signIn: { start: { title: 'Welcome back', subtitle: 'Sign in to access SOY MONEY OS' } }, signUp: { start: { title: 'Create your account', subtitle: 'Get started with SOY MONEY OS' } } }} routerPush={(to) => setLocation(stripBase(to))} routerReplace={(to) => setLocation(stripBase(to), { replace: true })}><QueryClientProvider client={queryClient}><ClerkQueryClientCacheInvalidator /><Switch><Route path="/" component={HomeRedirect} /><Route path="/sign-in/*?" component={SignInPage} /><Route path="/sign-up/*?" component={SignUpPage} /><Route component={SignedInRoutes} /></Switch><TooltipProvider><Toaster /></TooltipProvider></QueryClientProvider></ClerkProvider>;
 }
 
+function E2EFixtureSignIn({ onSignIn, signUp = false }: { onSignIn: () => void; signUp?: boolean }) {
+  return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4"><section className="panel w-full max-w-md p-8"><div className="eyebrow">E2E fixture · sin Clerk</div><h1 className="mt-3">{signUp ? 'Crear cuenta' : 'Iniciar sesión'}</h1><p className="mt-4 text-muted-foreground">Identidad determinista para pruebas de navegador. No usa credenciales humanas ni servicios externos.</p><button className="button button-primary mt-8 w-full" onClick={onSignIn} data-testid="button-e2e-sign-in">{signUp ? 'Crear cuenta de prueba' : 'Entrar como propietario de prueba'}</button></section></div>;
+}
+
+function E2EFixtureRoutes() {
+  const [signedIn, setSignedIn] = useState(() => window.sessionStorage.getItem('soy-money-e2e-auth') === 'signed-in');
+  const signIn = () => {
+    window.sessionStorage.setItem('soy-money-e2e-auth', 'signed-in');
+    setSignedIn(true);
+  };
+  const signOut = () => {
+    window.sessionStorage.removeItem('soy-money-e2e-auth');
+    setSignedIn(false);
+  };
+  return <QueryClientProvider client={queryClient}><Switch><Route path="/" component={() => signedIn ? <Redirect to="/user-portal" /> : <HomePage />} /><Route path="/sign-in/*?" component={() => signedIn ? <Redirect to="/user-portal" /> : <E2EFixtureSignIn onSignIn={signIn} />} /><Route path="/sign-up/*?" component={() => signedIn ? <Redirect to="/user-portal" /> : <E2EFixtureSignIn onSignIn={signIn} signUp />} /><Route component={() => signedIn ? <ExistingAppRouter /> : <Redirect to="/" />} /></Switch><button type="button" className="sr-only" onClick={signOut} data-testid="button-e2e-sign-out">Sign out fixture</button><TooltipProvider><Toaster /></TooltipProvider></QueryClientProvider>;
+}
+
 function App() {
-  return <WouterRouter base={basePath}><ClerkProviderWithRoutes /></WouterRouter>;
+  return <WouterRouter base={basePath}>{e2eFixtureMode ? <E2EFixtureRoutes /> : <ClerkProviderWithRoutes />}</WouterRouter>;
 }
 
 export default App;

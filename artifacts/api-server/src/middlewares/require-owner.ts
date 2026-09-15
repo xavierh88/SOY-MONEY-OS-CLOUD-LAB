@@ -22,10 +22,16 @@ export async function requireOwner(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const auth = getAuth(req);
-  const userId =
-    (auth?.sessionClaims?.userId as string | undefined) ??
-    auth?.userId;
+  // The request header below is deliberately test-only.  It gives offline
+  // contract tests a deterministic Clerk boundary without accepting a
+  // client-supplied identity in any deployed environment.
+  const auth = process.env.NODE_ENV === "test" ? null : getAuth(req);
+  const userId = process.env.NODE_ENV === "test"
+    ? req.get("x-test-clerk-user-id") ?? undefined
+    : (
+        (auth?.sessionClaims?.userId as string | undefined) ??
+        auth?.userId
+      );
   const configuredOwnerId = process.env.SOY_OWNER_CLERK_USER_ID;
 
   if (!userId) {
@@ -44,6 +50,14 @@ export async function requireOwner(
   if (userId !== configuredOwnerId) {
     req.log.warn("Owner authorization rejected non-owner identity");
     res.status(403).json({ error: "Owner access required" });
+    return;
+  }
+
+  // Avoid a database dependency in offline tests after the owner decision has
+  // already been exercised. This branch cannot be enabled outside test mode.
+  if (process.env.NODE_ENV === "test") {
+    req.userId = userId;
+    next();
     return;
   }
 

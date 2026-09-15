@@ -65,16 +65,25 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
-);
+if (process.env.NODE_ENV === "test") {
+  // Contract tests must never contact Clerk. requireOwner reads the
+  // test-only identity header below instead of invoking Clerk's middleware.
+  app.use((_req, _res, next) => next());
+} else {
+  app.use(
+    clerkMiddleware((req) => ({
+      publishableKey: publishableKeyFromHost(
+        getClerkProxyHost(req) ?? "",
+        process.env.CLERK_PUBLISHABLE_KEY,
+      ),
+    })),
+  );
+}
 
 app.use("/api", router);
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
 
 const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   req.log.error({ err: error }, "Unhandled API request error");

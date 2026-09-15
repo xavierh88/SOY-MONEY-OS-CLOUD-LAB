@@ -1,0 +1,42 @@
+SOY MONEY OS — IMPLEMENTAR P0 FINAL
+
+Trabaja SOLO en P0. No cambies la lógica de negocio existente, no hagas Discovery real, no uses Brave ni APIs externas, no hagas Republish y no actives autonomía.
+
+Mantener obligatoriamente:
+autonomy=OFF
+AUTONOMY_EXECUTION_LOCKED=true
+Finance REAL=0
+Windmill=LEGACY_UNUSED
+
+OBJETIVO: completar los P0 de la auditoría usando infraestructura gratuita y GitHub Actions.
+
+Implementa:
+
+Browser E2E con Playwright para: landing, auth boundary, dashboard, discovery con fixtures, owner review, aprobar/rechazar, proyecto, QA, resultados, errores principales y responsive básico. En CI no usar credenciales humanas reales.
+API/Auth contract tests: cubrir rutas principales y respuestas 400/401/403/404/409/422/429/5xx, owner isolation y contratos OpenAPI/client/Zod.
+Provider fixtures deterministas SIN llamadas externas para Brave, Hacker News, Stack Exchange y GitHub Public. Probar success, empty, 429, 5xx, timeout, malformed payload, pagination y schema drift.
+Migration tests usando PostgreSQL temporal en CI. Probar DB nueva, migraciones, upgrades, índices, FKs/constraints, idempotencia y failure/rollback safety. Nunca usar DB development/production.
+Worker/outbox/concurrency tests para claims, leases, expired leases, retries, backoff, crash/resume, duplicados, ambiguous dispatch y múltiples workers.
+Crear UN release gate, por ejemplo npm run release:gate, que ejecute typecheck, builds, tests, provider fixtures, API contracts, migrations, workers, Playwright E2E y smoke/readiness. Resultado PASS/FAIL.
+Crear GitHub Actions workflow gratuito con Node compatible, PostgreSQL service, Playwright y release gate. En fallos guardar report, screenshots, traces y logs.
+
+SEGURIDAD: nunca imprimir Secrets, nunca usar BRAVE_SEARCH_API_KEY en tests, nunca producción, nunca Finance REAL, nunca Windmill y nunca autonomía.
+
+NO implementar todavía P1/P2/P3, pagos, CRM, analytics o publicación.
+
+Al terminar NO Republish. Devuelve solamente este reporte:
+
+P0_IMPLEMENTATION_STATUS
+FILES_CHANGED
+PLAYWRIGHT_STATUS
+API_CONTRACT_STATUS
+PROVIDER_FIXTURE_STATUS
+MIGRATION_TEST_STATUS
+WORKER_CONCURRENCY_STATUS
+RELEASE_GATE_STATUS
+GITHUB_ACTION_STATUS
+AUTONOMY_STATUS
+FINANCE_REAL
+WINDMILL_STATUS
+FAILURES_REMAINING
+READY_FOR_P1

@@ -1,0 +1,69 @@
+name: Release gate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    env:
+      # This is disposable CI-only state; no application credentials are
+      # configured in this workflow.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/soy_money_ci_test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: soy_money_ci_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d soy_money_ci_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @workspace/soy-money-os exec playwright install --with-deps chromium
+
+      - name: Run release gate
+        run: |
+          set -o pipefail
+          mkdir -p logs
+          pnpm run release:gate 2>&1 | tee logs/release-gate.log
+
+      - name: Upload Playwright diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics
+          if-no-files-found: warn
+          path: |
+            artifacts/soy-money-os/playwright-report
+            artifacts/soy-money-os/test-results
+            artifacts/soy-money-os/*.log
+            logs

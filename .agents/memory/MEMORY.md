@@ -9,3 +9,4 @@
 - [Autonomy slot claims](autonomy-slot-claims.md) — only the scheduler instance that owns a durable claim may consume a slot after success.
 - [Generated artifact durability](generated-artifact-durability.md) — persist generated deliverables in App Storage; local files are only a QA cache.
 - [Discovery request durability](discovery-request-durability.md) — reserve external queries before calls; recover from attempt rows under a fenced run owner.
+- [Local ephemeral PostgreSQL](local-ephemeral-postgres.md) — use a temp socket directory and the initdb OS role; do not assume /run/postgresql or a postgres role.
