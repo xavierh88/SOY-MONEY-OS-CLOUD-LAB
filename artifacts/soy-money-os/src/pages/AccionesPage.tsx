@@ -1,10 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Check, X, ShieldAlert } from 'lucide-react';
+import { Check, X, ShieldAlert, ArrowRight } from 'lucide-react';
 import { Link } from 'wouter';
 import { 
   useListHumanActions, 
   useCompleteHumanAction,
+  useRecordProjectResult,
   getListHumanActionsQueryKey,
   getGetControlTowerOverviewQueryKey,
   getGetControlTowerTimelineQueryKey
@@ -17,6 +18,7 @@ export default function AccionesPage() {
   const [decidingId, setDecidingId] = useState<number | null>(null);
   const { data: actions, isLoading, error, refetch } = useListHumanActions();
   const completeAction = useCompleteHumanAction();
+  const continueProject = useRecordProjectResult();
 
   const handleDecision = (id: number, approved: boolean) => {
     setDecidingId(id);
@@ -25,7 +27,7 @@ export default function AccionesPage() {
       { id, data: { payload: { approved } } },
       { onSuccess: () => {
         setDecisionMessage(approved
-          ? `ACT-${String(id).padStart(4, '0')} aprobada. El worker continuará desde el checkpoint persistido.`
+          ? `ACT-${String(id).padStart(4, '0')} aprobada. La decisión quedó registrada; la continuación se ejecuta únicamente por la ruta explícita del mismo proyecto.`
           : `ACT-${String(id).padStart(4, '0')} rechazada. La rama permanece bloqueada.`);
         queryClient.invalidateQueries({ queryKey: getListHumanActionsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetControlTowerOverviewQueryKey() });
@@ -34,6 +36,20 @@ export default function AccionesPage() {
         setDecisionMessage(mutationError instanceof Error ? mutationError.message : 'La decisión no pudo persistirse.');
       }, onSettled: () => setDecidingId(null) }
     );
+  };
+  const handleContinuation = (projectId: number) => {
+    setDecisionMessage(null);
+    continueProject.mutate({ id: projectId }, {
+      onSuccess: () => {
+        setDecisionMessage(`Proyecto PRJ-${projectId} continuó por la ruta explícita del mismo proyecto.`);
+        queryClient.invalidateQueries({ queryKey: getListHumanActionsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetControlTowerOverviewQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetControlTowerTimelineQueryKey() });
+      },
+      onError: (mutationError) => {
+        setDecisionMessage(mutationError instanceof Error ? mutationError.message : 'La continuación no pudo persistirse.');
+      },
+    });
   };
 
   const pendingActions = (actions || []).filter(a => a.status === 'PENDING');
@@ -68,11 +84,40 @@ export default function AccionesPage() {
                   </div>
                   <div className="py-5 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6">
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-semibold mb-2">{action.actionType} — {action.checkpoint}</h3>
+                      <h3 className="text-base font-semibold mb-2">
+                        {action.actionType} — {action.checkpoint}
+                      </h3>
+                      {action.opportunity && (
+                        <div className="mb-3 rounded border border-border bg-card p-3 text-xs">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <strong>{action.opportunity.name}</strong>
+                            <Badge value={action.opportunity.proofStatus} small />
+                            <span className="font-mono">Score {action.score ?? action.opportunity.score}/100</span>
+                          </div>
+                          <p className="mt-1 text-muted-foreground">{action.opportunity.titleClaim || action.opportunity.description}</p>
+                        </div>
+                      )}
                       <div className="flex gap-3 text-xs mb-2">
-                        {action.projectId && <Link href={`/proyectos/${action.projectId}`} className="text-link">Proyecto PRJ-{action.projectId}</Link>}
-                        {action.opportunityId && <Link href={`/oportunidades/${action.opportunityId}`} className="text-link">Oportunidad OP-{action.opportunityId}</Link>}
+                        {action.project && <Link href={`/proyectos/${action.project.id}`} className="text-link">Proyecto {action.project.name}</Link>}
+                        {action.opportunity && <Link href={`/oportunidades/${action.opportunity.id}`} className="text-link">Oportunidad {action.opportunity.name}</Link>}
                       </div>
+                      <div className="mb-3 text-xs">
+                        <strong>Decisión necesaria: </strong>
+                        {action.decision?.nextAction || 'OWNER_APPROVAL_REQUIRED'}
+                        {action.decision?.decisionReason && <span className="ml-1 text-muted-foreground">— {action.decision.decisionReason}</span>}
+                      </div>
+                      {action.evidence.length > 0 && (
+                        <div className="mb-3 text-xs">
+                          <strong>Fuentes de evidencia corroboradas:</strong>
+                          <ul className="mt-1 list-disc pl-5 text-muted-foreground">
+                            {action.evidence.map(evidence => (
+                              <li key={evidence.id}>
+                                {evidence.source} · <a href={evidence.url} target="_blank" rel="noreferrer" className="underline">{evidence.url}</a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground font-mono bg-secondary p-3 mt-2 rounded-sm whitespace-pre-wrap break-words">
                         {JSON.stringify(action.payload, null, 2)}
                       </p>
@@ -122,6 +167,26 @@ export default function AccionesPage() {
                   <div className="py-2">
                     <h3 className="text-sm font-semibold mb-1">{action.actionType}</h3>
                     <p className="text-[10px] text-muted-foreground uppercase">{action.checkpoint}</p>
+                    {action.opportunity && <p className="text-xs mt-1">{action.opportunity.name} · Score {action.score ?? action.opportunity.score}/100</p>}
+                    {action.project && <Link href={`/proyectos/${action.project.id}`} className="text-link text-xs">Mismo proyecto: {action.project.name}</Link>}
+                    {action.continuation?.available && (
+                      <div className="mt-2">
+                        <p className="text-xs text-muted-foreground">
+                          Continuación explícita disponible para el mismo proyecto:
+                          {' '}{action.continuation.method} {action.continuation.path}
+                        </p>
+                        {action.checkpoint === 'MONETIZATION_REVIEW' && action.projectId && (
+                          <button
+                            className="button button-primary button-small mt-2"
+                            onClick={() => handleContinuation(action.projectId!)}
+                            disabled={continueProject.isPending}
+                            data-testid={`button-continue-project-${action.projectId}`}
+                          >
+                            <ArrowRight size={14} /> CONTINUAR MISMO PROYECTO
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

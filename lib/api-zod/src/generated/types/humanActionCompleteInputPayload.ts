@@ -6,4 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type HumanActionCompleteInputPayload = { [key: string]: unknown };
+export type HumanActionCompleteInputPayload = {
+  approved: boolean;
+  [key: string]: unknown;
+ };

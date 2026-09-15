@@ -66,6 +66,8 @@ import type {
   OpportunityCandidate,
   OpportunityDetail,
   OpportunityInput,
+  OwnerCheckpointInput,
+  OwnerCheckpointResponse,
   PipelineInput,
   PipelineRun,
   PlatformAccount,
@@ -2911,6 +2913,95 @@ export function useGetControlledGoldenPathStatus<TData = Awaited<ReturnType<type
 
 
 
+export const getAdvanceCorroboratedOpportunityToOwnerCheckpointUrl = () => {
+
+
+
+
+  return `/api/autonomy/controlled-golden-path/owner-checkpoint`
+}
+
+/**
+ * Validates persisted REAL_VERIFIED evidence from at least two independent sources, creates or reuses the same project, and creates only a PENDING owner action. It never infers approval, calls a provider, or spends money.
+ * @summary Stop a corroborated public opportunity at the first owner checkpoint
+ */
+export const advanceCorroboratedOpportunityToOwnerCheckpoint = async (ownerCheckpointInput: OwnerCheckpointInput, options?: Parameters<typeof customFetch>[1]): Promise<OwnerCheckpointResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OwnerCheckpointResponse>(getAdvanceCorroboratedOpportunityToOwnerCheckpointUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(ownerCheckpointInput)
+  }
+);}
+
+
+
+
+
+export const getAdvanceCorroboratedOpportunityToOwnerCheckpointMutationKey = () => ['advanceCorroboratedOpportunityToOwnerCheckpoint'] as const;
+
+export const getAdvanceCorroboratedOpportunityToOwnerCheckpointMutationOptions = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceCorroboratedOpportunityToOwnerCheckpoint>>, TError,AdvanceCorroboratedOpportunityToOwnerCheckpointMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof advanceCorroboratedOpportunityToOwnerCheckpoint>>, TError,AdvanceCorroboratedOpportunityToOwnerCheckpointMutationVariables, TContext> => {
+
+const mutationKey = getAdvanceCorroboratedOpportunityToOwnerCheckpointMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof advanceCorroboratedOpportunityToOwnerCheckpoint>>, AdvanceCorroboratedOpportunityToOwnerCheckpointMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  advanceCorroboratedOpportunityToOwnerCheckpoint(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdvanceCorroboratedOpportunityToOwnerCheckpointMutationResult = NonNullable<Awaited<ReturnType<typeof advanceCorroboratedOpportunityToOwnerCheckpoint>>>
+    export type AdvanceCorroboratedOpportunityToOwnerCheckpointMutationBody = BodyType<OwnerCheckpointInput>
+    export type AdvanceCorroboratedOpportunityToOwnerCheckpointMutationError = ErrorType<NotFoundResponse | Error>
+    export type AdvanceCorroboratedOpportunityToOwnerCheckpointMutationVariables = {data: BodyType<OwnerCheckpointInput>}
+
+    /**
+ * @summary Stop a corroborated public opportunity at the first owner checkpoint
+ */
+export const useAdvanceCorroboratedOpportunityToOwnerCheckpoint = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceCorroboratedOpportunityToOwnerCheckpoint>>, TError,AdvanceCorroboratedOpportunityToOwnerCheckpointMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof advanceCorroboratedOpportunityToOwnerCheckpoint>>,
+        TError,
+        AdvanceCorroboratedOpportunityToOwnerCheckpointMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAdvanceCorroboratedOpportunityToOwnerCheckpointMutationOptions(options));
+    }
+
 export const getListMarketCyclesUrl = () => {
 
 
@@ -4485,7 +4576,8 @@ export const getCompleteHumanActionUrl = (id: number,) => {
 }
 
 /**
- * @summary Complete a checkpoint and resume from its stored checkpoint
+ * The owner decision is explicit and required; an omitted decision is rejected. For a project-linked MONETIZATION_REVIEW action, the response exposes the idempotent same-project continuation route POST /projects/{projectId}/result. No worker continuation is implied.
+ * @summary Record an explicit owner decision for a checkpoint
  */
 export const completeHumanAction = async (id: number,
     humanActionCompleteInput?: HumanActionCompleteInput, options?: Parameters<typeof customFetch>[1]): Promise<HumanAction> => {
@@ -4552,7 +4644,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CompleteHumanActionMutationVariables = {id: number;data?: BodyType<HumanActionCompleteInput>}
 
     /**
- * @summary Complete a checkpoint and resume from its stored checkpoint
+ * @summary Record an explicit owner decision for a checkpoint
  */
 export const useCompleteHumanAction = <TError = ErrorType<Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeHumanAction>>, TError,CompleteHumanActionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}

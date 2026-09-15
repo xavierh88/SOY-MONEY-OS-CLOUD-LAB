@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   activitiesTable,
   approvalsTable,
@@ -38,6 +38,14 @@ export type SafeFinanceMode = "PAPER" | "POTENTIAL";
 const expired = (expiresAt: Date | null, validUntil: Date | null, now = new Date()) =>
   (expiresAt && expiresAt.getTime() <= now.getTime())
   || (validUntil && validUntil.getTime() <= now.getTime());
+
+export const evidenceFreshnessFromCollectedAt = (collectedAt: Date, now: Date) => {
+  const ageDays = Math.max(0, now.getTime() - collectedAt.getTime()) / 86_400_000;
+  return Math.max(0, Math.min(100, Math.round(100 - ageDays * 2)));
+};
+
+export const publicOpportunityCycleKey = (idempotencyKey: string) =>
+  `golden-path:public-opportunity:${idempotencyKey.trim()}`;
 
 export async function appendGoldenPathEvent(
   tx: GoldenExecutor,
@@ -275,6 +283,166 @@ export async function stopAtOwnerCheckpoint(
     payload: { checkpoint, noAutoApproval: true },
   });
   return { cycle, action: savedAction };
+}
+
+/**
+ * Advance an already corroborated public opportunity to the first owner
+ * checkpoint. This is deliberately separate from autonomous execution: the
+ * production autonomy lock remains in force, no discovery is performed here,
+ * and this function never creates an approval or marks an action complete.
+ */
+export async function advanceCorroboratedOpportunityToOwnerCheckpoint(input: {
+  opportunityId: number;
+  idempotencyKey: string;
+  category?: string;
+  now?: Date;
+}) {
+  return db.transaction(async (tx) => {
+    const requestedKey = input.idempotencyKey.trim();
+    if (!requestedKey) throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+    const now = input.now ?? new Date();
+    // Serialize owner-checkpoint claims per opportunity so two different
+    // idempotency keys cannot race into two active cycles/projects.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`public-opportunity:${input.opportunityId}`}))`);
+    const [opportunity] = await tx.select().from(opportunitiesTable)
+      .where(eq(opportunitiesTable.id, input.opportunityId));
+    if (!opportunity) throw new Error("OPPORTUNITY_NOT_FOUND");
+    if (
+      opportunity.status === "EXPIRED"
+      || (opportunity.expiresAt && opportunity.expiresAt.getTime() <= now.getTime())
+      || (opportunity.validUntil && opportunity.validUntil.getTime() <= now.getTime())
+    ) {
+      throw new Error("OPPORTUNITY_EXPIRED");
+    }
+    const evidence = await tx.select().from(evidenceTable)
+      .where(eq(evidenceTable.opportunityId, opportunity.id));
+    const freshnessScores = evidence.map((item) => ({
+      id: item.id,
+      score: evidenceFreshnessFromCollectedAt(item.collectedAt, now),
+    }));
+    const corroboratingSearchEvidence = evidence.filter((item) =>
+      item.proofType === "SEARCH_EVIDENCE"
+      && item.verificationStatus === "OBSERVED"
+      && freshnessScores.some((freshness) => freshness.id === item.id && freshness.score > 0),
+    );
+    const independentSources = new Set(
+      corroboratingSearchEvidence
+        .map((item) => item.independenceKey?.trim() || item.source.trim().toLowerCase()),
+    );
+    if (
+      opportunity.researchStatus !== "CORROBORATED"
+      || opportunity.proofStatus !== "DEMAND_SIGNAL"
+      || opportunity.status === "REJECTED"
+      || independentSources.size < 2
+    ) {
+      throw new Error("NO_CORROBORATED_EVIDENCE");
+    }
+
+    const cycleKey = publicOpportunityCycleKey(requestedKey);
+    let [cycle] = await tx.select().from(autonomousCyclesTable)
+      .where(eq(autonomousCyclesTable.idempotencyKey, cycleKey)).limit(1);
+    if (cycle && cycle.opportunityId !== opportunity.id) {
+      throw new Error("IDEMPOTENCY_KEY_OPPORTUNITY_MISMATCH");
+    }
+    const activeStates = ["STARTING", "RUNNING", "WAITING_HUMAN", "RESUME_PENDING"] as const;
+    const [activeCycle] = await tx.select().from(autonomousCyclesTable)
+      .where(and(
+        eq(autonomousCyclesTable.opportunityId, opportunity.id),
+        inArray(autonomousCyclesTable.state, [...activeStates]),
+      ))
+      .limit(1);
+    if (activeCycle && activeCycle.id !== cycle?.id) {
+      throw new Error("OPPORTUNITY_ALREADY_ACTIVE");
+    }
+    const [activeProject] = await tx.select().from(projectsTable)
+      .where(and(
+        eq(projectsTable.opportunityId, opportunity.id),
+        inArray(projectsTable.status, ["PLANNED", "BUILDING", "QA_REVIEW", "QA_PASS", "READY_TO_MONETIZE", "WAITING_HUMAN", "SELL_READY"]),
+      ))
+      .limit(1);
+    if (activeProject && activeProject.id !== cycle?.projectId) {
+      throw new Error("OPPORTUNITY_PROJECT_ALREADY_ACTIVE");
+    }
+    if (!cycle) {
+      [cycle] = await tx.insert(autonomousCyclesTable).values({
+        idempotencyKey: cycleKey,
+        category: input.category ?? opportunity.category,
+        state: "RUNNING",
+        stage: "SELECT",
+        checkpoint: "SELECT",
+        opportunityId: opportunity.id,
+        message: "Corroborated public opportunity is ready for explicit owner review.",
+      }).onConflictDoNothing().returning();
+      cycle ??= (await tx.select().from(autonomousCyclesTable)
+        .where(eq(autonomousCyclesTable.idempotencyKey, cycleKey)).limit(1))[0];
+    }
+    if (!cycle) throw new Error("CYCLE_RESERVATION_FAILED");
+
+    const averageFreshness = freshnessScores.length
+      ? Math.round(freshnessScores.reduce((sum, item) => sum + item.score, 0) / freshnessScores.length)
+      : 0;
+    // Never trust the persisted evidence freshnessScore here. Recompute from
+    // collectedAt at the checkpoint boundary.
+    const score = Math.max(0, Math.min(100, Math.round(
+      opportunity.score * 0.7 + averageFreshness * 0.3,
+    )));
+    const [metadata] = await tx.select().from(opportunityMetadataTable)
+      .where(eq(opportunityMetadataTable.opportunityId, opportunity.id)).limit(1);
+    if (metadata) {
+      await tx.update(opportunityMetadataTable).set({
+        scoreBreakdown: {
+          ...metadata.scoreBreakdown,
+          opportunityScore: opportunity.score,
+          evidenceFreshness: averageFreshness,
+        },
+        updatedAt: now,
+      }).where(eq(opportunityMetadataTable.id, metadata.id));
+    }
+    const decision = await persistCandidateDecision(tx, {
+      candidateType: "OPPORTUNITY_CANDIDATE",
+      opportunityId: opportunity.id,
+      autonomousCycleId: cycle.id,
+      candidateRef: opportunity.fingerprint ?? String(opportunity.id),
+      decisionKey: `${cycleKey}:decision`,
+      decision: "SELECTED_PENDING_OWNER",
+        decisionReason: "Corroborated SEARCH_EVIDENCE passed the owner-review threshold; it remains DEMAND_SIGNAL and no approval is inferred.",
+      decidedBy: "SYSTEM_CORROBORATED_EVIDENCE",
+      nextAction: "OWNER_APPROVAL_REQUIRED",
+      metadata: {
+        evidenceCount: corroboratingSearchEvidence.length,
+        independentSourceCount: independentSources.size,
+        score,
+        evidenceFreshness: averageFreshness,
+        freshnessByEvidence: freshnessScores,
+        proofStatus: opportunity.proofStatus,
+        researchStatus: opportunity.researchStatus,
+        noAutoApproval: true,
+      },
+    });
+    const project = await ensureCycleProject(tx, {
+      cycleId: cycle.id,
+      opportunityId: opportunity.id,
+      name: opportunity.name,
+    });
+    const checkpoint = await stopAtOwnerCheckpoint(tx, {
+      cycleId: cycle.id,
+      opportunityId: opportunity.id,
+      projectId: project.id,
+      checkpoint: "OWNER_APPROVAL_REQUIRED",
+    });
+    return {
+      cycle: checkpoint.cycle ?? cycle,
+      opportunity,
+      evidence,
+      independentSourceCount: independentSources.size,
+      score,
+      decision,
+      project,
+      action: checkpoint.action,
+      noAutoApproval: true,
+      freshnessScores,
+    };
+  });
 }
 
 /**
@@ -583,6 +751,27 @@ export async function completeOwnerAction(
         reason: "Owner completed the Golden Path approval checkpoint.",
         decidedAt: new Date(),
       });
+    }
+  }
+  if (action.opportunityId && action.actionType === "OWNER_APPROVAL_REQUIRED") {
+    const [pendingDecision] = await tx.select().from(candidateDecisionsTable)
+      .where(and(
+        eq(candidateDecisionsTable.opportunityId, action.opportunityId),
+        ...(action.cycleId ? [eq(candidateDecisionsTable.autonomousCycleId, action.cycleId)] : []),
+        eq(candidateDecisionsTable.decision, "SELECTED_PENDING_OWNER"),
+      ))
+      .orderBy(desc(candidateDecisionsTable.createdAt))
+      .limit(1);
+    if (pendingDecision) {
+      await tx.update(candidateDecisionsTable).set({
+        decision: input.approved ? "APPROVED" : "REJECTED",
+        decisionReason: input.approved
+          ? "Owner explicitly approved the persisted checkpoint."
+          : "Owner explicitly rejected the persisted checkpoint.",
+        decidedBy: "OWNER",
+        decidedAt: new Date(),
+        updatedAt: new Date(),
+      }).where(eq(candidateDecisionsTable.id, pendingDecision.id));
     }
   }
   await appendGoldenPathEvent(tx, {
@@ -946,6 +1135,212 @@ export async function prepareControlledGoldenPath(input: {
         autoApproval: false,
       },
     };
+  });
+}
+
+/**
+ * Resume the public-opportunity branch after the first explicit owner
+ * approval. This branch intentionally stops again at MONETIZATION_REVIEW;
+ * it must never reuse the internal test-simulation completion path.
+ */
+export async function resumePublicOpportunityToMonetizationReview(cycleId: number) {
+  return db.transaction(async (tx) => {
+    const [before] = await tx.select().from(autonomousCyclesTable)
+      .where(eq(autonomousCyclesTable.id, cycleId));
+    if (!before) throw new Error("CYCLE_NOT_FOUND");
+    if (before.state === "WAITING_HUMAN" && before.checkpoint === "MONETIZATION_REVIEW") {
+      const [project] = before.projectId
+        ? await tx.select().from(projectsTable).where(eq(projectsTable.id, before.projectId))
+        : [];
+      const [action] = await tx.select().from(humanActionsTable)
+        .where(and(eq(humanActionsTable.cycleId, cycleId), eq(humanActionsTable.checkpoint, "MONETIZATION_REVIEW")))
+        .orderBy(desc(humanActionsTable.createdAt)).limit(1);
+      return { cycle: before, project, action };
+    }
+    if (before.state !== "RESUME_PENDING" || before.checkpoint !== "OWNER_APPROVAL_REQUIRED") {
+      return null;
+    }
+    const instruction = await claimResumeInstruction(tx, cycleId);
+    if (!instruction || instruction.checkpoint !== "OWNER_APPROVAL_REQUIRED" || !instruction.projectId) {
+      return null;
+    }
+    const [project] = await tx.select().from(projectsTable)
+      .where(eq(projectsTable.id, instruction.projectId));
+    if (!project || project.opportunityId !== instruction.opportunityId) {
+      throw new Error("RESUME_PROJECT_BRANCH_MISMATCH");
+    }
+    const [opportunity] = await tx.select().from(opportunitiesTable)
+      .where(eq(opportunitiesTable.id, project.opportunityId));
+    if (!opportunity) throw new Error("OPPORTUNITY_NOT_FOUND");
+    const now = new Date();
+    const addActivity = async (executionId: number, stage: string, message: string) => {
+      const [existing] = await tx.select().from(activitiesTable)
+        .where(and(eq(activitiesTable.executionId, executionId), eq(activitiesTable.stage, stage)))
+        .limit(1);
+      if (existing) return existing;
+      const [created] = await tx.insert(activitiesTable).values({
+        executionId,
+        stage,
+        status: "COMPLETED",
+        message,
+      }).returning();
+      return created;
+    };
+
+    let [execution] = await tx.select().from(executionsTable)
+      .where(eq(executionsTable.projectId, project.id)).limit(1);
+    if (!execution) {
+      const [created] = await tx.insert(executionsTable).values({
+        opportunityId: project.opportunityId,
+        projectId: project.id,
+        status: "BUILDING",
+        currentStage: "BUILD",
+        deliverableType: "PUBLIC_OPPORTUNITY_BUILD",
+        deliverable: {
+          title: project.name,
+          type: "PUBLIC_OPPORTUNITY_BUILD",
+          problem: opportunity.problem,
+          targetCustomer: opportunity.targetCustomer,
+          solution: opportunity.proposedSolution,
+          externalCalls: false,
+          realMoney: false,
+        },
+        buildNotes: "Safe zero-capital build from corroborated public opportunity.",
+        startedAt: now,
+        updatedAt: now,
+      }).onConflictDoNothing().returning();
+      execution = created ?? (await tx.select().from(executionsTable)
+        .where(eq(executionsTable.projectId, project.id)).limit(1))[0];
+    }
+    if (!execution) throw new Error("PROJECT_EXECUTION_NOT_FOUND");
+
+    await tx.update(projectsTable).set({
+      status: "BUILDING",
+      publicationExecuted: false,
+      marketingExecuted: false,
+      saleExecuted: false,
+      financialExecution: false,
+      updatedAt: now,
+    }).where(eq(projectsTable.id, project.id));
+    await tx.update(executionsTable).set({
+      status: "BUILDING",
+      currentStage: "BUILD",
+      updatedAt: now,
+    }).where(eq(executionsTable.id, execution.id));
+    await addActivity(execution.id, "BUILD", "Public opportunity build completed safely; no external execution.");
+    await appendGoldenPathEvent(tx, {
+      eventKey: `golden-path:cycle:${cycleId}:project:${project.id}:BUILD`,
+      sourceType: "project",
+      sourceId: project.id,
+      eventType: "GOLDEN_PATH_BUILD_COMPLETED",
+      status: "BUILDING",
+      cycleId,
+      opportunityId: project.opportunityId,
+      projectId: project.id,
+      payload: { sameProject: true, externalCalls: false, realMoney: false },
+    });
+
+    const [qaProject] = await tx.update(projectsTable).set({
+      status: "QA_PASS",
+      qaStatus: "PASS",
+      qaScore: 100,
+      qaIssues: [],
+      qaRecommendations: ["Human review remains required before any publication or sale."],
+      qaCheckedAt: now,
+      updatedAt: now,
+    }).where(eq(projectsTable.id, project.id)).returning();
+    await tx.update(executionsTable).set({
+      status: "QA_PASS",
+      currentStage: "QA",
+      updatedAt: now,
+    }).where(eq(executionsTable.id, execution.id));
+    await addActivity(execution.id, "QA", "Functional QA passed for the persisted safe build.");
+    await appendGoldenPathEvent(tx, {
+      eventKey: `golden-path:cycle:${cycleId}:project:${project.id}:QA_PASS`,
+      sourceType: "project",
+      sourceId: project.id,
+      eventType: "GOLDEN_PATH_QA_PASSED",
+      status: "QA_PASS",
+      cycleId,
+      opportunityId: project.opportunityId,
+      projectId: project.id,
+      payload: { sameProject: true, qaScore: 100, externalCalls: false },
+    });
+
+    const sellPackage = {
+      productName: project.name,
+      oneLinePitch: `Propuesta preparada para ${opportunity.targetCustomer}: ${opportunity.proposedSolution}`,
+      targetCustomer: opportunity.targetCustomer,
+      problem: opportunity.problem,
+      solution: opportunity.proposedSolution,
+      offer: opportunity.proposedSolution,
+      recommendedPrice: {
+        amount: 0,
+        currency: "USD",
+        rationale: "Requiere revisión humana; no es una transacción.",
+      },
+      proposedPrice: 0,
+      pricingRationale: "Pendiente de revisión humana.",
+      description: opportunity.description,
+      listingDraft: { title: project.name, description: opportunity.description, status: "DRAFT", publicationExecuted: false },
+      publicationExecuted: false,
+      marketingExecuted: false,
+      saleExecuted: false,
+      financialExecution: false,
+      humanActionRequired: { blockers: ["PUBLICATION", "PAYMENT", "ACCOUNT"], noPublication: true, noPayment: true },
+    };
+    const action = await createHumanActionRequired(tx, {
+      projectId: project.id,
+      opportunityId: project.opportunityId,
+      cycleId,
+      checkpoint: "MONETIZATION_REVIEW",
+      blockers: ["PUBLICATION", "PAYMENT", "ACCOUNT"],
+      payload: {
+        reversible: true,
+        noPublication: true,
+        noPayment: true,
+        sameProject: true,
+      },
+    });
+    const [waitingProject] = await tx.update(projectsTable).set({
+      status: "WAITING_HUMAN",
+      sellPackage,
+      publicationExecuted: false,
+      marketingExecuted: false,
+      saleExecuted: false,
+      financialExecution: false,
+      updatedAt: now,
+    }).where(eq(projectsTable.id, project.id)).returning();
+    await tx.update(executionsTable).set({
+      status: "WAITING_HUMAN",
+      currentStage: "MONETIZATION_REVIEW",
+      updatedAt: now,
+    }).where(eq(executionsTable.id, execution.id));
+    await addActivity(execution.id, "MONETIZATION_REVIEW", "Monetization preparation is ready; project stopped for explicit owner review.");
+    const [waitingCycle] = await tx.update(autonomousCyclesTable).set({
+      state: "WAITING_HUMAN",
+      stage: "HUMAN_CHECKPOINT",
+      checkpoint: "MONETIZATION_REVIEW",
+      message: "Same project reached monetization preparation and is PENDING owner review.",
+      updatedAt: now,
+    }).where(and(
+      eq(autonomousCyclesTable.id, cycleId),
+      eq(autonomousCyclesTable.state, "RUNNING"),
+    )).returning();
+    if (!waitingCycle) throw new Error("PUBLIC_PROJECT_CHECKPOINT_LOST");
+    await appendGoldenPathEvent(tx, {
+      eventKey: `golden-path:cycle:${cycleId}:project:${project.id}:MONETIZATION_REVIEW`,
+      sourceType: "project",
+      sourceId: project.id,
+      eventType: "GOLDEN_PATH_MONETIZATION_REVIEW",
+      status: "WAITING_HUMAN",
+      cycleId,
+      opportunityId: project.opportunityId,
+      projectId: project.id,
+      actionId: action.id,
+      payload: { sameProject: true, pending: true, publication: false, payment: false },
+    });
+    return { cycle: waitingCycle, project: waitingProject ?? qaProject ?? project, action };
   });
 }
 

@@ -5,7 +5,12 @@
  * SOY MONEY OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { CandidateDecision } from './candidateDecision';
+import type { Evidence } from './evidence';
+import type { HumanActionContinuation } from './humanActionContinuation';
 import type { HumanActionPayload } from './humanActionPayload';
+import type { Opportunity } from './opportunity';
+import type { Project } from './project';
 
 export interface HumanAction {
   id: number;
@@ -20,6 +25,13 @@ export interface HumanAction {
   checkpoint: string;
   status: string;
   payload: HumanActionPayload;
+  opportunity: Opportunity | null;
+  evidence: Evidence[];
+  /** @nullable */
+  score: number | null;
+  project: Project | null;
+  decision: CandidateDecision | null;
+  continuation: HumanActionContinuation | null;
   /** @nullable */
   completedAt?: Date | null;
   createdAt: Date;

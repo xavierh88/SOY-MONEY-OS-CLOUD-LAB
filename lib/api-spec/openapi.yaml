@@ -393,7 +393,11 @@ paths:
     post:
       operationId: recordProjectResult
       tags: [projects]
-      summary: Record preparation result without claiming a sale
+      summary: Continue the same project after monetization review
+      description: >
+        Idempotently records the safe preparation result for this exact project
+        after its MONETIZATION_REVIEW action was explicitly approved. It never
+        creates another project, claims a sale, publishes, or performs payment.
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -721,6 +725,44 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           $ref: "#/components/responses/NotFound"
+  /autonomy/controlled-golden-path/owner-checkpoint:
+    post:
+      operationId: advanceCorroboratedOpportunityToOwnerCheckpoint
+      tags: [autonomy]
+      security:
+        - ClerkOwner: []
+      summary: Stop a corroborated public opportunity at the first owner checkpoint
+      description: >
+        Validates persisted REAL_VERIFIED evidence from at least two independent
+        sources, creates or reuses the same project, and creates only a PENDING
+        owner action. It never infers approval, calls a provider, or spends money.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OwnerCheckpointInput"
+      responses:
+        "201":
+          description: Pending owner checkpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerCheckpointResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Opportunity is expired or checkpoint cannot be advanced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Evidence is not corroborated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /money-lab/market-cycles:
     get:
       operationId: listMarketCycles
@@ -1088,7 +1130,12 @@ paths:
     post:
       operationId: completeHumanAction
       tags: [human-actions]
-      summary: Complete a checkpoint and resume from its stored checkpoint
+      summary: Record an explicit owner decision for a checkpoint
+      description: >
+        The owner decision is explicit and required; an omitted decision is
+        rejected. For a project-linked MONETIZATION_REVIEW action, the response
+        exposes the idempotent same-project continuation route
+        POST /projects/{projectId}/result. No worker continuation is implied.
       parameters:
         - $ref: "#/components/parameters/Id"
       requestBody:
@@ -1905,7 +1952,7 @@ components:
         updatedAt: { type: string, format: date-time }
     HumanAction:
       type: object
-      required: [id, idempotencyKey, actionType, checkpoint, status, payload, createdAt, updatedAt]
+      required: [id, idempotencyKey, actionType, checkpoint, status, payload, opportunity, evidence, score, project, decision, continuation, createdAt, updatedAt]
       properties:
         id: { type: integer }
         idempotencyKey: { type: string }
@@ -1916,13 +1963,78 @@ components:
         checkpoint: { type: string }
         status: { type: string }
         payload: { type: object, additionalProperties: true }
+        opportunity:
+          oneOf:
+            - $ref: "#/components/schemas/Opportunity"
+            - type: "null"
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/Evidence"
+        score: { type: ["number", "null"] }
+        project:
+          oneOf:
+            - $ref: "#/components/schemas/Project"
+            - type: "null"
+        decision:
+          oneOf:
+            - $ref: "#/components/schemas/CandidateDecision"
+            - type: "null"
+        continuation:
+          oneOf:
+            - $ref: "#/components/schemas/HumanActionContinuation"
+            - type: "null"
         completedAt: { type: ["string", "null"], format: date-time }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     HumanActionCompleteInput:
       type: object
       properties:
-        payload: { type: object, additionalProperties: true }
+        payload:
+          type: object
+          required: [approved]
+          properties:
+            approved: { type: boolean }
+          additionalProperties: true
+    HumanActionContinuation:
+      type: object
+      required: [available, sameProject, projectId, opportunityId, checkpoint, instruction, method, path]
+      properties:
+        available: { type: boolean }
+        sameProject: { type: boolean, enum: [true] }
+        projectId: { type: ["integer", "null"] }
+        opportunityId: { type: ["integer", "null"] }
+        checkpoint: { type: string }
+        instruction: { type: string }
+        method: { type: string }
+        path: { type: string }
+    OwnerCheckpointInput:
+      type: object
+      required: [opportunityId, idempotencyKey]
+      additionalProperties: false
+      properties:
+        opportunityId: { type: integer, minimum: 1 }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 200 }
+        category: { type: string }
+    OwnerCheckpointResponse:
+      type: object
+      required: [cycleId, opportunityId, projectId, actionId, decisionId, state, checkpoint, status, score, evidence, independentSourceCount, noAutoApproval]
+      properties:
+        cycleId: { type: integer }
+        opportunityId: { type: integer }
+        projectId: { type: integer }
+        actionId: { type: ["integer", "null"] }
+        decisionId: { type: integer }
+        state: { type: string }
+        checkpoint: { type: string }
+        status: { type: string }
+        score: { type: number }
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/Evidence"
+        independentSourceCount: { type: integer }
+        noAutoApproval: { type: boolean, enum: [true] }
     FinanceLedgerEntry:
       type: object
       required: [id, idempotencyKey, mode, entryType, amount, currency, description, createdAt, updatedAt]

@@ -5,6 +5,7 @@ import {
   autonomyLearningTable,
   autonomyStateTable,
   autonomousCyclesTable,
+  candidateDecisionsTable,
   db,
   evidenceTable,
   financeLedgerTable,
@@ -56,6 +57,8 @@ import {
   completeNoValidOpportunity,
   ensureCycleProject,
   getResumeInstruction,
+  advanceCorroboratedOpportunityToOwnerCheckpoint,
+  persistCandidateDecision,
   prepareControlledGoldenPath,
   stopAtOwnerCheckpoint,
 } from "../lib/golden-path";
@@ -278,6 +281,18 @@ export async function runSafeAutonomousCycleWithClaim(
       cycleId: cycle.id,
       opportunityId: selected.id,
     });
+    await persistCandidateDecision(tx, {
+      candidateType: "OPPORTUNITY_CANDIDATE",
+      opportunityId: selected.id,
+      autonomousCycleId: cycle.id,
+      candidateRef: selected.fingerprint ?? String(selected.id),
+      decisionKey: `golden-path:cycle:${cycle.id}:candidate:${selected.id}:decision`,
+      decision: "SELECTED_PENDING_OWNER",
+      decisionReason: "Selected for explicit owner review; score is prioritization metadata and not demand proof.",
+      decidedBy: "SYSTEM",
+      nextAction: "OWNER_APPROVAL_REQUIRED",
+      metadata: { score: scored.score, scoreIsDemandProof: false },
+    });
     const [recorded] = await tx.update(autonomousCyclesTable).set({
       opportunityId: selected.id,
       // This legacy field historically exposed the selected opportunity ID
@@ -321,6 +336,66 @@ async function parseId(value: string | string[]) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+async function humanActionViews(rows: typeof humanActionsTable.$inferSelect[]) {
+  return Promise.all(rows.map(async (action) => {
+    const [opportunity] = action.opportunityId
+      ? await db.select().from(opportunitiesTable).where(eq(opportunitiesTable.id, action.opportunityId)).limit(1)
+      : [];
+    const [project] = action.projectId
+      ? await db.select().from(projectsTable).where(eq(projectsTable.id, action.projectId)).limit(1)
+      : [];
+    const evidence = action.opportunityId
+      ? await db.select().from(evidenceTable)
+        .where(eq(evidenceTable.opportunityId, action.opportunityId))
+        .orderBy(desc(evidenceTable.collectedAt))
+      : [];
+    const [cycle] = action.cycleId
+      ? await db.select().from(autonomousCyclesTable).where(eq(autonomousCyclesTable.id, action.cycleId)).limit(1)
+      : [];
+    const [decision] = action.opportunityId
+      ? await db.select().from(candidateDecisionsTable)
+        .where(and(
+          eq(candidateDecisionsTable.opportunityId, action.opportunityId),
+          ...(action.cycleId ? [eq(candidateDecisionsTable.autonomousCycleId, action.cycleId)] : []),
+        ))
+        .orderBy(desc(candidateDecisionsTable.createdAt))
+        .limit(1)
+      : [];
+    const continuation = action.projectId && project && action.checkpoint === "MONETIZATION_REVIEW"
+      ? {
+          available: action.status === "COMPLETED",
+          sameProject: true,
+          projectId: action.projectId,
+          opportunityId: action.opportunityId,
+          checkpoint: action.checkpoint,
+          instruction: "CALL_PROJECT_RESULT_FOR_SAME_PROJECT",
+          method: "POST",
+          path: `/api/projects/${action.projectId}/result`,
+        }
+      : action.cycleId
+        ? {
+            available: action.status === "COMPLETED" && cycle?.state === "RESUME_PENDING",
+            sameProject: true,
+            projectId: action.projectId,
+            opportunityId: action.opportunityId,
+            checkpoint: action.checkpoint,
+            instruction: "RESUME_SAME_PROJECT_FROM_CHECKPOINT",
+            method: "GET",
+            path: `/api/autonomy/cycles/${action.cycleId}/resume-instruction`,
+          }
+        : null;
+    return {
+      ...action,
+      opportunity: opportunity ?? null,
+      evidence,
+      score: cycle?.score ?? opportunity?.score ?? null,
+      project: project ?? null,
+      decision: decision ?? null,
+      continuation,
+    };
+  }));
+}
+
 router.post("/autonomy/controlled-golden-path/prepare", async (req, res): Promise<void> => {
   const raw = req.body ?? {};
   if (typeof raw !== "object" || Array.isArray(raw)) {
@@ -350,6 +425,51 @@ router.post("/autonomy/controlled-golden-path/prepare", async (req, res): Promis
     fixtureKey: prepared.fixtureKey,
     safe: prepared.safe,
   });
+});
+
+/**
+ * Owner-gated bridge for a real, already corroborated public opportunity.
+ * Unlike autonomous cycle execution this endpoint is available while the
+ * autonomy lock is enabled, but it only creates a PENDING checkpoint.
+ */
+router.post("/autonomy/controlled-golden-path/owner-checkpoint", async (req, res): Promise<void> => {
+  const raw = req.body ?? {};
+  if (
+    typeof raw !== "object" || Array.isArray(raw)
+    || !Number.isInteger(raw.opportunityId) || raw.opportunityId <= 0
+    || typeof raw.idempotencyKey !== "string" || !raw.idempotencyKey.trim()
+  ) {
+    res.status(400).json({ error: "opportunityId and idempotencyKey are required" });
+    return;
+  }
+  try {
+    const result = await advanceCorroboratedOpportunityToOwnerCheckpoint({
+      opportunityId: raw.opportunityId,
+      idempotencyKey: raw.idempotencyKey,
+      category: typeof raw.category === "string" ? raw.category : undefined,
+    });
+    res.status(201).json({
+      cycleId: result.cycle.id,
+      opportunityId: result.opportunity.id,
+      projectId: result.project.id,
+      actionId: result.action?.id ?? null,
+      decisionId: result.decision.id,
+      state: result.cycle.state,
+      checkpoint: result.action?.checkpoint ?? "OWNER_APPROVAL_REQUIRED",
+      status: result.action?.status ?? "PENDING",
+      score: result.score,
+      evidence: result.evidence,
+      independentSourceCount: result.independentSourceCount,
+      noAutoApproval: true,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Owner checkpoint could not be created";
+    const status = message === "NO_CORROBORATED_EVIDENCE" ? 422
+      : message === "OPPORTUNITY_NOT_FOUND" ? 404
+        : ["OPPORTUNITY_EXPIRED", "IDEMPOTENCY_KEY_OPPORTUNITY_MISMATCH", "OPPORTUNITY_ALREADY_ACTIVE", "OPPORTUNITY_PROJECT_ALREADY_ACTIVE"].includes(message)
+          ? 409 : 500;
+    res.status(status).json({ error: message });
+  }
 });
 
 router.get("/autonomy/controlled-golden-path/status/:id", async (req, res): Promise<void> => {
@@ -511,14 +631,14 @@ router.get("/candidates/:id", async (req, res): Promise<void> => {
 
 router.get("/human-actions", async (_req, res): Promise<void> => {
   const rows = await db.select().from(humanActionsTable).orderBy(desc(humanActionsTable.createdAt)).limit(100);
-  res.json(ListHumanActionsResponse.parse(rows));
+  res.json(ListHumanActionsResponse.parse(await humanActionViews(rows)));
 });
 router.get("/human-actions/:id", async (req, res): Promise<void> => {
   const id = await parseId(req.params.id);
   if (!id) { res.status(400).json({ error: "id must be a positive integer" }); return; }
   const [action] = await db.select().from(humanActionsTable).where(eq(humanActionsTable.id, id));
   if (!action) { res.status(404).json({ error: "Human action not found" }); return; }
-  res.json(GetHumanActionResponse.parse(action));
+  res.json(GetHumanActionResponse.parse((await humanActionViews([action]))[0]));
 });
 router.post("/human-actions/:id/complete", async (req, res): Promise<void> => {
   const params = CompleteHumanActionParams.safeParse(req.params);
@@ -528,9 +648,17 @@ router.post("/human-actions/:id/complete", async (req, res): Promise<void> => {
   const id = params.data.id;
   const [action] = await db.select().from(humanActionsTable).where(eq(humanActionsTable.id, id));
   if (!action) { res.status(404).json({ error: "Human action not found" }); return; }
-  if (action.status === "COMPLETED") { res.json(CompleteHumanActionResponse.parse(action)); return; }
+  if (action.status === "COMPLETED") {
+    res.json(CompleteHumanActionResponse.parse((await humanActionViews([action]))[0]));
+    return;
+  }
   if (action.status !== "PENDING") { res.status(409).json({ error: `Action is ${action.status}` }); return; }
-  const approved = body.data.payload?.approved !== false;
+  const requestedDecision = body.data.payload?.approved;
+  if (typeof requestedDecision !== "boolean") {
+    res.status(400).json({ error: "payload.approved must be explicitly true or false; no decision is inferred" });
+    return;
+  }
+  const approved = requestedDecision;
   if (action.cycleId) {
     const [linkedCycle] = await db.select().from(autonomousCyclesTable)
       .where(eq(autonomousCyclesTable.id, action.cycleId));
@@ -552,7 +680,7 @@ router.post("/human-actions/:id/complete", async (req, res): Promise<void> => {
     approved,
     payload: body.data.payload ?? action.payload,
   }));
-  res.json(CompleteHumanActionResponse.parse(result));
+  res.json(CompleteHumanActionResponse.parse((await humanActionViews([result]))[0]));
 });
 
 router.get("/finance/ledger", async (_req, res): Promise<void> => {

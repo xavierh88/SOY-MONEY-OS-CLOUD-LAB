@@ -1,0 +1,75 @@
+FINAL GAP — REAL PUBLIC OPPORTUNITY DISCOVERY + REAL OWNER CHECKPOINT
+
+El último audit terminó con SOFTWARE_COMPLETENESS≈90%.
+
+NO actives autonomía y NO hagas Republish.
+
+Mantén:
+AUTONOMY_EXECUTION_LOCKED=true
+autonomy=OFF
+Finance REAL=0
+
+El bloqueo principal es:
+NO_CORROBORATED_EVIDENCE
+
+Los 3 adapters funcionaron y produjeron 20 findings, pero ninguna oportunidad pública alcanzó corroboración suficiente.
+
+Primero realiza un diagnóstico profundo del porqué. No reduzcas los requisitos de evidencia y no fabriques una oportunidad para hacer pasar el test.
+
+Mejora la estrategia de discovery/research de manera profesional:
+
+ampliar queries y variantes semánticas;
+búsquedas específicas por categoría;
+entity/problem resolution entre fuentes;
+corroboración de que distintas fuentes hablan realmente del mismo problema/oportunidad;
+separar duplicados de corroboración independiente;
+analizar freshness;
+registrar por qué cada candidato pasa o falla;
+ampliar fuentes públicas gratuitas si las 3 actuales son insuficientes;
+mantener mínimo 2 fuentes independientes cuando corresponda;
+nunca convertir SEARCH_EVIDENCE directamente en DEMAND_PROOF o REAL_VERIFIED.
+
+Ejecuta después un solo discovery público controlado.
+
+Si no existe ninguna oportunidad válida, devuelve NO_VALID_OPPORTUNITY y explica exactamente por qué. No fuerces el Golden Path.
+
+Si aparece una oportunidad realmente corroborada, permite que recorra el Golden Path seguro hasta el primer checkpoint humano.
+
+En ese momento DETENTE. No simules la aprobación del owner.
+
+Necesito completar ese checkpoint manualmente mediante mi sesión Clerk real desde la UI.
+
+Muéstrame claramente en la Cola Humana:
+
+oportunidad;
+evidencia y fuentes;
+score;
+proyecto;
+qué decisión necesita;
+botones APROBAR/RECHAZAR.
+
+Después de mi decisión real, el sistema debe reanudar el MISMO proyecto y continuar BUILD → QA → monetization preparation.
+
+Cuando llegue a MONETIZATION_REVIEW, vuelve a detenerse para aprobación humana real. No publiques ni vendas.
+
+No ejecutar:
+pagos, trading, apuestas, inversión, publicación comercial, campañas pagadas, transferencias, retiros ni acciones financieras reales.
+
+Verifica idempotencia y cero duplicados durante todo el recorrido.
+
+Entrega al final:
+DISCOVERY_DIAGNOSIS
+PROVIDERS_USED
+FINDINGS_COUNT
+CORROBORATED_CANDIDATES
+ACCEPTED_OPPORTUNITIES
+REJECTED_CANDIDATES_AND_REASONS
+PUBLIC_OPPORTUNITY_ID
+PROJECT_ID
+CURRENT_CHECKPOINT
+OWNER_UI_ACTION_REQUIRED
+FINANCE_REAL
+AUTONOMY_STATUS
+READY_TO_CONTINUE_AFTER_OWNER_DECISION
+
+Si llegas al checkpoint humano, no continúes hasta mi aprobación real desde la UI.

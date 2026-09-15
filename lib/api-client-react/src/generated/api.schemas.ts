@@ -686,6 +686,75 @@ export interface AutonomyLearning {
 
 export type HumanActionPayload = { [key: string]: unknown };
 
+export type CandidateDecisionCandidateType = typeof CandidateDecisionCandidateType[keyof typeof CandidateDecisionCandidateType];
+
+
+export const CandidateDecisionCandidateType = {
+  MONEY_LAB_CANDIDATE: 'MONEY_LAB_CANDIDATE',
+  OPPORTUNITY_CANDIDATE: 'OPPORTUNITY_CANDIDATE',
+} as const;
+
+export type CandidateDecisionDecision = typeof CandidateDecisionDecision[keyof typeof CandidateDecisionDecision];
+
+
+export const CandidateDecisionDecision = {
+  SELECTED_PENDING_OWNER: 'SELECTED_PENDING_OWNER',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  BLOCKED: 'BLOCKED',
+  OPPORTUNITY_CANDIDATE: 'OPPORTUNITY_CANDIDATE',
+} as const;
+
+export type CandidateDecisionMetadata = { [key: string]: unknown };
+
+/**
+ * Generic durable decision whose link is explicit. MONEY_LAB_CANDIDATE uses candidateId; OPPORTUNITY_CANDIDATE uses opportunityId and never reuses a Market Lab candidate identifier.
+ */
+export interface CandidateDecision {
+  id: number;
+  decisionKey: string;
+  candidateType: CandidateDecisionCandidateType;
+  /** @nullable */
+  candidateRef?: string | null;
+  /** @nullable */
+  candidateId?: number | null;
+  /** @nullable */
+  opportunityId?: number | null;
+  /** @nullable */
+  autonomousCycleId?: number | null;
+  decision: CandidateDecisionDecision;
+  /** @nullable */
+  decisionReason?: string | null;
+  /** @nullable */
+  score?: number | null;
+  /** @nullable */
+  confidence?: number | null;
+  /** @nullable */
+  risk?: string | null;
+  /** @nullable */
+  decidedAt?: string | null;
+  /** @nullable */
+  decidedBy?: string | null;
+  /** @nullable */
+  nextAction?: string | null;
+  metadata: CandidateDecisionMetadata;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HumanActionContinuation {
+  available: boolean;
+  sameProject: true;
+  /** @nullable */
+  projectId: number | null;
+  /** @nullable */
+  opportunityId: number | null;
+  checkpoint: string;
+  instruction: string;
+  method: string;
+  path: string;
+}
+
 export interface HumanAction {
   id: number;
   idempotencyKey: string;
@@ -699,16 +768,53 @@ export interface HumanAction {
   checkpoint: string;
   status: string;
   payload: HumanActionPayload;
+  opportunity: Opportunity | null;
+  evidence: Evidence[];
+  /** @nullable */
+  score: number | null;
+  project: Project | null;
+  decision: CandidateDecision | null;
+  continuation: HumanActionContinuation | null;
   /** @nullable */
   completedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export type HumanActionCompleteInputPayload = { [key: string]: unknown };
+export type HumanActionCompleteInputPayload = {
+  approved: boolean;
+  [key: string]: unknown;
+ };
 
 export interface HumanActionCompleteInput {
   payload?: HumanActionCompleteInputPayload;
+}
+
+export interface OwnerCheckpointInput {
+  /** @minimum 1 */
+  opportunityId: number;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  idempotencyKey: string;
+  category?: string;
+}
+
+export interface OwnerCheckpointResponse {
+  cycleId: number;
+  opportunityId: number;
+  projectId: number;
+  /** @nullable */
+  actionId: number | null;
+  decisionId: number;
+  state: string;
+  checkpoint: string;
+  status: string;
+  score: number;
+  evidence: Evidence[];
+  independentSourceCount: number;
+  noAutoApproval: true;
 }
 
 export type FinanceLedgerEntryMode = typeof FinanceLedgerEntryMode[keyof typeof FinanceLedgerEntryMode];
@@ -1032,62 +1138,6 @@ export type ControlTowerGoldenPathResponseResume = {
   action: HumanAction | null;
   lifecycle: GoldenPathLifecycleEvent[];
 };
-
-export type CandidateDecisionCandidateType = typeof CandidateDecisionCandidateType[keyof typeof CandidateDecisionCandidateType];
-
-
-export const CandidateDecisionCandidateType = {
-  MONEY_LAB_CANDIDATE: 'MONEY_LAB_CANDIDATE',
-  OPPORTUNITY_CANDIDATE: 'OPPORTUNITY_CANDIDATE',
-} as const;
-
-export type CandidateDecisionDecision = typeof CandidateDecisionDecision[keyof typeof CandidateDecisionDecision];
-
-
-export const CandidateDecisionDecision = {
-  SELECTED_PENDING_OWNER: 'SELECTED_PENDING_OWNER',
-  APPROVED: 'APPROVED',
-  REJECTED: 'REJECTED',
-  BLOCKED: 'BLOCKED',
-  OPPORTUNITY_CANDIDATE: 'OPPORTUNITY_CANDIDATE',
-} as const;
-
-export type CandidateDecisionMetadata = { [key: string]: unknown };
-
-/**
- * Generic durable decision whose link is explicit. MONEY_LAB_CANDIDATE uses candidateId; OPPORTUNITY_CANDIDATE uses opportunityId and never reuses a Market Lab candidate identifier.
- */
-export interface CandidateDecision {
-  id: number;
-  decisionKey: string;
-  candidateType: CandidateDecisionCandidateType;
-  /** @nullable */
-  candidateRef?: string | null;
-  /** @nullable */
-  candidateId?: number | null;
-  /** @nullable */
-  opportunityId?: number | null;
-  /** @nullable */
-  autonomousCycleId?: number | null;
-  decision: CandidateDecisionDecision;
-  /** @nullable */
-  decisionReason?: string | null;
-  /** @nullable */
-  score?: number | null;
-  /** @nullable */
-  confidence?: number | null;
-  /** @nullable */
-  risk?: string | null;
-  /** @nullable */
-  decidedAt?: string | null;
-  /** @nullable */
-  decidedBy?: string | null;
-  /** @nullable */
-  nextAction?: string | null;
-  metadata: CandidateDecisionMetadata;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export type MarketCycleCandidateRaw = { [key: string]: unknown };
 

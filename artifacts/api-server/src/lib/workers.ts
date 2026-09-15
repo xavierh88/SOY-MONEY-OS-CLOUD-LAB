@@ -7,7 +7,10 @@ import {
   marketCyclesTable,
 } from "@workspace/db";
 import { appendLifecycleEvent, finalizeExpiredOpportunities, lifecycleKey } from "./lifecycle";
-import { resumeSameProjectToSafeCompletion } from "./golden-path";
+import {
+  resumePublicOpportunityToMonetizationReview,
+  resumeSameProjectToSafeCompletion,
+} from "./golden-path";
 import { logger } from "./logger";
 import {
   attachExternalRun,
@@ -28,8 +31,10 @@ const externalIntervalMs = 30_000;
 const candidateExpirationBatchSize = 100;
 
 /**
- * Resume only the persisted internal state machine.  This worker never calls
- * Windmill, GitHub, build, publication, financial, or external APIs.
+ * Resume only persisted safe state-machine work. This worker never calls
+ * Windmill, GitHub, publication, financial, or external APIs. The public
+ * opportunity branch may persist its local BUILD/QA/monetization-preparation
+ * stages, but it never claims approval or completes the project.
  */
 export async function processResumePending(limit = 50) {
   const pending = await db.select().from(autonomousCyclesTable)
@@ -38,7 +43,9 @@ export async function processResumePending(limit = 50) {
     .limit(limit);
   const processed = [];
   for (const cycle of pending) {
-    const result = await resumeSameProjectToSafeCompletion(cycle.id);
+    const result = cycle.idempotencyKey.startsWith("golden-path:public-opportunity:")
+      ? await resumePublicOpportunityToMonetizationReview(cycle.id)
+      : await resumeSameProjectToSafeCompletion(cycle.id);
     if (result) processed.push(cycle.id);
   }
   return processed;
