@@ -22,7 +22,7 @@ test('landing page and auth boundary never require real Clerk credentials', asyn
   await expect(page).toHaveURL(/\/user-portal$/);
 });
 
-test('dashboard, discovery fixture, evidence, and owner review', async ({ page }) => {
+test('dashboard, discovery fixture, evidence, and owner session boundary', async ({ page }) => {
   await page.goto('/sign-in');
   await page.getByTestId('button-e2e-sign-in').click();
   await expect(page.getByRole('heading', { name: 'El dinero está en las señales.' })).toBeVisible();
@@ -35,21 +35,18 @@ test('dashboard, discovery fixture, evidence, and owner review', async ({ page }
   await page.getByRole('button', { name: /Evidencia/ }).click();
   await expect(page.getByText('Las clínicas reportan conciliación manual de pagos.')).toBeVisible();
 
-  await page.goto('/configuracion');
-  await expect(page.getByText('Decisiones pendientes')).toBeVisible();
-  await page.getByTestId('button-approve-setting-10').click();
-  await expect(page.getByText('Sin señales todavía')).toBeVisible();
-
-  await page.reload();
-  await expect(page.getByText('Sin señales todavía')).toBeVisible();
+  await expect(page.getByTestId('owner-session')).toBeVisible();
+  await expect(page.getByText('Propietario de prueba')).toBeVisible();
+  await expect(page.getByText('Sesión E2E local')).toBeVisible();
 });
 
-test('owner can reject a pending review without external side effects', async ({ page }) => {
+test('human action queue remains isolated when no checkpoint is pending', async ({ page }) => {
   await page.goto('/sign-in');
   await page.getByTestId('button-e2e-sign-in').click();
-  await page.goto('/configuracion');
-  await page.getByTestId('button-reject-10').click();
+  await page.goto('/acciones');
+  await expect(page.getByRole('heading', { name: 'Cola de Acciones Humanas' })).toBeVisible();
   await expect(page.getByText('Sin señales todavía')).toBeVisible();
+  expect(fixtureState.approvalStatus).toBe('PENDING');
 });
 
 test('project, QA state, results, and principal API error state', async ({ page }) => {
