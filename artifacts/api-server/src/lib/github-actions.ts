@@ -10,7 +10,6 @@ export type GitHubRun = {
   created_at: string;
   run_started_at: string | null;
   updated_at: string;
-  dispatch_id?: string;
 };
 
 export class GitHubActionsError extends Error {
