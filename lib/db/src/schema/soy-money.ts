@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 import type { FinanceMode } from "./finance";
+import { autonomousCyclesTable } from "./autonomy";
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -177,6 +178,7 @@ export const learningTable = pgTable(
     opportunityId: integer("opportunity_id").references(() => opportunitiesTable.id),
     // Linked by the migration after both tables exist.
     cycleId: integer("cycle_id"),
+    autonomousCycleId: integer("autonomous_cycle_id").references(() => autonomousCyclesTable.id),
     resultId: integer("result_id").references(() => resultsTable.id),
     evidenceReference: text("evidence_reference"),
     provenance: jsonb("provenance").$type<Record<string, unknown>>().notNull().default({}),

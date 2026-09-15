@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { db, marketCyclesTable } from "@workspace/db";
+import { db, marketCyclesTable, type MarketCycle } from "@workspace/db";
 import {
   GetMarketCycleParams,
   GetMarketCycleResponse,
@@ -44,6 +44,66 @@ function metrics(result: Record<string, unknown>) {
   };
 }
 
+const SAFETY_FLAGS = ["real_money_used", "financial_execution", "real_verified"] as const;
+
+export type ArtifactSafetyValidation =
+  | { safe: true; flags: Record<typeof SAFETY_FLAGS[number], boolean> }
+  | { safe: false; code: string; message: string; invalidFlags: string[] };
+
+/**
+ * Artifact safety is a contract, not a local default.  Missing, non-boolean,
+ * or true execution flags are unsafe and must stop ingestion before candidate
+ * normalization.
+ */
+export function validateArtifactSafetyContract(result: Record<string, unknown>): ArtifactSafetyValidation {
+  const invalidFlags = SAFETY_FLAGS.filter((flag) =>
+    typeof result[flag] !== "boolean" || result[flag] === true,
+  );
+  if (invalidFlags.length > 0) {
+    return {
+      safe: false,
+      code: "UNSAFE_ARTIFACT_SAFETY_CONTRACT",
+      message: "Artifact safety flags must all be explicit false booleans.",
+      invalidFlags,
+    };
+  }
+  return {
+    safe: true,
+    flags: {
+      real_money_used: result.real_money_used as boolean,
+      financial_execution: result.financial_execution as boolean,
+      real_verified: result.real_verified as boolean,
+    },
+  };
+}
+
+async function failUnsafeArtifact(
+  cycle: MarketCycle,
+  safety: Extract<ArtifactSafetyValidation, { safe: false }>,
+) {
+  const structuredError = JSON.stringify({
+    code: safety.code,
+    message: safety.message,
+    invalidFlags: safety.invalidFlags,
+  });
+  const [failed] = await db.update(marketCyclesTable).set({
+    status: "FAILED",
+    errors: [structuredError],
+    updatedAt: new Date(),
+    completedAt: new Date(),
+  }).where(eq(marketCyclesTable.id, cycle.id)).returning();
+  if (failed) await appendLifecycleEvent({
+    eventKey: lifecycleKey("market_cycle", failed.id, "UNSAFE_ARTIFACT"),
+    sourceType: "market_cycle",
+    sourceId: failed.id,
+    eventType: "MARKET_CYCLE_FAILED",
+    status: failed.status,
+    marketCycleId: failed.id,
+    payload: { code: safety.code, invalidFlags: safety.invalidFlags },
+  });
+  return failed;
+}
+
 async function persistRemoteRun(run: GitHubRun, source: "MANUAL" | "SCHEDULED") {
   const runId = String(run.id);
   const [existing] = await db.select().from(marketCyclesTable)
@@ -84,6 +144,8 @@ export async function syncCycle(id: number) {
   if (!cycle) return cycle;
   if (!cycle.githubRunId) {
     if (cycle.result) {
+      const safety = validateArtifactSafetyContract(cycle.result);
+      if (!safety.safe) return await failUnsafeArtifact(cycle, safety);
       try { await normalizeMarketCycleCandidates(cycle.id); } catch { /* migration may still be rolling out */ }
     }
     return cycle;
@@ -123,13 +185,9 @@ export async function syncCycle(id: number) {
       return cycle;
     }
     const result = await getMarketCycleResult(cycle.githubRunId);
-    const safeResult = {
-      ...result,
-      real_money_used: false,
-      financial_execution: false,
-      real_verified: false,
-    };
-    const values = metrics(safeResult);
+    const safety = validateArtifactSafetyContract(result);
+    if (!safety.safe) return await failUnsafeArtifact(cycle, safety);
+    const values = metrics(result);
     const status = values.paperApproved > 0
       ? "PAPER_APPROVED"
       : values.candidatesFound > 0 ? "PAPER_CANDIDATE" : "NO_VALID_OPPORTUNITY";
@@ -137,13 +195,15 @@ export async function syncCycle(id: number) {
       ...values,
       status,
       githubRunUrl: run.html_url,
-      result: safeResult,
+      result,
       errors: Array.isArray(result.errors)
         ? result.errors.map((item) => typeof item === "string" ? item : JSON.stringify(item))
         : [],
-      realMoneyUsed: false,
-      financialExecution: false,
-      realVerified: false,
+      // Explicit remote false values are retained; a previously persisted
+      // true can never be downgraded by a later artifact.
+      realMoneyUsed: cycle.realMoneyUsed || safety.flags.real_money_used,
+      financialExecution: cycle.financialExecution || safety.flags.financial_execution,
+      realVerified: cycle.realVerified || safety.flags.real_verified,
       updatedAt: now,
       completedAt: new Date(run.updated_at),
     }).where(eq(marketCyclesTable.id, id)).returning();

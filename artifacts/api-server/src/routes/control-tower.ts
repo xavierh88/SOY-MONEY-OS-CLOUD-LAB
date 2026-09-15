@@ -1,18 +1,23 @@
 import { Router, type IRouter } from "express";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import {
   activitiesTable,
   approvalsTable,
   autonomyLearningTable,
   autonomousCyclesTable,
+  candidateDecisionsTable,
   db,
   evidenceTable,
+  externalDispatchesTable,
   executionsTable,
+  financeLedgerTable,
   humanActionsTable,
   learningTable,
   marketCyclesTable,
+  monetizationAttemptsTable,
   opportunitiesTable,
   opportunityMetadataTable,
+  outboxTable,
   projectsTable,
   resultsTable,
   structuredErrorsTable,
@@ -321,6 +326,324 @@ router.get("/control-tower/timeline", async (_req, res): Promise<void> => {
     })),
   ].sort((left, right) => right.timestamp.getTime() - left.timestamp.getTime());
   res.json(GetControlTowerTimelineResponse.parse(timeline));
+});
+
+/**
+ * Read-only reconstruction of a Golden Path cycle.  This intentionally uses
+ * the persisted links rather than invoking any of the Golden Path service
+ * helpers: observability must not create a project, normalize a candidate, or
+ * enqueue external work as a side effect of a GET request.
+ */
+router.get("/control-tower/golden-path/:cycleId", async (req, res): Promise<void> => {
+  const cycleId = Number(req.params.cycleId);
+  if (!Number.isInteger(cycleId) || cycleId <= 0) {
+    res.status(400).json({ error: "cycleId must be a positive integer" });
+    return;
+  }
+
+  const [cycle] = await db.select().from(autonomousCyclesTable)
+    .where(eq(autonomousCyclesTable.id, cycleId)).limit(1);
+  if (!cycle) {
+    res.status(404).json({ error: "Autonomous cycle not found" });
+    return;
+  }
+
+  const [candidateDecisions, opportunity, projects, humanActions, lifecycleTimeline, structuredErrors] =
+    await Promise.all([
+      db.select().from(candidateDecisionsTable)
+        .where(eq(candidateDecisionsTable.autonomousCycleId, cycle.id))
+        .orderBy(desc(candidateDecisionsTable.updatedAt)),
+      cycle.opportunityId
+        ? db.select().from(opportunitiesTable).where(eq(opportunitiesTable.id, cycle.opportunityId)).limit(1)
+        : Promise.resolve([]),
+      db.select().from(projectsTable)
+        .where(or(
+          eq(projectsTable.originCycleId, cycle.id),
+          ...(cycle.projectId ? [eq(projectsTable.id, cycle.projectId)] : []),
+        ))
+        .orderBy(desc(projectsTable.updatedAt)),
+      db.select().from(humanActionsTable)
+        .where(eq(humanActionsTable.cycleId, cycle.id))
+        .orderBy(desc(humanActionsTable.createdAt)),
+      db.select().from(lifecycleEventsTable)
+        .where(eq(lifecycleEventsTable.cycleId, cycle.id))
+        .orderBy(desc(lifecycleEventsTable.occurredAt)),
+      db.select().from(structuredErrorsTable)
+        .where(eq(structuredErrorsTable.cycleId, cycle.id))
+        .orderBy(desc(structuredErrorsTable.createdAt)),
+    ]);
+
+  const savedOpportunity = opportunity[0] ?? null;
+  const projectIds = projects.map((project) => project.id);
+  // The direct cycle link is authoritative. originCycleId is included above
+  // so a partially-written checkpoint can still be inspected without
+  // inventing a replacement project.
+  const project = projects.find((row) => row.id === cycle.projectId)
+    ?? projects[0]
+    ?? null;
+  const opportunityId = savedOpportunity?.id ?? cycle.opportunityId ?? null;
+
+  const evidence = savedOpportunity
+    ? await db.select().from(evidenceTable)
+      .where(eq(evidenceTable.opportunityId, savedOpportunity.id))
+      .orderBy(desc(evidenceTable.collectedAt))
+    : [];
+
+  const executions = projectIds.length
+    ? await db.select().from(executionsTable)
+      .where(inArray(executionsTable.projectId, projectIds))
+      .orderBy(desc(executionsTable.updatedAt))
+    : [];
+  const executionIds = executions.map((execution) => execution.id);
+  const activities = executionIds.length
+    ? await db.select().from(activitiesTable)
+      .where(inArray(activitiesTable.executionId, executionIds))
+      .orderBy(desc(activitiesTable.createdAt))
+    : [];
+  const execution = project
+    ? executions.find((row) => row.projectId === project.id) ?? null
+    : null;
+
+  const [marketCandidates, monetizationAttempts, results, learning, autonomyLearning] =
+    await Promise.all([
+      candidateDecisions.some((decision) => decision.candidateId)
+        ? db.select().from(marketCycleCandidatesTable)
+          .where(inArray(
+            marketCycleCandidatesTable.id,
+            candidateDecisions
+              .map((decision) => decision.candidateId)
+              .filter((id): id is number => id !== null),
+          ))
+        : Promise.resolve([]),
+      projectIds.length || opportunityId
+        ? db.select().from(monetizationAttemptsTable)
+          .where(or(
+            ...(projectIds.length ? [inArray(monetizationAttemptsTable.projectId, projectIds)] : []),
+            ...(opportunityId ? [eq(monetizationAttemptsTable.opportunityId, opportunityId)] : []),
+          ))
+          .orderBy(desc(monetizationAttemptsTable.updatedAt))
+        : Promise.resolve([]),
+      projectIds.length
+        ? db.select().from(resultsTable)
+          .where(inArray(resultsTable.projectId, projectIds))
+          .orderBy(desc(resultsTable.createdAt))
+        : Promise.resolve([]),
+      projectIds.length || opportunityId
+        ? db.select().from(learningTable)
+          .where(or(
+            eq(learningTable.autonomousCycleId, cycle.id),
+            ...(projectIds.length ? [inArray(learningTable.projectId, projectIds)] : []),
+            ...(opportunityId ? [eq(learningTable.opportunityId, opportunityId)] : []),
+          ))
+          .orderBy(desc(learningTable.createdAt))
+        : Promise.resolve([]),
+      db.select().from(autonomyLearningTable)
+        .where(eq(autonomyLearningTable.cycleId, cycle.id))
+        .orderBy(desc(autonomyLearningTable.createdAt)),
+    ]);
+
+  const resultIds = results.map((result) => result.id);
+  const financeIdempotencyKeys = results
+    .map((result) => result.financeIdempotencyKey)
+    .filter((key): key is string => Boolean(key));
+  const financeEntries = await db.select().from(financeLedgerTable)
+      .where(or(
+        and(
+          eq(financeLedgerTable.sourceType, "autonomous_cycle"),
+          eq(financeLedgerTable.sourceId, String(cycle.id)),
+        ),
+        ...(resultIds.length
+          ? [and(
+            eq(financeLedgerTable.sourceType, "result"),
+            inArray(financeLedgerTable.sourceId, resultIds.map(String)),
+          )]
+          : []),
+        ...(projectIds.length
+          ? [and(
+            eq(financeLedgerTable.sourceType, "project"),
+            inArray(financeLedgerTable.sourceId, projectIds.map(String)),
+          )]
+          : []),
+        ...(financeIdempotencyKeys.length
+          ? [inArray(financeLedgerTable.idempotencyKey, financeIdempotencyKeys)]
+          : []),
+      ))
+      .orderBy(desc(financeLedgerTable.createdAt));
+
+  // External dispatches normally carry the cycle/project/opportunity foreign
+  // keys. Older rows may only have an entity identifier, so the immutable
+  // lifecycle links are used as an additional, read-only correlation key.
+  const dispatches = await db.select().from(externalDispatchesTable)
+    .where(or(
+      eq(externalDispatchesTable.cycleId, cycle.id),
+      ...(opportunityId ? [eq(externalDispatchesTable.opportunityId, opportunityId)] : []),
+      ...(projectIds.length ? [inArray(externalDispatchesTable.projectId, projectIds)] : []),
+      eq(externalDispatchesTable.entityId, String(cycle.id)),
+    ))
+    .orderBy(desc(externalDispatchesTable.createdAt));
+  const dispatchIds = dispatches.map((dispatch) => dispatch.id);
+  const lifecycleKeys = lifecycleTimeline.map((entry) => entry.eventKey);
+  const outbox = await db.select().from(outboxTable)
+    .where(or(
+      ...(lifecycleKeys.length ? [inArray(outboxTable.eventKey, lifecycleKeys)] : []),
+      ...(dispatchIds.length ? [inArray(outboxTable.dispatchId, dispatchIds)] : []),
+      and(
+        eq(outboxTable.aggregateType, "autonomous_cycle"),
+        eq(outboxTable.aggregateId, String(cycle.id)),
+      ),
+    ))
+    .orderBy(desc(outboxTable.createdAt));
+
+  const latestPendingAction = humanActions.find((action) => action.status === "PENDING") ?? null;
+  const latestCompletedAction = humanActions.find((action) => action.status === "COMPLETED") ?? null;
+  const resumeLifecycle = lifecycleTimeline.filter((entry) =>
+    entry.eventType.includes("RESUME")
+    || entry.status === "RESUME_PENDING"
+    || (entry.sourceType === "human_action" && Boolean(entry.actionId)),
+  );
+  const resumeAvailable = cycle.state === "RESUME_PENDING"
+    && Boolean(latestCompletedAction
+      && latestCompletedAction.projectId === cycle.projectId
+      && latestCompletedAction?.opportunityId === cycle.opportunityId);
+
+  const currentAction = latestPendingAction
+    ? latestPendingAction.actionType
+    : cycle.state === "RESUME_PENDING"
+      ? "RESUME_SAME_PROJECT_FROM_CHECKPOINT"
+      : cycle.state === "FAILED"
+        ? cycle.errorCode ?? cycle.message
+        : cycle.state === "COMPLETED"
+          ? null
+          : cycle.message;
+  const nextAction = cycle.state === "WAITING_HUMAN" && latestPendingAction
+    ? "COMPLETE_HUMAN_ACTION"
+    : cycle.state === "RESUME_PENDING"
+      ? "RESUME_SAME_PROJECT_FROM_CHECKPOINT"
+      : cycle.state === "COMPLETED"
+        ? "STOP_SAFE"
+        : cycle.state === "FAILED"
+          ? "REVIEW_ERROR"
+          : cycle.checkpoint;
+  const responsibleActor = latestPendingAction
+    ? "OWNER"
+    : cycle.state === "RESUME_PENDING" || cycle.state === "RUNNING"
+      ? "AUTONOMY_WORKER"
+      : "SYSTEM";
+
+  const financeModes = [
+    ...financeEntries.map((entry) => entry.mode),
+    ...monetizationAttempts.map((attempt) => attempt.mode),
+    ...results.map((result) => result.mode),
+    ...marketCandidates.map((candidate) => candidate.mode).filter(
+      (mode): mode is NonNullable<typeof mode> => mode !== null,
+    ),
+  ];
+  const financeMode = financeModes.includes("REAL")
+    ? "REAL"
+    : financeModes.includes("PAPER")
+      ? "PAPER"
+      : financeModes.includes("POTENTIAL")
+        ? "POTENTIAL"
+        : null;
+  const realMoney = financeMode === "REAL"
+    || results.some((result) => result.realRevenue)
+    || Boolean(project?.financialExecution);
+  const externalCalls = dispatches.length > 0
+    || project?.publicationExecuted === true
+    || project?.marketingExecuted === true
+    || project?.saleExecuted === true;
+  const safeFlags = {
+    // These flags describe observed unsafe activity, matching the Golden
+    // Path service's persisted `safe` contract (all false for a safe branch).
+    externalCalls,
+    realMoney,
+    autoApproval: false,
+    externalCallsAllowed: false,
+    realMoneyAllowed: false,
+  };
+  const completedLifecycleEvent = lifecycleTimeline.find((entry) =>
+    entry.status === "COMPLETED" && entry.sourceType === "autonomous_cycle");
+  const completedAt = completedLifecycleEvent?.occurredAt ?? null;
+  const errors = [
+    ...(cycle.errorCode
+      ? [{
+        source: "autonomous_cycle",
+        code: cycle.errorCode,
+        message: cycle.message,
+        retryable: cycle.state !== "FAILED",
+        createdAt: cycle.updatedAt,
+      }]
+      : []),
+    ...structuredErrors,
+  ];
+
+  const response = {
+    cycle,
+    currentState: cycle.state,
+    currentAction,
+    nextAction,
+    responsibleActor,
+    state: cycle.state,
+    stage: cycle.stage,
+    checkpoint: cycle.checkpoint,
+    createdAt: cycle.createdAt,
+    updatedAt: cycle.updatedAt,
+    completedAt,
+    stateDetails: {
+      state: cycle.state,
+      stage: cycle.stage,
+      checkpoint: cycle.checkpoint,
+      message: cycle.message,
+    },
+    timestamps: {
+      createdAt: cycle.createdAt,
+      updatedAt: cycle.updatedAt,
+      completedAt,
+      lastHumanActionAt: latestCompletedAction?.completedAt ?? null,
+      lastLifecycleEventAt: lifecycleTimeline[0]?.occurredAt ?? null,
+    },
+    errors,
+    error: cycle.errorCode
+      ? { code: cycle.errorCode, message: cycle.message }
+      : structuredErrors[0] ?? null,
+    financeMode,
+    financeModes: [...new Set(financeModes)],
+    safeFlags,
+    safe: safeFlags,
+    isSafe: !externalCalls && !realMoney,
+    candidateDecisions,
+    candidates: marketCandidates,
+    opportunity: savedOpportunity,
+    evidence,
+    project,
+    projects,
+    execution,
+    executions,
+    activities,
+    humanActions,
+    resume: {
+      available: resumeAvailable,
+      instruction: resumeAvailable ? "RESUME_SAME_PROJECT_FROM_CHECKPOINT" : null,
+      action: latestCompletedAction,
+      lifecycle: resumeLifecycle,
+    },
+    resumeLifecycle,
+    monetizationAttempt: monetizationAttempts[0] ?? null,
+    monetizationAttempts,
+    result: results[0] ?? null,
+    results,
+    finance: financeEntries,
+    financeEntries,
+    learning: learning[0] ?? null,
+    learningRecords: learning,
+    autonomyLearning,
+    lifecycleTimeline,
+    externalDispatches: dispatches,
+    outbox,
+    outboxStatus: outbox,
+  };
+
+  res.json(response);
 });
 
 router.get("/control-tower/opportunities/:id", async (req, res): Promise<void> => {

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Router, type IRouter } from "express";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   autonomyLearningTable,
   autonomyStateTable,
@@ -161,22 +161,55 @@ async function candidate(opportunity: typeof opportunitiesTable.$inferSelect) {
   };
 }
 
-export async function runSafeAutonomousCycle(input: {
+export type SafeAutonomousCycleInput = {
   idempotencyKey: string;
   category?: string;
   slotKey?: string;
-}) {
+  /** Internal scheduler retries claim the existing row without advancing
+   * the slot marker until the attempt actually succeeds. */
+  advanceSchedulerState?: boolean;
+  retryExisting?: boolean;
+};
+
+export type SafeAutonomousCycleClaim = {
+  cycle: NonNullable<typeof autonomousCyclesTable.$inferSelect>;
+  claimed: boolean;
+};
+
+/**
+ * Execute a cycle while retaining the atomic reservation result for durable
+ * workers.  The public wrapper below intentionally keeps returning only the
+ * cycle row for existing route callers.
+ */
+export async function runSafeAutonomousCycleWithClaim(
+  input: SafeAutonomousCycleInput,
+): Promise<SafeAutonomousCycleClaim> {
   if (AUTONOMY_EXECUTION_LOCKED) throw new Error("AUTONOMY_LOCKED_FOR_OBSERVABILITY");
   const currentState = await state();
   if (currentState.status !== "ON") throw new Error("AUTONOMY_NOT_ON");
   const [existing] = await db.select().from(autonomousCyclesTable)
     .where(eq(autonomousCyclesTable.idempotencyKey, input.idempotencyKey));
-  if (existing && existing.state === "COMPLETED") return existing;
+  if (existing && existing.state === "COMPLETED") return { cycle: existing, claimed: false };
   if (existing && existing.retryCount >= 3) throw new Error("MAX_RETRIES_EXCEEDED");
   const category = input.category && DIRECTOR_CATEGORIES.includes(input.category as typeof DIRECTOR_CATEGORIES[number])
     ? input.category : DIRECTOR_CATEGORIES[currentState.rotationIndex % DIRECTOR_CATEGORIES.length];
   const now = new Date();
   const reservation = await db.transaction(async (tx) => {
+    if (existing && input.retryExisting) {
+      const [retried] = await tx.update(autonomousCyclesTable).set({
+        state: "RUNNING",
+        stage: "SELECT",
+        checkpoint: "SELECT",
+        retryCount: existing.retryCount + 1,
+        errorCode: null,
+        message: "Retrying from the persisted cycle checkpoint.",
+        updatedAt: now,
+      }).where(and(
+        eq(autonomousCyclesTable.id, existing.id),
+        eq(autonomousCyclesTable.retryCount, existing.retryCount),
+      )).returning();
+      return { cycle: retried ?? existing, claimed: Boolean(retried) };
+    }
     const [reserved] = await tx.insert(autonomousCyclesTable).values({
       idempotencyKey: input.idempotencyKey,
       slotKey: input.slotKey ?? null,
@@ -193,19 +226,14 @@ export async function runSafeAutonomousCycle(input: {
   });
   const { cycle } = reservation;
   if (!cycle) throw new Error("CYCLE_RESERVATION_FAILED");
-  if (!reservation.claimed) return cycle;
-  if (existing) {
-    await db.update(autonomousCyclesTable).set({
-      state: "RUNNING", stage: "SELECT", checkpoint: "SELECT",
-      retryCount: existing.retryCount + 1, errorCode: null,
-      message: "Retrying from the persisted cycle checkpoint.", updatedAt: now,
-    }).where(eq(autonomousCyclesTable.id, existing.id));
+  if (!reservation.claimed) return { cycle, claimed: false };
+  if (input.advanceSchedulerState !== false) {
+    await db.update(autonomyStateTable).set({
+      rotationIndex: (currentState.rotationIndex + 1) % DIRECTOR_CATEGORIES.length,
+      lastSlotKey: input.slotKey ?? currentState.lastSlotKey,
+      updatedAt: now,
+    }).where(eq(autonomyStateTable.id, currentState.id));
   }
-  await db.update(autonomyStateTable).set({
-    rotationIndex: (currentState.rotationIndex + 1) % DIRECTOR_CATEGORIES.length,
-    lastSlotKey: input.slotKey ?? currentState.lastSlotKey,
-    updatedAt: now,
-  }).where(eq(autonomyStateTable.id, currentState.id));
 
   const opportunities = (await db.select().from(opportunitiesTable)
     .orderBy(desc(opportunitiesTable.updatedAt)).limit(100))
@@ -217,10 +245,11 @@ export async function runSafeAutonomousCycle(input: {
   });
   const selected = matching[0] ?? opportunities[0];
   if (!selected) {
-    return db.transaction((tx) => completeNoValidOpportunity(tx, cycle.id));
+    const completed = await db.transaction((tx) => completeNoValidOpportunity(tx, cycle.id));
+    return { cycle: completed, claimed: true };
   }
   const scored = await candidate(selected);
-  return db.transaction(async (tx) => {
+  const recorded = await db.transaction(async (tx) => {
     const project = await ensureCycleProject(tx, {
       cycleId: cycle.id,
       opportunityId: selected.id,
@@ -256,6 +285,11 @@ export async function runSafeAutonomousCycle(input: {
     });
     return recorded;
   });
+  return { cycle: recorded, claimed: true };
+}
+
+export async function runSafeAutonomousCycle(input: SafeAutonomousCycleInput) {
+  return (await runSafeAutonomousCycleWithClaim(input)).cycle;
 }
 
 async function parseId(value: string | string[]) {

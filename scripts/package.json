@@ -11,6 +11,7 @@
     "test:service-hmac": "tsx ./src/test-service-hmac.ts",
     "test:prepare-controlled-golden-path": "tsx ./src/test-prepare-controlled-golden-path.ts",
     "test:controlled-golden-path-status": "tsx ./src/test-controlled-golden-path-status.ts",
+    "test:master-repair-runtime": "tsx ./src/test-master-repair-runtime.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

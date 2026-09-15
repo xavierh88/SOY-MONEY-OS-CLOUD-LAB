@@ -73,6 +73,13 @@ UPDATE soy_finance_ledger
 SET mode = 'PAPER'
 WHERE upper(mode) = 'SIMULATED';
 
+ALTER TABLE soy_monetization_attempts
+  ADD COLUMN IF NOT EXISTS channel text,
+  ADD COLUMN IF NOT EXISTS offer text,
+  ADD COLUMN IF NOT EXISTS started_at timestamptz,
+  ADD COLUMN IF NOT EXISTS completed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS result jsonb;
+
 UPDATE soy_monetization_attempts
 SET mode = 'PAPER'
 WHERE upper(mode) = 'SIMULATED';
@@ -393,6 +400,55 @@ SET
       '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN
       COALESCE(NULLIF(candidate.raw->>'expires_at', ''), NULLIF(candidate.raw->>'expiresAt', ''))::timestamptz END);
 
+-- Historical Money Lab cycles are PAPER-only when all persisted execution
+-- flags explicitly say that no real financial activity was used or verified.
+-- Keep any source classification/status/decision that is already present;
+-- otherwise normalize the safe paper lifecycle values.
+UPDATE soy_market_cycle_candidates AS candidate
+SET
+  mode = 'PAPER',
+  paper_mode = TRUE,
+  classification = COALESCE(candidate.classification, 'PAPER'),
+  detected_at = COALESCE(candidate.detected_at, candidate.created_at),
+  status = CASE
+    WHEN candidate.gate = 'PAPER_CANDIDATE'
+      THEN COALESCE(candidate.status, 'PAPER_TESTING')
+    WHEN candidate.gate = 'NO_VALID_OPPORTUNITY'
+      THEN COALESCE(candidate.status, 'REJECTED')
+    ELSE candidate.status
+  END,
+  decision = CASE
+    WHEN candidate.gate = 'PAPER_CANDIDATE'
+      THEN COALESCE(candidate.decision, 'CANDIDATE')
+    WHEN candidate.gate = 'NO_VALID_OPPORTUNITY'
+      THEN COALESCE(candidate.decision, 'NO_VALID_OPPORTUNITY')
+    ELSE candidate.decision
+  END
+FROM soy_market_cycles AS cycle
+WHERE candidate.market_cycle_id = cycle.id
+  AND cycle.mode = 'PAPER'
+  AND cycle.real_money_used IS FALSE
+  AND cycle.financial_execution IS FALSE
+  AND cycle.real_verified IS FALSE;
+
+-- Asset type is derived only for symbols whose syntax is explicit enough to
+-- identify the market family.  Tickers such as SPY/QQQ remain unknown.
+UPDATE soy_market_cycle_candidates
+SET asset_type = CASE
+  WHEN symbol ~ '^(BTC|ETH|SOL|XRP|ADA|DOGE|DOT|AVAX|LINK|MATIC|LTC|BCH|BNB)[-/](USD|USDT|USDC)$'
+    THEN 'CRYPTO'
+  WHEN symbol ~ '^[A-Z]{3}[A-Z]{3}=X$'
+    THEN 'FX'
+  ELSE NULL
+END
+WHERE asset_type IS NULL;
+
+-- No historical validity dates are inferred here.  This index allows a
+-- durable expiration worker to scan explicit expires_at values efficiently.
+CREATE INDEX IF NOT EXISTS soy_market_cycle_candidates_expiration_scan_idx
+  ON soy_market_cycle_candidates(expires_at, status)
+  WHERE expires_at IS NOT NULL;
+
 -- ---------------------------------------------------------------------------
 -- Learning provenance and orphan classification
 -- ---------------------------------------------------------------------------
@@ -403,6 +459,7 @@ ALTER TABLE soy_learning
   ADD COLUMN IF NOT EXISTS candidate_id integer,
   ADD COLUMN IF NOT EXISTS opportunity_id integer,
   ADD COLUMN IF NOT EXISTS cycle_id integer,
+  ADD COLUMN IF NOT EXISTS autonomous_cycle_id integer,
   ADD COLUMN IF NOT EXISTS result_id integer,
   ADD COLUMN IF NOT EXISTS evidence_reference text,
   ADD COLUMN IF NOT EXISTS provenance jsonb NOT NULL DEFAULT '{}'::jsonb;
@@ -416,6 +473,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'soy_learning_cycle_id_fk') THEN
     ALTER TABLE soy_learning ADD CONSTRAINT soy_learning_cycle_id_fk
       FOREIGN KEY (cycle_id) REFERENCES soy_cycles(id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'soy_learning_autonomous_cycle_id_fk') THEN
+    ALTER TABLE soy_learning ADD CONSTRAINT soy_learning_autonomous_cycle_id_fk
+      FOREIGN KEY (autonomous_cycle_id) REFERENCES soy_autonomous_cycles(id);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'soy_learning_result_id_fk') THEN
     ALTER TABLE soy_learning ADD CONSTRAINT soy_learning_result_id_fk

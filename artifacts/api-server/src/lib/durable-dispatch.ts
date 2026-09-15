@@ -10,6 +10,18 @@ import {
 
 export const MAX_EXTERNAL_ATTEMPTS = 3;
 
+export class DurableDispatchConflictError extends Error {
+  readonly code = "DISPATCH_ID_CONFLICT";
+
+  constructor(
+    message = "dispatch_id is already bound to a different durable dispatch",
+    public readonly dispatchId?: string,
+  ) {
+    super(message);
+    this.name = "DurableDispatchConflictError";
+  }
+}
+
 export function payloadHash(payload: Record<string, unknown>) {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
@@ -33,7 +45,27 @@ export async function createDurableDispatch(input: DurableDispatchInput) {
   return db.transaction(async (tx) => {
     const [existing] = await tx.select().from(externalDispatchesTable)
       .where(eq(externalDispatchesTable.dispatchId, input.dispatchId)).limit(1);
-    if (existing) return existing;
+    const inputHash = payloadHash(input.payload);
+    if (existing) {
+      const sameLinks =
+        (existing.entityId ?? null) === (input.entityId ?? null) &&
+        (existing.marketCycleId ?? null) === (input.marketCycleId ?? null) &&
+        (existing.cycleId ?? null) === (input.cycleId ?? null) &&
+        (existing.opportunityId ?? null) === (input.opportunityId ?? null) &&
+        (existing.projectId ?? null) === (input.projectId ?? null);
+      if (
+        existing.provider !== input.provider ||
+        existing.operation !== input.operation ||
+        existing.entityType !== input.entityType ||
+        existing.payloadHash !== inputHash ||
+        !sameLinks
+      ) {
+        throw new DurableDispatchConflictError(undefined, input.dispatchId);
+      }
+      // Idempotent replay is read-only.  In particular, do not recreate an
+      // outbox row when the original dispatch intentionally had enqueue:false.
+      return existing;
+    }
     const [dispatch] = await tx.insert(externalDispatchesTable).values({
       dispatchId: input.dispatchId,
       provider: input.provider,
@@ -44,7 +76,7 @@ export async function createDurableDispatch(input: DurableDispatchInput) {
       cycleId: input.cycleId,
       opportunityId: input.opportunityId,
       projectId: input.projectId,
-      payloadHash: payloadHash(input.payload),
+      payloadHash: inputHash,
       payload: input.payload,
       status: "CREATED",
     }).returning();

@@ -4,6 +4,29 @@ import { db, externalDispatchesTable, outboxTable, serviceReceiptsTable } from "
 import { validateServiceRequest } from "../lib/service-auth";
 
 const router: IRouter = Router();
+const WINDMILL_DISPATCH_OPERATIONS = new Set([
+  "windmill.discovery",
+  "windmill.continuation",
+]);
+const CALLBACK_TRANSITIONS = new Map<string, ReadonlySet<string>>([
+  ["windmill.callback", new Set(["RECEIVED", "ACKNOWLEDGED", "RUNNING", "COMPLETED", "SUCCEEDED", "FAILED", "ERROR"])],
+  ["windmill.job.completed", new Set(["COMPLETED", "SUCCEEDED"])],
+  ["windmill.job.failed", new Set(["FAILED", "ERROR"])],
+]);
+
+export function validateWindmillCallbackBinding(input: {
+  serviceId: string;
+  provider: string;
+  dispatchOperation: string;
+  callbackOperation: string;
+  transition: string;
+}) {
+  const transitions = CALLBACK_TRANSITIONS.get(input.callbackOperation);
+  return input.serviceId === "windmill" &&
+    input.provider === "WINDMILL" &&
+    WINDMILL_DISPATCH_OPERATIONS.has(input.dispatchOperation) &&
+    Boolean(transitions?.has(input.transition));
+}
 
 function transition(body: Record<string, unknown>) {
   const value = body.transition ?? body.status;
@@ -22,6 +45,19 @@ router.post("/service/v1/callback", async (req, res): Promise<void> => {
     .where(eq(externalDispatchesTable.dispatchId, auth.dispatchId)).limit(1);
   if (!dispatch) {
     res.status(404).json({ error: "Unknown dispatch_id" });
+    return;
+  }
+  // Bind the authenticated machine identity to the provider and operation
+  // persisted before dispatch.  This check must precede receipt insertion or
+  // any external-dispatch state mutation.
+  if (!validateWindmillCallbackBinding({
+    serviceId: auth.serviceId,
+    provider: dispatch.provider,
+    dispatchOperation: dispatch.operation,
+    callbackOperation: auth.operation,
+    transition: currentTransition,
+  })) {
+    res.status(403).json({ error: "Windmill callback/provider/operation mismatch" });
     return;
   }
   const receiptKey = `${auth.replayKey}:${currentTransition}`;

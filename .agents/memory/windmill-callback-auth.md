@@ -3,8 +3,8 @@ name: Windmill callback boundary
 description: Security and idempotency requirements before Windmill can participate in the Golden Path.
 ---
 
-Windmill must not participate in the Golden Path until its callbacks use an explicit machine-authenticated API boundary and every external dispatch has durable, externally correlated idempotency.
+Windmill has a local HMAC callback boundary with dispatch-level provider, operation, transition, and replay validation. Existing external flows remain `LEGACY_UNUSED`; they must not participate in the Golden Path until they emit exact dispatch correlation and pass a controlled end-to-end test.
 
-**Why:** Owner-only Clerk routes reject current server-to-server flow calls, while retrying an ambiguously accepted POST can create multiple external jobs that local state cannot reconcile.
+**Why:** Owner-only Clerk routes are intentionally unavailable to services, and an authenticated service must still be prevented from mutating dispatches belonging to another provider or operation. Ambiguous POST retries can also create duplicate external jobs.
 
-**How to apply:** Keep the existing flows classified as unavailable for orchestration until machine authentication, dispatch correlation, callback validation, and timeout reconciliation are implemented and tested. Do not weaken owner authorization to make flows work.
+**How to apply:** Keep Replit/PostgreSQL as the only lifecycle authority. Accept callbacks only for matching WINDMILL dispatches and allowlisted transitions. Never weaken owner authorization or promote existing flows without exact correlation and a controlled test.

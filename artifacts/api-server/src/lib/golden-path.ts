@@ -559,7 +559,7 @@ export async function recordLearningAndComplete(
     projectId: project.id,
     candidateId: input.candidateId,
     opportunityId: project.opportunityId,
-    cycleId: input.cycleId,
+    autonomousCycleId: input.cycleId,
     resultId: result.id,
     originClassification: "GOLDEN_PATH",
     provenanceSourceType: "result",
@@ -614,6 +614,33 @@ export async function completeNoValidOpportunity(tx: GoldenExecutor, cycleId: nu
     updatedAt: new Date(),
   }).where(eq(autonomousCyclesTable.id, cycleId)).returning();
   if (cycle) {
+    const learningCategory = cycle.category;
+    const learningSignal = "NO_VALID_OPPORTUNITY";
+    const learningReason = "NO_VALID_OPPORTUNITY: no unexpired opportunity was available.";
+    const learningIdempotencyKey = `golden-path:autonomy-learning:${cycle.id}:${learningCategory}:${learningSignal}:${learningReason}`;
+    const [existingLearning] = await tx.select().from(autonomyLearningTable)
+      .where(and(
+        eq(autonomyLearningTable.cycleId, cycle.id),
+        eq(autonomyLearningTable.category, learningCategory),
+        eq(autonomyLearningTable.signal, learningSignal),
+        eq(autonomyLearningTable.observation, learningReason),
+      )).limit(1);
+    if (!existingLearning) {
+      await tx.insert(autonomyLearningTable).values({
+        cycleId: cycle.id,
+        category: learningCategory,
+        signal: learningSignal,
+        observation: learningReason,
+        scoreDelta: 0,
+        metadata: {
+          idempotencyKey: learningIdempotencyKey,
+          reason: learningReason,
+          projectId: null,
+          opportunityId: null,
+          noProject: true,
+        },
+      });
+    }
     await appendGoldenPathEvent(tx, {
       eventKey: lifecycleKey("autonomous_cycle", cycle.id, "NO_VALID_OPPORTUNITY"),
       sourceType: "autonomous_cycle",
@@ -669,6 +696,50 @@ export async function prepareControlledGoldenPath(input: {
     const opportunityName = `TEST_SIMULATION | BUSINESS | ${token}`;
     const description = "Internal TEST_SIMULATION fixture for controlled Golden Path preparation.";
     const now = new Date();
+    const cycleKey = `${baseKey}:cycle`;
+
+    let [cycle] = await tx.select().from(autonomousCyclesTable)
+      .where(eq(autonomousCyclesTable.idempotencyKey, cycleKey)).limit(1);
+    if (cycle) {
+      const [existingOpportunity] = cycle.opportunityId
+        ? await tx.select().from(opportunitiesTable)
+          .where(eq(opportunitiesTable.id, cycle.opportunityId)).limit(1)
+        : [];
+      if (!existingOpportunity) throw new Error("CONTROLLED_OPPORTUNITY_NOT_FOUND");
+      const [existingDecision] = await tx.select().from(candidateDecisionsTable)
+        .where(eq(candidateDecisionsTable.decisionKey, `${baseKey}:decision`)).limit(1);
+      const [existingProject] = cycle.projectId
+        ? await tx.select().from(projectsTable)
+          .where(eq(projectsTable.id, cycle.projectId)).limit(1)
+        : [];
+      const [existingAction] = await tx.select().from(humanActionsTable)
+        .where(eq(humanActionsTable.cycleId, cycle.id))
+        .orderBy(desc(humanActionsTable.id))
+        .limit(1);
+      const nextInstruction = cycle.state === "COMPLETED"
+        ? "ALREADY_COMPLETED"
+        : cycle.state === "WAITING_HUMAN"
+          ? existingAction?.status === "COMPLETED"
+            ? "RESUME_SAME_PROJECT_TO_SAFE_COMPLETION"
+            : "OWNER_COMPLETE_HUMAN_ACTION_THEN_RESUME_SAME_PROJECT"
+          : cycle.state === "RESUME_PENDING"
+            ? "RESUME_SAME_PROJECT_TO_SAFE_COMPLETION"
+            : "CURRENT_STATE";
+      return {
+        cycle,
+        opportunity: existingOpportunity,
+        decision: existingDecision,
+        project: existingProject,
+        action: existingAction,
+        nextInstruction,
+        fixtureKey: baseKey,
+        safe: {
+          externalCalls: false,
+          realMoney: false,
+          autoApproval: false,
+        },
+      };
+    }
 
     let [opportunity] = await tx.select().from(opportunitiesTable)
       .where(eq(opportunitiesTable.name, opportunityName)).limit(1);
@@ -739,9 +810,6 @@ export async function prepareControlledGoldenPath(input: {
       }).onConflictDoNothing();
     }
 
-    const cycleKey = `${baseKey}:cycle`;
-    let [cycle] = await tx.select().from(autonomousCyclesTable)
-      .where(eq(autonomousCyclesTable.idempotencyKey, cycleKey)).limit(1);
     if (!cycle) {
       [cycle] = await tx.insert(autonomousCyclesTable).values({
         idempotencyKey: cycleKey,
@@ -1005,7 +1073,7 @@ export async function resumeSameProjectToSafeCompletion(cycleId: number) {
     const learning = existingLearning ?? (await tx.insert(learningTable).values({
       projectId: project.id,
       opportunityId: project.opportunityId,
-      cycleId,
+      autonomousCycleId: cycleId,
       resultId: savedResult.id,
       originClassification: "GOLDEN_PATH",
       provenanceSourceType: "result",

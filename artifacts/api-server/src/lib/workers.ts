@@ -1,11 +1,12 @@
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import {
   autonomousCyclesTable,
   db,
   externalDispatchesTable,
+  marketCycleCandidatesTable,
   marketCyclesTable,
 } from "@workspace/db";
-import { finalizeExpiredOpportunities } from "./lifecycle";
+import { appendLifecycleEvent, finalizeExpiredOpportunities, lifecycleKey } from "./lifecycle";
 import { resumeSameProjectToSafeCompletion } from "./golden-path";
 import { logger } from "./logger";
 import {
@@ -24,6 +25,7 @@ import { registerScheduledRuns, syncCycle } from "../routes/money-lab";
 const resumeStates = ["RESUME_PENDING"] as const;
 const resumeIntervalMs = 60_000;
 const externalIntervalMs = 30_000;
+const candidateExpirationBatchSize = 100;
 
 /**
  * Resume only the persisted internal state machine.  This worker never calls
@@ -58,10 +60,59 @@ export async function finalizeExpiredOpportunitiesWorker(limit = 100) {
 export function launchExpirationFinalizer() {
   const handle = setInterval(() => {
     void finalizeExpiredOpportunities().catch((error) => logger.warn({ err: error }, "Expiration finalizer tick failed"));
+    void expireMarketCandidates().catch((error) => logger.warn({ err: error }, "Market candidate expiration tick failed"));
   }, resumeIntervalMs);
   handle.unref();
   void finalizeExpiredOpportunities().catch((error) => logger.warn({ err: error }, "Expiration finalizer initial run failed"));
+  void expireMarketCandidates().catch((error) => logger.warn({ err: error }, "Market candidate expiration initial run failed"));
   return handle;
+}
+
+/**
+ * Preserve candidate history while making expired executable candidates
+ * terminal.  The update and deterministic lifecycle event share a transaction
+ * so multiple worker instances converge without duplicate transitions.
+ */
+export async function expireMarketCandidates(
+  limit = candidateExpirationBatchSize,
+  now = new Date(),
+) {
+  const candidates = await db.select().from(marketCycleCandidatesTable)
+    .where(and(
+      lte(marketCycleCandidatesTable.expiresAt, now),
+      inArray(marketCycleCandidatesTable.status, ["ACTIVE", "VALIDATING", "PAPER_TESTING"]),
+    ))
+    .orderBy(asc(marketCycleCandidatesTable.expiresAt), asc(marketCycleCandidatesTable.id))
+    .limit(Math.max(1, Math.min(limit, candidateExpirationBatchSize)));
+  const expired: number[] = [];
+  for (const candidate of candidates) {
+    const changed = await db.transaction(async (tx) => {
+      const [updated] = await tx.update(marketCycleCandidatesTable).set({
+        status: "EXPIRED",
+        decision: "NON_EXECUTABLE",
+      }).where(and(
+        eq(marketCycleCandidatesTable.id, candidate.id),
+        inArray(marketCycleCandidatesTable.status, ["ACTIVE", "VALIDATING", "PAPER_TESTING"]),
+        lte(marketCycleCandidatesTable.expiresAt, now),
+      )).returning();
+      if (!updated) return false;
+      await appendLifecycleEvent({
+        eventKey: lifecycleKey("market_cycle_candidate", updated.id, "EXPIRED"),
+        sourceType: "market_cycle_candidate",
+        sourceId: updated.id,
+        eventType: "CANDIDATE_EXPIRED",
+        status: "EXPIRED",
+        marketCycleId: updated.marketCycleId,
+        payload: {
+          decision: "NON_EXECUTABLE",
+          expiresAt: updated.expiresAt?.toISOString() ?? null,
+        },
+      }, tx);
+      return true;
+    });
+    if (changed) expired.push(candidate.id);
+  }
+  return expired;
 }
 
 function messageOf(error: unknown) {

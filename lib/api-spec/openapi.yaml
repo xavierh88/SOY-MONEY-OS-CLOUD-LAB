@@ -1138,6 +1138,40 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ControlTowerTimelineEvent"
+  /control-tower/golden-path/{cycleId}:
+    get:
+      operationId: getControlTowerGoldenPath
+      tags: [control-tower]
+      security:
+        - ClerkOwner: []
+      summary: Read the persisted Golden Path chain for one autonomous cycle
+      description: >
+        Read-only reconstruction of the durable chain. It correlates the cycle
+        with candidate decisions, opportunity/evidence, project/execution,
+        human checkpoints, learning/results/finance, lifecycle history,
+        external dispatches, and outbox records. This GET does not create or
+        resume work, approve an action, call a provider, or mutate history.
+      parameters:
+        - $ref: "#/components/parameters/CycleId"
+      responses:
+        "200":
+          description: Persisted Golden Path chain
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlTowerGoldenPathResponse"
+        "400":
+          description: cycleId must be a positive integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Autonomous cycle not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /control-tower/opportunities/{id}:
     get:
       operationId: getControlTowerOpportunity
@@ -1213,6 +1247,13 @@ components:
       required: true
       schema:
         type: integer
+    CycleId:
+      name: cycleId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
     ServiceId:
       name: X-Service-Id
       in: header
@@ -1973,6 +2014,222 @@ components:
           oneOf:
             - $ref: "#/components/schemas/LearningInsight"
             - type: "null"
+    GoldenPathSafeFlags:
+      type: object
+      required: [externalCalls, realMoney, autoApproval, externalCallsAllowed, realMoneyAllowed]
+      properties:
+        externalCalls: { type: boolean }
+        realMoney: { type: boolean }
+        autoApproval: { type: boolean, enum: [false] }
+        externalCallsAllowed: { type: boolean, enum: [false] }
+        realMoneyAllowed: { type: boolean, enum: [false] }
+    GoldenPathLifecycleEvent:
+      type: object
+      required: [id, eventKey, sourceType, sourceId, eventType, status, occurredAt, payload, createdAt]
+      properties:
+        id: { type: integer }
+        eventKey: { type: string }
+        sourceType: { type: string }
+        sourceId: { type: string }
+        eventType: { type: string }
+        status: { type: string }
+        occurredAt: { type: string, format: date-time }
+        opportunityId: { type: ["integer", "null"] }
+        projectId: { type: ["integer", "null"] }
+        cycleId: { type: ["integer", "null"] }
+        marketCycleId: { type: ["integer", "null"] }
+        actionId: { type: ["integer", "null"] }
+        payload: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    GoldenPathOutboxEvent:
+      type: object
+      required: [id, eventKey, eventType, aggregateType, aggregateId, payload, status, attemptCount, availableAt, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        eventKey: { type: string }
+        eventType: { type: string }
+        aggregateType: { type: string }
+        aggregateId: { type: string }
+        dispatchId: { type: ["integer", "null"] }
+        payload: { type: object, additionalProperties: true }
+        status: { type: string }
+        attemptCount: { type: integer }
+        availableAt: { type: string, format: date-time }
+        lockedAt: { type: ["string", "null"], format: date-time }
+        deliveredAt: { type: ["string", "null"], format: date-time }
+        lastError: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    GoldenPathMonetizationAttempt:
+      type: object
+      required: [id, idempotencyKey, mode, kind, status, amount, evidence, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        idempotencyKey: { type: string }
+        opportunityId: { type: ["integer", "null"] }
+        projectId: { type: ["integer", "null"] }
+        platformAccountId: { type: ["integer", "null"] }
+        mode: { $ref: "#/components/schemas/FinanceMode" }
+        kind: { type: string }
+        status: { type: string }
+        amount: { type: number }
+        channel: { type: ["string", "null"] }
+        offer: { type: ["string", "null"] }
+        startedAt: { type: ["string", "null"], format: date-time }
+        completedAt: { type: ["string", "null"], format: date-time }
+        result: { type: ["object", "null"], additionalProperties: true }
+        evidence: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ControlTowerGoldenPathResponse:
+      type: object
+      description: >
+        Read-only persisted chain for an autonomous cycle. Null means that
+        stage has not been persisted or is not linked to this cycle; arrays
+        preserve the recorded history and are not inferred as execution.
+      required: [cycle, currentState, currentAction, nextAction, responsibleActor, state, stage, checkpoint, createdAt, updatedAt, completedAt, stateDetails, timestamps, errors, error, financeMode, financeModes, safeFlags, safe, isSafe, candidateDecisions, candidates, opportunity, evidence, project, projects, execution, executions, activities, humanActions, resume, resumeLifecycle, monetizationAttempt, monetizationAttempts, result, results, finance, financeEntries, learning, learningRecords, autonomyLearning, lifecycleTimeline, externalDispatches, outbox, outboxStatus]
+      properties:
+        cycle:
+          $ref: "#/components/schemas/AutonomousCycle"
+        currentState: { type: string }
+        currentAction: { type: ["string", "null"] }
+        nextAction: { type: ["string", "null"] }
+        responsibleActor:
+          type: string
+          enum: [OWNER, AUTONOMY_WORKER, SYSTEM]
+        state: { type: string }
+        stage: { type: string }
+        checkpoint: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        completedAt: { type: ["string", "null"], format: date-time }
+        stateDetails:
+          type: object
+          required: [state, stage, checkpoint, message]
+          properties:
+            state: { type: string }
+            stage: { type: string }
+            checkpoint: { type: string }
+            message: { type: string }
+        timestamps:
+          type: object
+          required: [createdAt, updatedAt, completedAt, lastHumanActionAt, lastLifecycleEventAt]
+          properties:
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+            completedAt: { type: ["string", "null"], format: date-time }
+            lastHumanActionAt: { type: ["string", "null"], format: date-time }
+            lastLifecycleEventAt: { type: ["string", "null"], format: date-time }
+        errors:
+          type: array
+          items: { type: object, additionalProperties: true }
+        error:
+          type: [object, "null"]
+          additionalProperties: true
+        financeMode:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceMode"
+            - type: "null"
+        financeModes:
+          type: array
+          items:
+            $ref: "#/components/schemas/FinanceMode"
+        safeFlags:
+          $ref: "#/components/schemas/GoldenPathSafeFlags"
+        safe:
+          $ref: "#/components/schemas/GoldenPathSafeFlags"
+        isSafe: { type: boolean }
+        candidateDecisions:
+          type: array
+          items: { $ref: "#/components/schemas/CandidateDecision" }
+        candidates:
+          type: array
+          items: { $ref: "#/components/schemas/MarketCycleCandidate" }
+        opportunity:
+          oneOf:
+            - $ref: "#/components/schemas/Opportunity"
+            - type: "null"
+        evidence:
+          type: array
+          items: { $ref: "#/components/schemas/Evidence" }
+        project:
+          oneOf:
+            - $ref: "#/components/schemas/Project"
+            - type: "null"
+        projects:
+          type: array
+          items: { $ref: "#/components/schemas/Project" }
+        execution:
+          oneOf:
+            - $ref: "#/components/schemas/ProjectExecution"
+            - type: "null"
+        executions:
+          type: array
+          items: { $ref: "#/components/schemas/ProjectExecution" }
+        activities:
+          type: array
+          items: { $ref: "#/components/schemas/Activity" }
+        humanActions:
+          type: array
+          items: { $ref: "#/components/schemas/HumanAction" }
+        resume:
+          type: object
+          required: [available, instruction, action, lifecycle]
+          properties:
+            available: { type: boolean }
+            instruction: { type: ["string", "null"] }
+            action:
+              oneOf:
+                - $ref: "#/components/schemas/HumanAction"
+                - type: "null"
+            lifecycle:
+              type: array
+              items: { $ref: "#/components/schemas/GoldenPathLifecycleEvent" }
+        resumeLifecycle:
+          type: array
+          items: { $ref: "#/components/schemas/GoldenPathLifecycleEvent" }
+        monetizationAttempt:
+          oneOf:
+            - $ref: "#/components/schemas/GoldenPathMonetizationAttempt"
+            - type: "null"
+        monetizationAttempts:
+          type: array
+          items: { $ref: "#/components/schemas/GoldenPathMonetizationAttempt" }
+        result:
+          oneOf:
+            - $ref: "#/components/schemas/Result"
+            - type: "null"
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/Result" }
+        finance:
+          type: array
+          items: { $ref: "#/components/schemas/FinanceLedgerEntry" }
+        financeEntries:
+          type: array
+          items: { $ref: "#/components/schemas/FinanceLedgerEntry" }
+        learning:
+          oneOf:
+            - $ref: "#/components/schemas/LearningInsight"
+            - type: "null"
+        learningRecords:
+          type: array
+          items: { $ref: "#/components/schemas/LearningInsight" }
+        autonomyLearning:
+          type: array
+          items: { $ref: "#/components/schemas/AutonomyLearning" }
+        lifecycleTimeline:
+          type: array
+          items: { $ref: "#/components/schemas/GoldenPathLifecycleEvent" }
+        externalDispatches:
+          type: array
+          items: { $ref: "#/components/schemas/ExternalDispatch" }
+        outbox:
+          type: array
+          items: { $ref: "#/components/schemas/GoldenPathOutboxEvent" }
+        outboxStatus:
+          type: array
+          items: { $ref: "#/components/schemas/GoldenPathOutboxEvent" }
     MarketCycleGuardrails:
       type: object
       required: [realMoneyUsed, financialExecution, realVerified]
