@@ -85,13 +85,18 @@ const sameOriginCors: RequestHandler = (req, res, next) => {
 };
 
 app.use(sameOriginCors);
-app.use(express.json({
-  verify: (req, _res, buffer) => {
-    // Keep the exact bytes for the machine-authenticated callback boundary.
-    // The value is never logged or sent back to a caller.
-    (req as typeof req & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
-  },
-}));
+
+const captureRawBody = (req: express.Request, _res: express.Response, buffer: Buffer) => {
+  // Keep the exact bytes for the machine-authenticated callback boundary.
+  // The value is never logged or sent back to a caller.
+  (req as typeof req & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+};
+
+// Storage accepts objects up to 10 MiB after base64 decoding. A base64 JSON
+// envelope is ~13.4 MiB, so only this endpoint gets a larger parser ceiling;
+// every other API route keeps Express' conservative default JSON limit.
+app.use("/api/storage/objects", express.json({ limit: "15mb", verify: captureRawBody }));
+app.use(express.json({ verify: captureRawBody }));
 app.use(express.urlencoded({ extended: true }));
 
 if (process.env.NODE_ENV === "test") {
@@ -120,9 +125,13 @@ const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     next(error);
     return;
   }
-  res.status(500).json({
-    error: "Internal server error",
-    code: "INTERNAL_ERROR",
+  const candidateStatus = Number((error as { status?: unknown; statusCode?: unknown })?.status ?? (error as { statusCode?: unknown })?.statusCode);
+  const status = Number.isInteger(candidateStatus) && candidateStatus >= 400 && candidateStatus < 500
+    ? candidateStatus
+    : 500;
+  res.status(status).json({
+    error: status === 413 ? "Request entity too large" : status === 500 ? "Internal server error" : "Invalid request",
+    code: status === 413 ? "PAYLOAD_TOO_LARGE" : status === 500 ? "INTERNAL_ERROR" : `HTTP_${status}`,
     correlationId: req.id,
   });
 };
