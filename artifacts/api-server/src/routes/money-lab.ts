@@ -168,6 +168,7 @@ async function persistRemoteRun(run: GitHubRun, source: "MANUAL" | "SCHEDULED") 
 
 export async function syncCycle(id: number) {
   let [cycle] = await db.select().from(marketCyclesTable).where(eq(marketCyclesTable.id, id));
+  let manualDispatch: typeof externalDispatchesTable.$inferSelect | undefined;
   const needsCompletedArtifact = cycle?.status === "COMPLETED" && cycle.result === null;
   if (!cycle) return cycle;
   if (!cycle.githubRunId) {
@@ -214,17 +215,17 @@ export async function syncCycle(id: number) {
     }
     const result = await getMarketCycleResult(cycle.githubRunId);
     if (cycle.source === "MANUAL") {
-      const [dispatch] = await db.select().from(externalDispatchesTable).where(and(
+      [manualDispatch] = await db.select().from(externalDispatchesTable).where(and(
         eq(externalDispatchesTable.marketCycleId, cycle.id),
         eq(externalDispatchesTable.provider, "GITHUB"),
         eq(externalDispatchesTable.operation, "market_cycle.dispatch"),
       )).limit(1);
-      const correlation = dispatch
+      const correlation = manualDispatch
         ? validateArtifactCorrelation(
             result,
-            dispatch.dispatchId,
+            manualDispatch.dispatchId,
             cycle.githubRunId,
-            dispatch.externalRunId,
+            manualDispatch.externalRunId,
           )
         : {
             valid: false as const,
@@ -267,11 +268,65 @@ export async function syncCycle(id: number) {
       completedAt: new Date(run.updated_at),
     }).where(eq(marketCyclesTable.id, id)).returning();
     await normalizeMarketCycleCandidates(id);
+    if (manualDispatch) {
+      const completedRunId = String(cycle.githubRunId);
+      const [completedDispatch] = await db.update(externalDispatchesTable).set({
+        status: "COMPLETED",
+        acknowledgedAt: now,
+        completedAt: now,
+        resultReference: `github-actions-run:${completedRunId}:market-cycle-result`,
+        result: {
+          marketCycleId: cycle.id,
+          marketCycleStatus: cycle.status,
+          githubRunId: completedRunId,
+          dispatchId: manualDispatch.dispatchId,
+        },
+      }).where(and(
+        eq(externalDispatchesTable.id, manualDispatch.id),
+        eq(externalDispatchesTable.status, "DISPATCHED"),
+        eq(externalDispatchesTable.externalRunId, completedRunId),
+      )).returning();
+      if (completedDispatch) await appendLifecycleEvent({
+        eventKey: lifecycleKey("external_dispatch", completedDispatch.id, "COMPLETED"),
+        sourceType: "external_dispatch",
+        sourceId: completedDispatch.id,
+        eventType: "EXTERNAL_DISPATCH_COMPLETED",
+        status: completedDispatch.status,
+        marketCycleId: cycle.id,
+        payload: {
+          dispatchId: completedDispatch.dispatchId,
+          githubRunId: completedRunId,
+          artifactCorrelated: true,
+          realMoney: false,
+        },
+      });
+    }
     if (cycle) await appendLifecycleEvent({
       eventKey: lifecycleKey("market_cycle", cycle.id, cycle.status),
       sourceType: "market_cycle", sourceId: cycle.id, eventType: "MARKET_CYCLE_COMPLETED",
       status: cycle.status, marketCycleId: cycle.id,
       payload: { candidatesFound: cycle.candidatesFound, paperApproved: cycle.paperApproved },
+    });
+    if (cycle) await appendLifecycleEvent({
+      eventKey: lifecycleKey("market_cycle", cycle.id, "PAPER_LEARNING"),
+      sourceType: "market_cycle",
+      sourceId: cycle.id,
+      eventType: "MARKET_CYCLE_LEARNING",
+      status: cycle.status,
+      marketCycleId: cycle.id,
+      payload: {
+        lesson: cycle.paperApproved > 0
+          ? "Historical simulation produced PAPER candidates for monitoring only."
+          : "Historical simulation did not produce a PAPER-approved candidate.",
+        evidenceStatus: "RESEARCH_SIMULATION_NOT_REAL_VERIFIED",
+        nextStage: "PAPER_MONITORING",
+        marketsAnalyzed: cycle.marketsAnalyzed,
+        researchCandidates: cycle.candidatesFound,
+        paperApproved: cycle.paperApproved,
+        rejected: cycle.rejected,
+        realMoney: false,
+        realVerified: false,
+      },
     });
     return cycle;
   } catch (error) {
