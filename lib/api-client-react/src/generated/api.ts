@@ -30,6 +30,10 @@ import type {
   AutonomyState,
   BuildStageResponse,
   CompleteStageResponse,
+  ControlTowerOpportunityDetail,
+  ControlTowerOverview,
+  ControlTowerProjectDetail,
+  ControlTowerTimelineEvent,
   Cycle,
   CycleInput,
   CycleRunInput,
@@ -47,6 +51,7 @@ import type {
   LearningStageResponse,
   ListEvidenceParams,
   MarketCycle,
+  MarketCycleCandidate,
   MarketCycleInput,
   MoneyLabSummary,
   NotFoundResponse,
@@ -4349,6 +4354,391 @@ export function useGetWithdrawableFinance<TData = Awaited<ReturnType<typeof getW
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetWithdrawableFinanceQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetControlTowerOverviewUrl = () => {
+
+
+
+
+  return `/api/control-tower/overview`
+}
+
+/**
+ * @summary Read the persisted operational control tower overview
+ */
+export const getControlTowerOverview = async ( options?: Parameters<typeof customFetch>[1]): Promise<ControlTowerOverview> => {
+
+  return customFetch<ControlTowerOverview>(getGetControlTowerOverviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetControlTowerOverviewQueryKey = () => {
+    return [
+    `/api/control-tower/overview`
+    ] as const;
+    }
+
+
+export const getGetControlTowerOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getControlTowerOverview>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlTowerOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetControlTowerOverviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getControlTowerOverview>>> = ({ signal }) => getControlTowerOverview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getControlTowerOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetControlTowerOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getControlTowerOverview>>>
+export type GetControlTowerOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read the persisted operational control tower overview
+ */
+
+export function useGetControlTowerOverview<TData = Awaited<ReturnType<typeof getControlTowerOverview>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlTowerOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetControlTowerOverviewQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetControlTowerTimelineUrl = () => {
+
+
+
+
+  return `/api/control-tower/timeline`
+}
+
+/**
+ * @summary Read the unified persisted operational timeline
+ */
+export const getControlTowerTimeline = async ( options?: Parameters<typeof customFetch>[1]): Promise<ControlTowerTimelineEvent[]> => {
+
+  return customFetch<ControlTowerTimelineEvent[]>(getGetControlTowerTimelineUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetControlTowerTimelineQueryKey = () => {
+    return [
+    `/api/control-tower/timeline`
+    ] as const;
+    }
+
+
+export const getGetControlTowerTimelineQueryOptions = <TData = Awaited<ReturnType<typeof getControlTowerTimeline>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlTowerTimeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetControlTowerTimelineQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getControlTowerTimeline>>> = ({ signal }) => getControlTowerTimeline({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getControlTowerTimeline>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetControlTowerTimelineQueryResult = NonNullable<Awaited<ReturnType<typeof getControlTowerTimeline>>>
+export type GetControlTowerTimelineQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read the unified persisted operational timeline
+ */
+
+export function useGetControlTowerTimeline<TData = Awaited<ReturnType<typeof getControlTowerTimeline>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlTowerTimeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetControlTowerTimelineQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetControlTowerOpportunityUrl = (id: number,) => {
+
+
+
+
+  return `/api/control-tower/opportunities/${id}`
+}
+
+/**
+ * @summary Read a complete persisted business opportunity control-tower model
+ */
+export const getControlTowerOpportunity = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ControlTowerOpportunityDetail> => {
+
+  return customFetch<ControlTowerOpportunityDetail>(getGetControlTowerOpportunityUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetControlTowerOpportunityQueryKey = (id: number,) => {
+    return [
+    `/api/control-tower/opportunities/${id}`
+    ] as const;
+    }
+
+
+export const getGetControlTowerOpportunityQueryOptions = <TData = Awaited<ReturnType<typeof getControlTowerOpportunity>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlTowerOpportunity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetControlTowerOpportunityQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getControlTowerOpportunity>>> = ({ signal }) => getControlTowerOpportunity(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getControlTowerOpportunity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetControlTowerOpportunityQueryResult = NonNullable<Awaited<ReturnType<typeof getControlTowerOpportunity>>>
+export type GetControlTowerOpportunityQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Read a complete persisted business opportunity control-tower model
+ */
+
+export function useGetControlTowerOpportunity<TData = Awaited<ReturnType<typeof getControlTowerOpportunity>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlTowerOpportunity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetControlTowerOpportunityQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetControlTowerProjectUrl = (id: number,) => {
+
+
+
+
+  return `/api/control-tower/projects/${id}`
+}
+
+/**
+ * @summary Read persisted project progress and gates
+ */
+export const getControlTowerProject = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ControlTowerProjectDetail> => {
+
+  return customFetch<ControlTowerProjectDetail>(getGetControlTowerProjectUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetControlTowerProjectQueryKey = (id: number,) => {
+    return [
+    `/api/control-tower/projects/${id}`
+    ] as const;
+    }
+
+
+export const getGetControlTowerProjectQueryOptions = <TData = Awaited<ReturnType<typeof getControlTowerProject>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlTowerProject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetControlTowerProjectQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getControlTowerProject>>> = ({ signal }) => getControlTowerProject(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getControlTowerProject>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetControlTowerProjectQueryResult = NonNullable<Awaited<ReturnType<typeof getControlTowerProject>>>
+export type GetControlTowerProjectQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Read persisted project progress and gates
+ */
+
+export function useGetControlTowerProject<TData = Awaited<ReturnType<typeof getControlTowerProject>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getControlTowerProject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetControlTowerProjectQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListMarketCycleCandidatesUrl = (id: number,) => {
+
+
+
+
+  return `/api/money-lab/market-cycles/${id}/candidates`
+}
+
+/**
+ * @summary Read candidates from a persisted Market Lab result
+ */
+export const listMarketCycleCandidates = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<MarketCycleCandidate[]> => {
+
+  return customFetch<MarketCycleCandidate[]>(getListMarketCycleCandidatesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMarketCycleCandidatesQueryKey = (id: number,) => {
+    return [
+    `/api/money-lab/market-cycles/${id}/candidates`
+    ] as const;
+    }
+
+
+export const getListMarketCycleCandidatesQueryOptions = <TData = Awaited<ReturnType<typeof listMarketCycleCandidates>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMarketCycleCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMarketCycleCandidatesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMarketCycleCandidates>>> = ({ signal }) => listMarketCycleCandidates(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMarketCycleCandidates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMarketCycleCandidatesQueryResult = NonNullable<Awaited<ReturnType<typeof listMarketCycleCandidates>>>
+export type ListMarketCycleCandidatesQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Read candidates from a persisted Market Lab result
+ */
+
+export function useListMarketCycleCandidates<TData = Awaited<ReturnType<typeof listMarketCycleCandidates>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMarketCycleCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMarketCycleCandidatesQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

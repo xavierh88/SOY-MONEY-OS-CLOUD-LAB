@@ -22,6 +22,20 @@ export interface Opportunity {
   timeToRevenue: string;
   status: string;
   proofStatus: string;
+  /** @nullable */
+  detectedAt: Date | null;
+  /** @nullable */
+  validFrom: Date | null;
+  /** @nullable */
+  validUntil: Date | null;
+  /** @nullable */
+  expiresAt: Date | null;
+  /** @nullable */
+  expirationReason: string | null;
+  /** @nullable */
+  expiredAt: Date | null;
+  /** @nullable */
+  expirationOutcome: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

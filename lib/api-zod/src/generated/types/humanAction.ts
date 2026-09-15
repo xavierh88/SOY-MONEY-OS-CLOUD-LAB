@@ -12,6 +12,10 @@ export interface HumanAction {
   idempotencyKey: string;
   /** @nullable */
   cycleId?: number | null;
+  /** @nullable */
+  opportunityId?: number | null;
+  /** @nullable */
+  projectId?: number | null;
   actionType: string;
   checkpoint: string;
   status: string;

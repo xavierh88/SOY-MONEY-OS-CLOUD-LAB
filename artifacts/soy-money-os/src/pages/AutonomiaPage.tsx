@@ -13,6 +13,8 @@ import {
   getGetAutonomyStatusQueryKey,
   getListAutonomousCyclesQueryKey,
   getListAutonomyActivityQueryKey,
+  getGetControlTowerOverviewQueryKey,
+  getGetControlTowerTimelineQueryKey,
   AutonomyControlInput
 } from '@workspace/api-client-react';
 import { cx, PageHeader, DataState, Badge, statusTone, statusLabel, formatDate, formatTime } from '@/App';
@@ -39,10 +41,13 @@ export default function AutonomiaPage() {
     queryClient.invalidateQueries({ queryKey: getGetAutonomyStatusQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListAutonomousCyclesQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListAutonomyActivityQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetControlTowerOverviewQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetControlTowerTimelineQueryKey() });
   };
 
   const handleStart = () => {
-    startAutonomy.mutate({ data: config }, { onSuccess: invalidate });
+    // startAutonomy.mutate({ data: config }, { onSuccess: invalidate });
+    alert("Continuous autonomy is currently disabled for safety. Use manual cycles.");
   };
 
   const handleStop = () => {
@@ -74,14 +79,14 @@ export default function AutonomiaPage() {
       <PageHeader 
         eyebrow="Control Autónomo / 04" 
         title="Motor de Monetización" 
-        description="El Director rota categorías, selecciona registros existentes y los califica en slots programados. La ejecución externa y los pagos permanecen desactivados."
+        description="Observabilidad del Director autónomo. La ejecución continua y los ciclos manuales permanecen bloqueados hasta completar la Torre de Control."
         action={
           <div className="flex gap-2">
             <button className="button button-secondary" onClick={() => setFormOpen(!formOpen)} data-testid="button-configure-autonomy">
-              <Settings2 size={16} /> Configurar
+              <Settings2 size={16} /> Horarios
             </button>
-            <button className="button button-primary" onClick={handleRunNow} disabled={runCycle.isPending || !isRunning} data-testid="button-run-now">
-              <FastForward size={16} /> {runCycle.isPending ? 'Ejecutando...' : 'Forzar ciclo ahora'}
+            <button className="button button-primary opacity-50 cursor-not-allowed" disabled title="Bloqueado durante la fase de observabilidad." data-testid="button-run-now">
+              <FastForward size={16} /> CICLO MANUAL BLOQUEADO
             </button>
           </div>
         } 
@@ -94,19 +99,19 @@ export default function AutonomiaPage() {
               <ActivityIcon size={24} />
             </div>
             <div>
-              <div className="eyebrow" style={{ color: 'inherit', opacity: 0.7 }}>Estado del Motor</div>
-              <h2 style={{ margin: '5px 0' }}>{autonomyState?.status || 'OFF'}</h2>
+              <div className="eyebrow" style={{ color: 'inherit', opacity: 0.7 }}>Estado del Motor (Continúo)</div>
+              <h2 style={{ margin: '5px 0' }}>{autonomyState?.status || 'OFF (SEGURO)'}</h2>
               <p style={{ color: 'inherit', opacity: 0.8, maxWidth: '500px' }}>
-                 {isRunning ? 'El Director está habilitado para seleccionar y evaluar oportunidades existentes según el horario establecido.' :
-                 isPaused ? 'Motor en pausa. Se ignorarán los slots programados hasta reanudar.' :
-                 'El sistema está inactivo. Ninguna tarea autónoma se ejecutará.'}
+                 {isRunning ? 'El Director está habilitado, pero la ejecución de dinero real sigue bloqueada.' :
+                 isPaused ? 'Motor en pausa.' :
+                 'La autonomía continua y la ejecución manual están deshabilitadas durante esta fase de observabilidad.'}
               </p>
             </div>
           </div>
           <div className="flex gap-2">
             {!isRunning && !isPaused && (
-              <button className="button" style={{ backgroundColor: 'hsl(var(--background))', color: 'hsl(var(--foreground))' }} onClick={handleStart} disabled={startAutonomy.isPending} data-testid="button-start-autonomy">
-                <Play size={16} /> INICIAR
+              <button className="button opacity-50 cursor-not-allowed" style={{ backgroundColor: 'hsl(var(--background))', color: 'hsl(var(--foreground))' }} disabled title="La autonomía continua está deshabilitada." data-testid="button-start-autonomy">
+                <Play size={16} /> INICIAR (BLOQUEADO)
               </button>
             )}
             {isRunning && (
@@ -121,8 +126,8 @@ export default function AutonomiaPage() {
             )}
             {isPaused && (
               <>
-                <button className="button" style={{ backgroundColor: 'hsl(var(--background))', color: 'hsl(var(--foreground))' }} onClick={handleResume} disabled={resumeAutonomy.isPending} data-testid="button-resume-autonomy">
-                  <Play size={16} /> REANUDAR
+                <button className="button opacity-50 cursor-not-allowed" style={{ backgroundColor: 'hsl(var(--background))', color: 'hsl(var(--foreground))' }} disabled data-testid="button-resume-autonomy">
+                  <Play size={16} /> REANUDAR (BLOQUEADO)
                 </button>
                 <button className="button" style={{ backgroundColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))' }} onClick={handleStop} disabled={stopAutonomy.isPending} data-testid="button-stop-autonomy">
                   <StopCircle size={16} /> DETENER
@@ -137,8 +142,8 @@ export default function AutonomiaPage() {
         <div className="panel mb-8 animate-enter">
           <div className="panel-heading">
             <div>
-              <div className="eyebrow">Ajustes</div>
-              <h3>Horarios de ejecución</h3>
+              <div className="eyebrow">Ajustes (Simulación)</div>
+              <h3>Horarios de ejecución teórica</h3>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

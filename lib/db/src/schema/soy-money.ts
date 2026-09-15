@@ -32,6 +32,13 @@ export const opportunitiesTable = pgTable("soy_opportunities", {
   timeToRevenue: text("time_to_revenue").notNull().default("UNASSESSED"),
   status: text("status").notNull().default("DISCOVERED"),
   proofStatus: text("proof_status").notNull().default("SEARCH_EVIDENCE"),
+  detectedAt: timestamp("detected_at", { withTimezone: true }),
+  validFrom: timestamp("valid_from", { withTimezone: true }),
+  validUntil: timestamp("valid_until", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  expirationReason: text("expiration_reason"),
+  expiredAt: timestamp("expired_at", { withTimezone: true }),
+  expirationOutcome: text("expiration_outcome"),
   createdAt: timestamps.createdAt,
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

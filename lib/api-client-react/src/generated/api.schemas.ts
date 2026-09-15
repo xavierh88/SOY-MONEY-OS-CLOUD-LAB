@@ -29,6 +29,37 @@ export interface Opportunity {
   timeToRevenue: string;
   status: string;
   proofStatus: string;
+  /** @nullable */
+  detectedAt: string | null;
+  /** @nullable */
+  validFrom: string | null;
+  /** @nullable */
+  validUntil: string | null;
+  /** @nullable */
+  expiresAt: string | null;
+  /** @nullable */
+  expirationReason: string | null;
+  /** @nullable */
+  expiredAt: string | null;
+  /** @nullable */
+  expirationOutcome: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type OpportunityMetadataScoreBreakdown = {[key: string]: number};
+
+export interface OpportunityMetadata {
+  id: number;
+  opportunityId: number;
+  normalizedName: string;
+  normalizedProblem: string;
+  normalizedTarget: string;
+  normalizedSolution: string;
+  contentHash: string;
+  similarityFingerprint: string;
+  scoreBreakdown: OpportunityMetadataScoreBreakdown;
+  demandProofStatus: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -183,7 +214,10 @@ export interface Project {
   updatedAt: string;
 }
 
-export type ProjectExecutionDeliverable = { [key: string]: unknown };
+/**
+ * @nullable
+ */
+export type ProjectExecutionDeliverable = { [key: string]: unknown } | null;
 
 export interface ProjectExecution {
   id: number;
@@ -191,9 +225,12 @@ export interface ProjectExecution {
   projectId: number;
   status: string;
   currentStage: string;
-  deliverableType: string;
+  /** @nullable */
+  deliverableType: string | null;
+  /** @nullable */
   deliverable: ProjectExecutionDeliverable;
-  buildNotes: string;
+  /** @nullable */
+  buildNotes: string | null;
   startedAt: string;
   updatedAt: string;
   createdAt: string;
@@ -538,6 +575,10 @@ export interface HumanAction {
   idempotencyKey: string;
   /** @nullable */
   cycleId?: number | null;
+  /** @nullable */
+  opportunityId?: number | null;
+  /** @nullable */
+  projectId?: number | null;
   actionType: string;
   checkpoint: string;
   status: string;
@@ -620,6 +661,190 @@ export interface WithdrawableFinance {
   mode: WithdrawableFinanceMode;
   amount: number;
   currency: string;
+}
+
+export interface ControlTowerCount {
+  total: number;
+  active?: number;
+  pending?: number;
+  completed?: number;
+  failed?: number;
+  expired?: number;
+  executable?: number;
+}
+
+export interface MarketCycleGuardrails {
+  realMoneyUsed: false;
+  financialExecution: false;
+  realVerified: false;
+}
+
+export type ControlTowerOverviewMoneyLab = {
+  totalCycles: number;
+  activeCycles: number;
+  completedCycles: number;
+  failedCycles: number;
+  latestCycle: MarketCycle | null;
+  guardrails: MarketCycleGuardrails;
+};
+
+export interface ControlTowerOverview {
+  opportunities: ControlTowerCount;
+  projects: ControlTowerCount;
+  humanActions: ControlTowerCount;
+  autonomousCycles: ControlTowerCount;
+  moneyLab: ControlTowerOverviewMoneyLab;
+  /** Persisted structured autonomous errors */
+  errors: ControlTowerCount;
+  /** Persisted learning records from all control planes */
+  learning: ControlTowerCount;
+  /** @nullable */
+  currentAction: string | null;
+  /** @nullable */
+  nextAction: string | null;
+  generatedAt: string;
+}
+
+export interface ControlTowerTimelineEvent {
+  sourceType: string;
+  sourceId: string;
+  eventType: string;
+  status: string;
+  timestamp: string;
+  /** @nullable */
+  opportunityId: number | null;
+  /** @nullable */
+  projectId: number | null;
+  /** @nullable */
+  marketCycleId: number | null;
+  title: string;
+  description: string;
+  /** @nullable */
+  actor: string | null;
+  /** @nullable */
+  currentAction: string | null;
+  /** @nullable */
+  nextAction: string | null;
+}
+
+export interface ControlTowerOpportunityDetail {
+  opportunity: Opportunity;
+  presentationStatus: string;
+  executable: boolean;
+  evidence: Evidence[];
+  metadata: OpportunityMetadata | null;
+  approvals: Approval[];
+  projects: Project[];
+  results: Result[];
+  learning: LearningInsight[];
+  activity: Activity[];
+}
+
+export interface ControlTowerProjectGate {
+  key: string;
+  status: string;
+  completed: boolean;
+  /** @nullable */
+  completedAt: string | null;
+  /** @nullable */
+  sourceId: string | null;
+}
+
+export interface ControlTowerProjectTask {
+  key: string;
+  title: string;
+  status: string;
+  completed: boolean;
+  /** @nullable */
+  sourceId: string | null;
+}
+
+export type ControlTowerProjectArtifactData = { [key: string]: unknown };
+
+export interface ControlTowerProjectArtifact {
+  kind: string;
+  sourceId: string;
+  data: ControlTowerProjectArtifactData;
+}
+
+export interface ControlTowerProjectDetail {
+  project: Project;
+  actualStage: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  progress: number;
+  gates: ControlTowerProjectGate[];
+  tasks: ControlTowerProjectTask[];
+  artifacts: ControlTowerProjectArtifact[];
+  execution: ProjectExecution | null;
+  activities: Activity[];
+  result: Result | null;
+  learning: LearningInsight | null;
+}
+
+export type MarketCycleCandidateRaw = { [key: string]: unknown };
+
+export type MarketCycleCandidateMetrics = { [key: string]: unknown };
+
+export type MarketCycleCandidateProvenance = {
+  sourceType: string;
+  sourceId: string;
+  sourceIndex: number;
+};
+
+/**
+ * @nullable
+ */
+export type MarketCycleCandidateInSample = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type MarketCycleCandidateValidation = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type MarketCycleCandidateBestParams = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type MarketCycleCandidateOutOfSample = { [key: string]: unknown } | null;
+
+export interface MarketCycleCandidate {
+  /** @minimum 0 */
+  sourceIndex: number;
+  id: string;
+  raw: MarketCycleCandidateRaw;
+  /** @nullable */
+  symbol: string | null;
+  /** @nullable */
+  gate: string | null;
+  /** @nullable */
+  classification: string | null;
+  /** @nullable */
+  strategyKind: string | null;
+  metrics: MarketCycleCandidateMetrics;
+  /** @nullable */
+  cycleTimestamp: string | null;
+  guardrails: MarketCycleGuardrails;
+  /** @nullable */
+  validUntil: string | null;
+  /** @nullable */
+  expiresAt: string | null;
+  detailsAvailable: boolean;
+  provenance: MarketCycleCandidateProvenance;
+  /** @nullable */
+  inSample: MarketCycleCandidateInSample;
+  /** @nullable */
+  validation: MarketCycleCandidateValidation;
+  /** @nullable */
+  bestParams: MarketCycleCandidateBestParams;
+  /** @nullable */
+  outOfSample: MarketCycleCandidateOutOfSample;
 }
 
 /**

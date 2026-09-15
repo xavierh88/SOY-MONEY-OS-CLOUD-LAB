@@ -6,7 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-/**
- * @nullable
- */
-export type ProjectExecutionDeliverable = { [key: string]: unknown } | null;
+export interface MarketCycleGuardrails {
+  realMoneyUsed: false;
+  financialExecution: false;
+  realVerified: false;
+}

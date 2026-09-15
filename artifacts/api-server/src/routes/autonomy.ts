@@ -42,6 +42,7 @@ import {
   StartAutonomyResponse,
   StopAutonomyResponse,
 } from "@workspace/api-zod";
+import { AUTONOMY_EXECUTION_LOCKED } from "../lib/autonomy-policy";
 
 export const DIRECTOR_CATEGORIES = [
   "BUSINESS", "DIGITAL_PRODUCTS", "SERVICES", "SAAS", "AUTOMATION",
@@ -141,6 +142,7 @@ export async function runSafeAutonomousCycle(input: {
   category?: string;
   slotKey?: string;
 }) {
+  if (AUTONOMY_EXECUTION_LOCKED) throw new Error("AUTONOMY_LOCKED_FOR_OBSERVABILITY");
   const currentState = await state();
   if (currentState.status !== "ON") throw new Error("AUTONOMY_NOT_ON");
   const [existing] = await db.select().from(autonomousCyclesTable)
@@ -220,6 +222,10 @@ async function parseId(value: string | string[]) {
 }
 
 router.post("/autonomy/start", async (req, res): Promise<void> => {
+  if (AUTONOMY_EXECUTION_LOCKED) {
+    res.status(423).json({ error: "AUTONOMY_LOCKED_FOR_OBSERVABILITY" });
+    return;
+  }
   const parsed = StartAutonomyBody.safeParse(req.body ?? {});
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   if (parsed.data.timezone) {
@@ -243,7 +249,13 @@ async function setStatus(status: "OFF" | "PAUSED" | "ON") {
 }
 router.post("/autonomy/stop", async (_req, res): Promise<void> => { res.json(StopAutonomyResponse.parse(await setStatus("OFF"))); });
 router.post("/autonomy/pause", async (_req, res): Promise<void> => { res.json(PauseAutonomyResponse.parse(await setStatus("PAUSED"))); });
-router.post("/autonomy/resume", async (_req, res): Promise<void> => { res.json(ResumeAutonomyResponse.parse(await setStatus("ON"))); });
+router.post("/autonomy/resume", async (_req, res): Promise<void> => {
+  if (AUTONOMY_EXECUTION_LOCKED) {
+    res.status(423).json({ error: "AUTONOMY_LOCKED_FOR_OBSERVABILITY" });
+    return;
+  }
+  res.json(ResumeAutonomyResponse.parse(await setStatus("ON")));
+});
 router.get("/autonomy/status", async (_req, res): Promise<void> => { res.json(GetAutonomyStatusResponse.parse(await state())); });
 
 router.get("/autonomy/activity", async (_req, res): Promise<void> => {
@@ -259,6 +271,10 @@ router.get("/cycles", async (_req, res): Promise<void> => {
   res.json(ListAutonomousCyclesResponse.parse(rows));
 });
 router.post("/cycles/run", async (req, res): Promise<void> => {
+  if (AUTONOMY_EXECUTION_LOCKED) {
+    res.status(423).json({ error: "AUTONOMY_LOCKED_FOR_OBSERVABILITY" });
+    return;
+  }
   const parsed = RunAutonomousCycleBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   try {
@@ -345,6 +361,18 @@ router.post("/human-actions/:id/complete", async (req, res): Promise<void> => {
   if (action.status === "COMPLETED") { res.json(CompleteHumanActionResponse.parse(action)); return; }
   if (action.status !== "PENDING") { res.status(409).json({ error: `Action is ${action.status}` }); return; }
   const approved = body.data.payload?.approved !== false;
+  if (action.cycleId) {
+    const [linkedCycle] = await db.select().from(autonomousCyclesTable)
+      .where(eq(autonomousCyclesTable.id, action.cycleId));
+    if (!linkedCycle) { res.status(409).json({ error: "Linked cycle no longer exists" }); return; }
+    if (
+      (action.projectId && linkedCycle.projectId !== action.projectId)
+      || (action.opportunityId && linkedCycle.opportunityId !== action.opportunityId)
+    ) {
+      res.status(409).json({ error: "Human action does not match the linked cycle branch" });
+      return;
+    }
+  }
   const result = await db.transaction(async (tx) => {
     const [completed] = await tx.update(humanActionsTable).set({
       status: approved ? "COMPLETED" : "CANCELLED",

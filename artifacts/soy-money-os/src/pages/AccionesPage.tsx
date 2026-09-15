@@ -1,9 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, X, ShieldAlert } from 'lucide-react';
+import { Link } from 'wouter';
 import { 
   useListHumanActions, 
   useCompleteHumanAction,
   getListHumanActionsQueryKey,
+  getGetControlTowerOverviewQueryKey,
+  getGetControlTowerTimelineQueryKey
 } from '@workspace/api-client-react';
 import { PageHeader, DataState, Badge, formatDate, formatTime } from '@/App';
 
@@ -15,7 +18,11 @@ export default function AccionesPage() {
   const handleDecision = (id: number, approved: boolean) => {
     completeAction.mutate(
       { id, data: { payload: { approved } } },
-      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListHumanActionsQueryKey() }) }
+      { onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListHumanActionsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetControlTowerOverviewQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetControlTowerTimelineQueryKey() });
+      } }
     );
   };
 
@@ -51,6 +58,10 @@ export default function AccionesPage() {
                   <div className="py-5 flex justify-between items-center gap-6">
                     <div>
                       <h3 className="text-base font-semibold mb-2">{action.actionType} — {action.checkpoint}</h3>
+                      <div className="flex gap-3 text-xs mb-2">
+                        {action.projectId && <Link href={`/proyectos/${action.projectId}`} className="text-link">Proyecto PRJ-{action.projectId}</Link>}
+                        {action.opportunityId && <Link href={`/oportunidades/${action.opportunityId}`} className="text-link">Oportunidad OP-{action.opportunityId}</Link>}
+                      </div>
                       <p className="text-xs text-muted-foreground font-mono bg-secondary p-3 mt-2 rounded-sm overflow-x-auto whitespace-pre">
                         {JSON.stringify(action.payload, null, 2)}
                       </p>

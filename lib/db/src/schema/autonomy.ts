@@ -75,6 +75,8 @@ export const humanActionsTable = pgTable("soy_human_actions", {
   id: serial("id").primaryKey(),
   idempotencyKey: text("idempotency_key").notNull(),
   cycleId: integer("cycle_id").references(() => autonomousCyclesTable.id),
+  opportunityId: integer("opportunity_id").references(() => opportunitiesTable.id),
+  projectId: integer("project_id").references(() => projectsTable.id),
   actionType: text("action_type").notNull(),
   checkpoint: text("checkpoint").notNull(),
   status: text("status").notNull().default("PENDING"),

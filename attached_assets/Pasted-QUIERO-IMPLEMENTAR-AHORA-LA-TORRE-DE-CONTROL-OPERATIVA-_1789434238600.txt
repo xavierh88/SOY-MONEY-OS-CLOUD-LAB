@@ -1,0 +1,498 @@
+QUIERO IMPLEMENTAR AHORA LA TORRE DE CONTROL OPERATIVA DE SOY MONEY OS.
+
+IMPORTANTE:
+NO rediseñes la identidad visual actual.
+NO reemplaces la arquitectura que ya funciona.
+NO rompas Money Lab, GitHub Actions, Windmill, APIs, base de datos ni los ciclos ya verificados.
+Antes de modificar, audita el código y reutiliza los componentes, endpoints y tablas existentes.
+Haz cambios incrementales y compatibles con producción.
+
+OBJETIVO PRINCIPAL
+
+Actualmente Money Lab puede ejecutar ciclos y producir resultados, pero el propietario solamente ve contadores generales.
+
+Eso NO es suficiente.
+
+Necesito convertir SOY MONEY OS en un verdadero centro de operaciones donde el propietario pueda observar, en tiempo real o mediante actualización de estado:
+
+- qué oportunidades fueron encontradas;
+- qué está investigando el sistema;
+- qué evidencia encontró;
+- qué oportunidad seleccionó;
+- por qué la seleccionó;
+- qué está descartando y por qué;
+- qué proyecto está creando;
+- qué está desarrollando;
+- qué agente/proceso está trabajando;
+- qué acción acaba de realizar;
+- qué acción viene después;
+- cuándo necesita intervención humana;
+- qué oportunidades expiraron;
+- qué proyectos terminaron;
+- qué resultado real o simulado produjeron;
+- qué aprendió el sistema.
+
+==================================================
+1. CICLO DE VIDA UNIVERSAL DE UNA OPORTUNIDAD
+==================================================
+
+Implementar estados visibles y persistentes equivalentes a:
+
+DETECTED
+RESEARCHING
+VALIDATING
+SELECTED
+PROJECT_CREATED
+BUILDING
+QA_REVIEW
+READY_TO_MONETIZE
+WAITING_HUMAN
+COMPLETED
+REJECTED
+FAILED
+EXPIRED
+NO_VALID_OPPORTUNITY
+
+No es obligatorio cambiar estados internos existentes si rompería compatibilidad.
+
+Crear una capa de presentación/mapeo si es necesario.
+
+Cada cambio de estado debe quedar registrado cronológicamente.
+
+==================================================
+2. FICHA COMPLETA DE CADA OPORTUNIDAD
+==================================================
+
+Al hacer clic en una oportunidad necesito una vista detallada.
+
+Mostrar, cuando exista:
+
+ID
+nombre/título
+categoría
+subcategoría
+tipo de oportunidad
+fecha/hora detectada
+fuente de descubrimiento
+estado actual
+score
+confidence
+riesgo
+prioridad
+resumen de la hipótesis
+razón por la que fue detectada
+evidencias
+URLs/fuentes
+datos utilizados
+decisión del sistema
+razón de la decisión
+agente/proceso responsable
+acciones realizadas
+acción actual
+siguiente acción
+bloqueadores
+intervención humana requerida
+proyecto relacionado
+resultados relacionados
+aprendizaje relacionado
+
+Nunca inventar campos que no tengan datos.
+Mostrar “No disponible” cuando corresponda.
+
+==================================================
+3. OPORTUNIDADES TEMPORALES
+==================================================
+
+Esto es obligatorio.
+
+Algunas oportunidades tienen una ventana temporal.
+
+Ejemplos:
+
+acciones
+criptomonedas
+mercados
+eventos deportivos
+análisis/paper betting
+tendencias
+arbitrajes u oportunidades sensibles al tiempo
+
+Agregar cuando corresponda:
+
+detected_at
+valid_from
+valid_until
+expires_at
+time_remaining
+expiration_reason
+
+La interfaz debe mostrar claramente:
+
+ACTIVA
+EXPIRA EN X
+EXPIRADA
+
+Cuando una oportunidad expire:
+
+NO borrarla.
+
+Moverla/conservarla en historial con estado EXPIRED.
+
+Registrar:
+
+cuándo fue detectada
+cuánto duró
+si fue aprovechada o no
+por qué no se ejecutó
+resultado observado si posteriormente puede medirse
+aprendizaje obtenido
+
+Una oportunidad expirada NO debe continuar apareciendo como oportunidad ejecutable.
+
+==================================================
+4. MONEY LAB — MOSTRAR LOS CANDIDATOS REALES
+==================================================
+
+Actualmente Money Lab muestra contadores como:
+
+mercados analizados
+candidatos encontrados
+paper approved
+descartados
+
+Pero necesito ver LOS REGISTROS INDIVIDUALES.
+
+Debajo de los contadores crear:
+
+“Candidatos encontrados”
+
+Cada candidato debe mostrar:
+
+activo/instrumento
+ticker/par
+mercado
+tipo: STOCK / CRYPTO / SPORTS / OTHER
+señal detectada
+precio analizado si existe
+timestamp
+ventana temporal
+score
+confidence
+riesgo
+razón resumida
+estado
+clasificación
+
+Debe quedar explícitamente indicado:
+
+PAPER / SIMULATION
+REAL_MONEY_USED = FALSE
+FINANCIAL_EXECUTION = FALSE
+REAL_VERIFIED = FALSE
+
+Al hacer clic:
+
+“Ver análisis completo”
+
+Debe abrir evidencia, datos, razonamiento resumido, métricas y trazabilidad disponible.
+
+NO inventar datos financieros faltantes.
+
+==================================================
+5. DIFERENCIAR OPORTUNIDADES DE MERCADO Y NEGOCIO
+==================================================
+
+No mezclar conceptualmente:
+
+A) MARKET OPPORTUNITIES
+acciones
+cripto
+sports/paper analysis
+otros instrumentos
+
+B) BUSINESS / MONETIZATION OPPORTUNITIES
+servicios
+productos digitales
+software
+automatización
+consultoría
+contenido
+afiliados
+otras oportunidades legales
+
+Ambas deben entrar al sistema de oportunidades, pero conservar su categoría y flujo correspondiente.
+
+==================================================
+6. PROYECTOS EN DESARROLLO
+==================================================
+
+Si una oportunidad fue seleccionada para convertirse en proyecto, necesito poder observar su progreso.
+
+En PROYECTOS mostrar:
+
+oportunidad origen
+objetivo
+estado
+fase actual
+progreso
+tareas completadas
+tareas pendientes
+agente/proceso trabajando
+última acción
+próxima acción
+artefactos creados
+QA
+bloqueadores
+fecha inicio
+última actualización
+
+Si el sistema está construyendo algo, debe ser visible.
+
+Ejemplos:
+
+landing page
+servicio
+automatización
+producto digital
+software
+oferta comercial
+material de marketing
+
+Mostrar los artefactos reales cuando existan.
+
+==================================================
+7. WAITING HUMAN — MUY IMPORTANTE
+==================================================
+
+Crear una vista/estado claramente visible:
+
+“NECESITA TU INTERVENCIÓN”
+
+Cuando el sistema no pueda continuar porque necesita al propietario:
+
+detener solamente esa rama/proyecto.
+
+NO detener todo el motor si otras tareas pueden continuar.
+
+Mostrar exactamente:
+
+qué necesita
+por qué lo necesita
+qué proyecto está bloqueado
+desde cuándo
+qué ocurrirá después
+si existe fecha límite
+botón/acción correspondiente
+
+Ejemplos:
+
+Aprobar
+Rechazar
+Proporcionar información
+Confirmar
+Reanudar
+
+Después de resolver el bloqueo:
+
+continuar desde el checkpoint correspondiente.
+
+NO empezar el proyecto nuevamente.
+
+==================================================
+8. HISTORIAL OPERATIVO
+==================================================
+
+Crear una línea temporal persistente.
+
+Debe permitir revisar:
+
+oportunidades detectadas
+seleccionadas
+descartadas
+expiradas
+proyectos creados
+acciones ejecutadas
+bloqueos humanos
+resultados
+errores
+aprendizajes
+
+Cada evento debe tener timestamp.
+
+Quiero poder reconstruir posteriormente exactamente qué ocurrió.
+
+==================================================
+9. RESULTADOS ECONÓMICOS
+==================================================
+
+Separar estrictamente:
+
+REAL
+SIMULATED
+POTENTIAL
+
+Nunca sumar simulaciones al dinero real.
+
+Para resultados REAL solamente registrar cuando exista evidencia real:
+
+revenue_real
+cost_real
+profit_real
+loss_real
+
+Para simulación:
+
+simulated_profit
+simulated_loss
+paper_result
+
+Para estimaciones:
+
+potential_value
+
+La interfaz debe diferenciarlos inequívocamente.
+
+==================================================
+10. APRENDIZAJE
+==================================================
+
+Una oportunidad descartada, fallida o expirada también debe generar información útil.
+
+Registrar cuando sea posible:
+
+qué ocurrió
+qué esperaba el sistema
+qué ocurrió realmente
+qué señal funcionó
+qué señal falló
+qué podría mejorarse
+si una oportunidad similar debería volver a considerarse
+
+NO presentar inferencias como hechos verificados.
+
+==================================================
+11. MOTOR AUTÓNOMO
+==================================================
+
+NO ACTIVAR TODAVÍA EL MOTOR AUTÓNOMO EN PRODUCCIÓN.
+
+Primero terminar esta observabilidad.
+
+La página Motor Autónomo actualmente muestra OFF y secciones sin datos.
+
+Eso está bien temporalmente.
+
+Prepararla para que posteriormente muestre:
+
+estado ON/OFF
+último ciclo
+ciclo actual
+próximo ciclo
+categoría investigada
+actividad actual
+últimas acciones
+oportunidades creadas
+proyectos activos
+bloqueos humanos
+errores
+historial de ciclos
+
+Pero NO habilitar todavía ejecución autónoma continua.
+
+==================================================
+12. NO VALID OPPORTUNITY
+==================================================
+
+El sistema debe poder terminar un ciclo legítimamente con:
+
+NO_VALID_OPPORTUNITY
+
+No obligar a generar candidatos.
+
+No inventar oportunidades para llenar el dashboard.
+
+==================================================
+13. SEGURIDAD
+==================================================
+
+Mantener todas las restricciones actuales.
+
+No dinero real.
+No operaciones financieras reales.
+No apuestas reales.
+No trades reales.
+No publicación automática.
+No compras.
+No gastos.
+No autoaprobar checkpoints humanos.
+
+Mercados, cripto y deportes permanecen PAPER/SIMULATION hasta autorización futura explícita y una arquitectura segura independiente.
+
+SEARCH_EVIDENCE no se convierte automáticamente en REAL_VERIFIED.
+
+==================================================
+14. MIGRACIONES Y COMPATIBILIDAD
+==================================================
+
+Si hacen falta campos/tablas nuevas:
+
+crear migraciones seguras.
+
+No borrar información existente.
+
+Mantener compatibilidad con los ciclos ya registrados.
+
+Evitar duplicados.
+
+Usar idempotency keys donde corresponda.
+
+No crear múltiples oportunidades/proyectos por reintentos del mismo evento.
+
+==================================================
+15. PRUEBAS OBLIGATORIAS
+==================================================
+
+Después de implementar:
+
+NO ejecutes operaciones reales.
+
+Realiza pruebas controladas.
+
+Debes demostrar:
+
+1. Un ciclo de Money Lab.
+2. Los candidatos individuales aparecen en pantalla.
+3. Puedo abrir la ficha de un candidato.
+4. Una oportunidad temporal muestra vigencia.
+5. Una oportunidad expirada queda en historial.
+6. Un proyecto muestra su progreso.
+7. WAITING_HUMAN se visualiza correctamente.
+8. Resolver un checkpoint permite continuar desde el mismo proyecto.
+9. REAL/SIMULATED/POTENTIAL están separados.
+10. No aparecen duplicados.
+11. No se usa dinero real.
+12. No existe ejecución financiera real.
+
+Al terminar entrégame un reporte:
+
+IMPLEMENTATION_STATUS
+FILES_CHANGED
+DATABASE_CHANGES
+NEW_ENDPOINTS
+MONEY_LAB_VISIBILITY
+OPPORTUNITY_DETAIL_STATUS
+PROJECT_PROGRESS_STATUS
+WAITING_HUMAN_STATUS
+EXPIRATION_STATUS
+HISTORY_STATUS
+REAL_SIMULATED_SEPARATION
+TEST_RESULTS
+DUPLICATES_FOUND
+SECURITY_CHECK
+REMAINING_BLOCKERS
+
+IMPORTANTE:
+
+No declares COMPLETED simplemente porque la interfaz exista.
+
+COMPLETED solamente si la información mostrada proviene realmente de datos persistidos y puede demostrarse mediante una prueba controlada de extremo a extremo.

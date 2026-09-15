@@ -9,4 +9,4 @@
 /**
  * @nullable
  */
-export type ProjectExecutionDeliverable = { [key: string]: unknown } | null;
+export type MarketCycleCandidateInSample = { [key: string]: unknown } | null;

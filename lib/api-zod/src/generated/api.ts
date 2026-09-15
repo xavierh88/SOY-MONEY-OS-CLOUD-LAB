@@ -59,6 +59,13 @@ export const ListOpportunitiesResponseItem = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -103,6 +110,13 @@ export const CreateOpportunityResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -131,6 +145,13 @@ export const GetOpportunityResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }).and(zod.object({
@@ -249,6 +270,13 @@ export const StartPipelineResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),
@@ -357,9 +385,9 @@ export const GetProjectResponse = zod.object({
   "projectId": zod.number().int(),
   "status": zod.string(),
   "currentStage": zod.string(),
-  "deliverableType": zod.string(),
-  "deliverable": zod.record(zod.string(), zod.unknown()),
-  "buildNotes": zod.string(),
+  "deliverableType": zod.string().nullable(),
+  "deliverable": zod.record(zod.string(), zod.unknown()).nullable(),
+  "buildNotes": zod.string().nullable(),
   "startedAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
@@ -408,9 +436,9 @@ export const StartProjectBuildResponse = zod.object({
   "projectId": zod.number().int(),
   "status": zod.string(),
   "currentStage": zod.string(),
-  "deliverableType": zod.string(),
-  "deliverable": zod.record(zod.string(), zod.unknown()),
-  "buildNotes": zod.string(),
+  "deliverableType": zod.string().nullable(),
+  "deliverable": zod.record(zod.string(), zod.unknown()).nullable(),
+  "buildNotes": zod.string().nullable(),
   "startedAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
@@ -1134,6 +1162,13 @@ export const ListCandidatesResponseItem = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),
@@ -1169,6 +1204,13 @@ export const GetCandidateResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),
@@ -1199,6 +1241,13 @@ export const ListAutonomyCandidatesResponseItem = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),
@@ -1234,6 +1283,13 @@ export const GetAutonomyCandidateResponse = zod.object({
   "timeToRevenue": zod.string(),
   "status": zod.string(),
   "proofStatus": zod.string(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),
@@ -1251,6 +1307,8 @@ export const ListHumanActionsResponseItem = zod.object({
   "id": zod.number().int(),
   "idempotencyKey": zod.string(),
   "cycleId": zod.number().int().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
   "actionType": zod.string(),
   "checkpoint": zod.string(),
   "status": zod.string(),
@@ -1273,6 +1331,8 @@ export const GetHumanActionResponse = zod.object({
   "id": zod.number().int(),
   "idempotencyKey": zod.string(),
   "cycleId": zod.number().int().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
   "actionType": zod.string(),
   "checkpoint": zod.string(),
   "status": zod.string(),
@@ -1298,6 +1358,8 @@ export const CompleteHumanActionResponse = zod.object({
   "id": zod.number().int(),
   "idempotencyKey": zod.string(),
   "cycleId": zod.number().int().nullish(),
+  "opportunityId": zod.number().int().nullish(),
+  "projectId": zod.number().int().nullish(),
   "actionType": zod.string(),
   "checkpoint": zod.string(),
   "status": zod.string(),
@@ -1364,5 +1426,377 @@ export const GetWithdrawableFinanceResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string()
 })
+
+
+/**
+ * @summary Read the persisted operational control tower overview
+ */
+export const GetControlTowerOverviewResponse = zod.object({
+  "opportunities": zod.object({
+  "total": zod.number().int(),
+  "active": zod.number().int().optional(),
+  "pending": zod.number().int().optional(),
+  "completed": zod.number().int().optional(),
+  "failed": zod.number().int().optional(),
+  "expired": zod.number().int().optional(),
+  "executable": zod.number().int().optional()
+}),
+  "projects": zod.object({
+  "total": zod.number().int(),
+  "active": zod.number().int().optional(),
+  "pending": zod.number().int().optional(),
+  "completed": zod.number().int().optional(),
+  "failed": zod.number().int().optional(),
+  "expired": zod.number().int().optional(),
+  "executable": zod.number().int().optional()
+}),
+  "humanActions": zod.object({
+  "total": zod.number().int(),
+  "active": zod.number().int().optional(),
+  "pending": zod.number().int().optional(),
+  "completed": zod.number().int().optional(),
+  "failed": zod.number().int().optional(),
+  "expired": zod.number().int().optional(),
+  "executable": zod.number().int().optional()
+}),
+  "autonomousCycles": zod.object({
+  "total": zod.number().int(),
+  "active": zod.number().int().optional(),
+  "pending": zod.number().int().optional(),
+  "completed": zod.number().int().optional(),
+  "failed": zod.number().int().optional(),
+  "expired": zod.number().int().optional(),
+  "executable": zod.number().int().optional()
+}),
+  "moneyLab": zod.object({
+  "totalCycles": zod.number().int(),
+  "activeCycles": zod.number().int(),
+  "completedCycles": zod.number().int(),
+  "failedCycles": zod.number().int(),
+  "latestCycle": zod.union([zod.object({
+  "id": zod.number().int(),
+  "githubRunId": zod.string().nullish(),
+  "githubWorkflow": zod.string(),
+  "githubRunUrl": zod.string().nullish(),
+  "dispatchKey": zod.string(),
+  "status": zod.string(),
+  "source": zod.string(),
+  "marketsAnalyzed": zod.number().int(),
+  "candidatesFound": zod.number().int(),
+  "paperApproved": zod.number().int(),
+  "rejected": zod.number().int(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "errors": zod.array(zod.string()),
+  "realMoneyUsed": zod.literal(false),
+  "financialExecution": zod.literal(false),
+  "realVerified": zod.literal(false),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+}),zod.null()]),
+  "guardrails": zod.object({
+  "realMoneyUsed": zod.literal(false),
+  "financialExecution": zod.literal(false),
+  "realVerified": zod.literal(false)
+})
+}),
+  "errors": zod.object({
+  "total": zod.number().int(),
+  "active": zod.number().int().optional(),
+  "pending": zod.number().int().optional(),
+  "completed": zod.number().int().optional(),
+  "failed": zod.number().int().optional(),
+  "expired": zod.number().int().optional(),
+  "executable": zod.number().int().optional()
+}).describe('Persisted structured autonomous errors'),
+  "learning": zod.object({
+  "total": zod.number().int(),
+  "active": zod.number().int().optional(),
+  "pending": zod.number().int().optional(),
+  "completed": zod.number().int().optional(),
+  "failed": zod.number().int().optional(),
+  "expired": zod.number().int().optional(),
+  "executable": zod.number().int().optional()
+}).describe('Persisted learning records from all control planes'),
+  "currentAction": zod.string().nullable(),
+  "nextAction": zod.string().nullable(),
+  "generatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Read the unified persisted operational timeline
+ */
+export const GetControlTowerTimelineResponseItem = zod.object({
+  "sourceType": zod.string(),
+  "sourceId": zod.string(),
+  "eventType": zod.string(),
+  "status": zod.string(),
+  "timestamp": zod.coerce.date(),
+  "opportunityId": zod.number().int().nullable(),
+  "projectId": zod.number().int().nullable(),
+  "marketCycleId": zod.number().int().nullable(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "actor": zod.string().nullable(),
+  "currentAction": zod.string().nullable(),
+  "nextAction": zod.string().nullable()
+})
+export const GetControlTowerTimelineResponse = zod.array(GetControlTowerTimelineResponseItem)
+
+
+/**
+ * @summary Read a complete persisted business opportunity control-tower model
+ */
+export const GetControlTowerOpportunityParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetControlTowerOpportunityResponse = zod.object({
+  "opportunity": zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "sector": zod.string(),
+  "problem": zod.string(),
+  "targetCustomer": zod.string(),
+  "proposedSolution": zod.string(),
+  "monetizationMethod": zod.string(),
+  "score": zod.number().int(),
+  "estimatedCost": zod.number(),
+  "difficulty": zod.string(),
+  "risk": zod.string(),
+  "timeToRevenue": zod.string(),
+  "status": zod.string(),
+  "proofStatus": zod.string(),
+  "detectedAt": zod.coerce.date().nullable(),
+  "validFrom": zod.coerce.date().nullable(),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "expirationReason": zod.string().nullable(),
+  "expiredAt": zod.coerce.date().nullable(),
+  "expirationOutcome": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "presentationStatus": zod.string(),
+  "executable": zod.boolean(),
+  "evidence": zod.array(zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "source": zod.string(),
+  "url": zod.string(),
+  "collectedAt": zod.coerce.date(),
+  "claim": zod.string(),
+  "verificationStatus": zod.string(),
+  "contradictions": zod.array(zod.string()),
+  "gaps": zod.array(zod.string()),
+  "proofType": zod.string()
+})),
+  "metadata": zod.union([zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "normalizedName": zod.string(),
+  "normalizedProblem": zod.string(),
+  "normalizedTarget": zod.string(),
+  "normalizedSolution": zod.string(),
+  "contentHash": zod.string(),
+  "similarityFingerprint": zod.string(),
+  "scoreBreakdown": zod.record(zod.string(), zod.number()),
+  "demandProofStatus": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()]),
+  "approvals": zod.array(zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "type": zod.string(),
+  "status": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "decidedAt": zod.coerce.date().nullish()
+})),
+  "projects": zod.array(zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "qaStatus": zod.string().nullish(),
+  "qaScore": zod.number().int().nullish(),
+  "qaIssues": zod.array(zod.string()),
+  "qaRecommendations": zod.array(zod.string()),
+  "qaCheckedAt": zod.coerce.date().nullish(),
+  "sellPackage": zod.record(zod.string(), zod.unknown()).nullish(),
+  "publicationExecuted": zod.boolean(),
+  "marketingExecuted": zod.boolean(),
+  "saleExecuted": zod.boolean(),
+  "financialExecution": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "results": zod.array(zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int(),
+  "resultType": zod.string(),
+  "outcome": zod.string(),
+  "status": zod.string(),
+  "revenue": zod.number(),
+  "realRevenue": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})),
+  "learning": zod.array(zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int().nullish(),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "activity": zod.array(zod.object({
+  "id": zod.number().int(),
+  "executionId": zod.number().int(),
+  "stage": zod.string(),
+  "status": zod.string(),
+  "message": zod.string(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Read persisted project progress and gates
+ */
+export const GetControlTowerProjectParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const getControlTowerProjectResponseProgressMin = 0;
+export const getControlTowerProjectResponseProgressMax = 100;
+
+
+
+export const GetControlTowerProjectResponse = zod.object({
+  "project": zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "qaStatus": zod.string().nullish(),
+  "qaScore": zod.number().int().nullish(),
+  "qaIssues": zod.array(zod.string()),
+  "qaRecommendations": zod.array(zod.string()),
+  "qaCheckedAt": zod.coerce.date().nullish(),
+  "sellPackage": zod.record(zod.string(), zod.unknown()).nullish(),
+  "publicationExecuted": zod.boolean(),
+  "marketingExecuted": zod.boolean(),
+  "saleExecuted": zod.boolean(),
+  "financialExecution": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "actualStage": zod.string(),
+  "progress": zod.number().int().min(getControlTowerProjectResponseProgressMin).max(getControlTowerProjectResponseProgressMax),
+  "gates": zod.array(zod.object({
+  "key": zod.string(),
+  "status": zod.string(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullable(),
+  "sourceId": zod.string().nullable()
+})),
+  "tasks": zod.array(zod.object({
+  "key": zod.string(),
+  "title": zod.string(),
+  "status": zod.string(),
+  "completed": zod.boolean(),
+  "sourceId": zod.string().nullable()
+})),
+  "artifacts": zod.array(zod.object({
+  "kind": zod.string(),
+  "sourceId": zod.string(),
+  "data": zod.record(zod.string(), zod.unknown())
+})),
+  "execution": zod.union([zod.object({
+  "id": zod.number().int(),
+  "opportunityId": zod.number().int(),
+  "projectId": zod.number().int(),
+  "status": zod.string(),
+  "currentStage": zod.string(),
+  "deliverableType": zod.string().nullable(),
+  "deliverable": zod.record(zod.string(), zod.unknown()).nullable(),
+  "buildNotes": zod.string().nullable(),
+  "startedAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+}),zod.null()]),
+  "activities": zod.array(zod.object({
+  "id": zod.number().int(),
+  "executionId": zod.number().int(),
+  "stage": zod.string(),
+  "status": zod.string(),
+  "message": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "result": zod.union([zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int(),
+  "resultType": zod.string(),
+  "outcome": zod.string(),
+  "status": zod.string(),
+  "revenue": zod.number(),
+  "realRevenue": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}),zod.null()]),
+  "learning": zod.union([zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int().nullish(),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Read candidates from a persisted Market Lab result
+ */
+export const ListMarketCycleCandidatesParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const listMarketCycleCandidatesResponseSourceIndexMin = 0;
+
+
+
+export const ListMarketCycleCandidatesResponseItem = zod.object({
+  "sourceIndex": zod.number().int().min(listMarketCycleCandidatesResponseSourceIndexMin),
+  "id": zod.string(),
+  "raw": zod.record(zod.string(), zod.unknown()),
+  "symbol": zod.string().nullable(),
+  "gate": zod.string().nullable(),
+  "classification": zod.string().nullable(),
+  "strategyKind": zod.string().nullable(),
+  "metrics": zod.record(zod.string(), zod.unknown()),
+  "cycleTimestamp": zod.coerce.date().nullable(),
+  "guardrails": zod.object({
+  "realMoneyUsed": zod.literal(false),
+  "financialExecution": zod.literal(false),
+  "realVerified": zod.literal(false)
+}),
+  "validUntil": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "detailsAvailable": zod.boolean(),
+  "provenance": zod.object({
+  "sourceType": zod.string(),
+  "sourceId": zod.string(),
+  "sourceIndex": zod.number().int()
+}),
+  "inSample": zod.record(zod.string(), zod.unknown()).nullable(),
+  "validation": zod.record(zod.string(), zod.unknown()).nullable(),
+  "bestParams": zod.record(zod.string(), zod.unknown()).nullable(),
+  "outOfSample": zod.record(zod.string(), zod.unknown()).nullable()
+})
+export const ListMarketCycleCandidatesResponse = zod.array(ListMarketCycleCandidatesResponseItem)
 
 

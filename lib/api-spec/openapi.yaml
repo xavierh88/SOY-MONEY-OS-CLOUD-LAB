@@ -25,6 +25,7 @@ tags:
   - name: autonomy
   - name: human-actions
   - name: finance
+  - name: control-tower
 paths:
   /healthz:
     get:
@@ -972,6 +973,82 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WithdrawableFinance"
+  /control-tower/overview:
+    get:
+      operationId: getControlTowerOverview
+      tags: [control-tower]
+      summary: Read the persisted operational control tower overview
+      responses:
+        "200":
+          description: Control tower overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlTowerOverview"
+  /control-tower/timeline:
+    get:
+      operationId: getControlTowerTimeline
+      tags: [control-tower]
+      summary: Read the unified persisted operational timeline
+      responses:
+        "200":
+          description: Unified timeline
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ControlTowerTimelineEvent"
+  /control-tower/opportunities/{id}:
+    get:
+      operationId: getControlTowerOpportunity
+      tags: [control-tower]
+      summary: Read a complete persisted business opportunity control-tower model
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Opportunity control-tower detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlTowerOpportunityDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /control-tower/projects/{id}:
+    get:
+      operationId: getControlTowerProject
+      tags: [control-tower]
+      summary: Read persisted project progress and gates
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Project control-tower detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlTowerProjectDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /money-lab/market-cycles/{id}/candidates:
+    get:
+      operationId: listMarketCycleCandidates
+      tags: [money-lab]
+      summary: Read candidates from a persisted Market Lab result
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Persisted market cycle candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketCycleCandidate"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     Id:
@@ -1003,7 +1080,7 @@ components:
       required: [error]
     Opportunity:
       type: object
-      required: [id, name, description, sector, problem, targetCustomer, proposedSolution, monetizationMethod, score, estimatedCost, difficulty, risk, timeToRevenue, status, proofStatus, createdAt, updatedAt]
+      required: [id, name, description, sector, problem, targetCustomer, proposedSolution, monetizationMethod, score, estimatedCost, difficulty, risk, timeToRevenue, status, proofStatus, detectedAt, validFrom, validUntil, expiresAt, expirationReason, expiredAt, expirationOutcome, createdAt, updatedAt]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -1020,6 +1097,29 @@ components:
         timeToRevenue: { type: string }
         status: { type: string }
         proofStatus: { type: string }
+        detectedAt: { type: ["string", "null"], format: date-time }
+        validFrom: { type: ["string", "null"], format: date-time }
+        validUntil: { type: ["string", "null"], format: date-time }
+        expiresAt: { type: ["string", "null"], format: date-time }
+        expirationReason: { type: ["string", "null"] }
+        expiredAt: { type: ["string", "null"], format: date-time }
+        expirationOutcome: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    OpportunityMetadata:
+      type: object
+      required: [id, opportunityId, normalizedName, normalizedProblem, normalizedTarget, normalizedSolution, contentHash, similarityFingerprint, scoreBreakdown, demandProofStatus, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        opportunityId: { type: integer }
+        normalizedName: { type: string }
+        normalizedProblem: { type: string }
+        normalizedTarget: { type: string }
+        normalizedSolution: { type: string }
+        contentHash: { type: string }
+        similarityFingerprint: { type: string }
+        scoreBreakdown: { type: object, additionalProperties: { type: number } }
+        demandProofStatus: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     OpportunityInput:
@@ -1156,9 +1256,9 @@ components:
         projectId: { type: integer }
         status: { type: string }
         currentStage: { type: string }
-        deliverableType: { type: string }
-        deliverable: { type: object, additionalProperties: true }
-        buildNotes: { type: string }
+        deliverableType: { type: ["string", "null"] }
+        deliverable: { type: ["object", "null"], additionalProperties: true }
+        buildNotes: { type: ["string", "null"] }
         startedAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
@@ -1450,6 +1550,8 @@ components:
         id: { type: integer }
         idempotencyKey: { type: string }
         cycleId: { type: ["integer", "null"] }
+        opportunityId: { type: ["integer", "null"] }
+        projectId: { type: ["integer", "null"] }
         actionType: { type: string }
         checkpoint: { type: string }
         status: { type: string }
@@ -1505,4 +1607,193 @@ components:
         mode: { type: string, enum: [REAL] }
         amount: { type: number }
         currency: { type: string }
+    ControlTowerCount:
+      type: object
+      required: [total]
+      properties:
+        total: { type: integer }
+        active: { type: integer }
+        pending: { type: integer }
+        completed: { type: integer }
+        failed: { type: integer }
+        expired: { type: integer }
+        executable: { type: integer }
+    ControlTowerOverview:
+      type: object
+      required: [opportunities, projects, humanActions, autonomousCycles, moneyLab, errors, learning, currentAction, nextAction, generatedAt]
+      properties:
+        opportunities: { $ref: "#/components/schemas/ControlTowerCount" }
+        projects: { $ref: "#/components/schemas/ControlTowerCount" }
+        humanActions: { $ref: "#/components/schemas/ControlTowerCount" }
+        autonomousCycles: { $ref: "#/components/schemas/ControlTowerCount" }
+        moneyLab:
+          type: object
+          required: [totalCycles, activeCycles, completedCycles, failedCycles, latestCycle, guardrails]
+          properties:
+            totalCycles: { type: integer }
+            activeCycles: { type: integer }
+            completedCycles: { type: integer }
+            failedCycles: { type: integer }
+            latestCycle:
+              oneOf:
+                - $ref: "#/components/schemas/MarketCycle"
+                - type: "null"
+            guardrails:
+              $ref: "#/components/schemas/MarketCycleGuardrails"
+        errors:
+          allOf:
+            - $ref: "#/components/schemas/ControlTowerCount"
+          description: Persisted structured autonomous errors
+        learning:
+          allOf:
+            - $ref: "#/components/schemas/ControlTowerCount"
+          description: Persisted learning records from all control planes
+        currentAction: { type: ["string", "null"] }
+        nextAction: { type: ["string", "null"] }
+        generatedAt: { type: string, format: date-time }
+    ControlTowerTimelineEvent:
+      type: object
+      required: [sourceType, sourceId, eventType, status, timestamp, title, description, opportunityId, projectId, marketCycleId, actor, currentAction, nextAction]
+      properties:
+        sourceType: { type: string }
+        sourceId: { type: string }
+        eventType: { type: string }
+        status: { type: string }
+        timestamp: { type: string, format: date-time }
+        opportunityId: { type: ["integer", "null"] }
+        projectId: { type: ["integer", "null"] }
+        marketCycleId: { type: ["integer", "null"] }
+        title: { type: string }
+        description: { type: string }
+        actor: { type: ["string", "null"] }
+        currentAction: { type: ["string", "null"] }
+        nextAction: { type: ["string", "null"] }
+    ControlTowerOpportunityDetail:
+      type: object
+      required: [opportunity, presentationStatus, executable, evidence, metadata, approvals, projects, results, learning, activity]
+      properties:
+        opportunity: { $ref: "#/components/schemas/Opportunity" }
+        presentationStatus: { type: string }
+        executable: { type: boolean }
+        evidence:
+          type: array
+          items: { $ref: "#/components/schemas/Evidence" }
+        metadata:
+          oneOf:
+            - $ref: "#/components/schemas/OpportunityMetadata"
+            - type: "null"
+        approvals:
+          type: array
+          items: { $ref: "#/components/schemas/Approval" }
+        projects:
+          type: array
+          items: { $ref: "#/components/schemas/Project" }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/Result" }
+        learning:
+          type: array
+          items: { $ref: "#/components/schemas/LearningInsight" }
+        activity:
+          type: array
+          items: { $ref: "#/components/schemas/Activity" }
+    ControlTowerProjectGate:
+      type: object
+      required: [key, status, completed, completedAt, sourceId]
+      properties:
+        key: { type: string }
+        status: { type: string }
+        completed: { type: boolean }
+        completedAt: { type: ["string", "null"], format: date-time }
+        sourceId: { type: ["string", "null"] }
+    ControlTowerProjectTask:
+      type: object
+      required: [key, title, status, completed, sourceId]
+      properties:
+        key: { type: string }
+        title: { type: string }
+        status: { type: string }
+        completed: { type: boolean }
+        sourceId: { type: ["string", "null"] }
+    ControlTowerProjectArtifact:
+      type: object
+      required: [kind, sourceId, data]
+      properties:
+        kind: { type: string }
+        sourceId: { type: string }
+        data: { type: object, additionalProperties: true }
+    ControlTowerProjectDetail:
+      type: object
+      required: [project, actualStage, progress, gates, tasks, artifacts, execution, activities, result, learning]
+      properties:
+        project: { $ref: "#/components/schemas/Project" }
+        actualStage: { type: string }
+        progress: { type: integer, minimum: 0, maximum: 100 }
+        gates:
+          type: array
+          items: { $ref: "#/components/schemas/ControlTowerProjectGate" }
+        tasks:
+          type: array
+          items: { $ref: "#/components/schemas/ControlTowerProjectTask" }
+        artifacts:
+          type: array
+          items: { $ref: "#/components/schemas/ControlTowerProjectArtifact" }
+        execution:
+          oneOf:
+            - $ref: "#/components/schemas/ProjectExecution"
+            - type: "null"
+        activities:
+          type: array
+          items: { $ref: "#/components/schemas/Activity" }
+        result:
+          oneOf:
+            - $ref: "#/components/schemas/Result"
+            - type: "null"
+        learning:
+          oneOf:
+            - $ref: "#/components/schemas/LearningInsight"
+            - type: "null"
+    MarketCycleGuardrails:
+      type: object
+      required: [realMoneyUsed, financialExecution, realVerified]
+      properties:
+        realMoneyUsed: { type: boolean, enum: [false] }
+        financialExecution: { type: boolean, enum: [false] }
+        realVerified: { type: boolean, enum: [false] }
+    MarketCycleCandidate:
+      type: object
+      required: [sourceIndex, id, raw, symbol, gate, classification, strategyKind, metrics, cycleTimestamp, guardrails, validUntil, expiresAt, detailsAvailable, provenance, inSample, validation, bestParams, outOfSample]
+      properties:
+        sourceIndex: { type: integer, minimum: 0 }
+        id: { type: string }
+        raw: { type: object, additionalProperties: true }
+        symbol: { type: ["string", "null"] }
+        gate: { type: ["string", "null"] }
+        classification: { type: ["string", "null"] }
+        strategyKind: { type: ["string", "null"] }
+        metrics: { type: object, additionalProperties: true }
+        cycleTimestamp: { type: ["string", "null"], format: date-time }
+        guardrails: { $ref: "#/components/schemas/MarketCycleGuardrails" }
+        validUntil: { type: ["string", "null"], format: date-time }
+        expiresAt: { type: ["string", "null"], format: date-time }
+        detailsAvailable: { type: boolean }
+        provenance:
+          type: object
+          required: [sourceType, sourceId, sourceIndex]
+          properties:
+            sourceType: { type: string }
+            sourceId: { type: string }
+            sourceIndex: { type: integer }
+        inSample:
+          type: [object, "null"]
+          additionalProperties: true
+        validation:
+          type: [object, "null"]
+          additionalProperties: true
+        bestParams:
+          type: [object, "null"]
+          additionalProperties: true
+        outOfSample:
+          type: [object, "null"]
+          additionalProperties: true
 

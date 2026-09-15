@@ -13,9 +13,12 @@ export interface ProjectExecution {
   projectId: number;
   status: string;
   currentStage: string;
-  deliverableType: string;
+  /** @nullable */
+  deliverableType: string | null;
+  /** @nullable */
   deliverable: ProjectExecutionDeliverable;
-  buildNotes: string;
+  /** @nullable */
+  buildNotes: string | null;
   startedAt: Date;
   updatedAt: Date;
   createdAt: Date;
