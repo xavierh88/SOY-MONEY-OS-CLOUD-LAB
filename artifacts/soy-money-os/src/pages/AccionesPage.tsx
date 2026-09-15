@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Check, X, ShieldAlert } from 'lucide-react';
 import { Link } from 'wouter';
 import { 
@@ -12,17 +13,26 @@ import { PageHeader, DataState, Badge, formatDate, formatTime } from '@/App';
 
 export default function AccionesPage() {
   const queryClient = useQueryClient();
+  const [decisionMessage, setDecisionMessage] = useState<string | null>(null);
+  const [decidingId, setDecidingId] = useState<number | null>(null);
   const { data: actions, isLoading, error, refetch } = useListHumanActions();
   const completeAction = useCompleteHumanAction();
 
   const handleDecision = (id: number, approved: boolean) => {
+    setDecidingId(id);
+    setDecisionMessage(null);
     completeAction.mutate(
       { id, data: { payload: { approved } } },
       { onSuccess: () => {
+        setDecisionMessage(approved
+          ? `ACT-${String(id).padStart(4, '0')} aprobada. El worker continuará desde el checkpoint persistido.`
+          : `ACT-${String(id).padStart(4, '0')} rechazada. La rama permanece bloqueada.`);
         queryClient.invalidateQueries({ queryKey: getListHumanActionsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetControlTowerOverviewQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetControlTowerTimelineQueryKey() });
-      } }
+      }, onError: (mutationError) => {
+        setDecisionMessage(mutationError instanceof Error ? mutationError.message : 'La decisión no pudo persistirse.');
+      }, onSettled: () => setDecidingId(null) }
     );
   };
 
@@ -36,6 +46,7 @@ export default function AccionesPage() {
         title="Cola de Acciones Humanas" 
         description="Los checkpoints que requieren intervención aparecen aquí. Aprobar marca el checkpoint como listo para reanudación; rechazar mantiene el ciclo bloqueado."
       />
+      {decisionMessage && <div className="panel mb-4 text-sm" role="status">{decisionMessage}</div>}
 
       <div className="grid gap-6">
         <section className="panel">
@@ -70,7 +81,7 @@ export default function AccionesPage() {
                       <button 
                         className="button button-primary w-full justify-center" 
                         onClick={() => handleDecision(action.id, true)} 
-                        disabled={completeAction.isPending}
+                        disabled={completeAction.isPending || decidingId === action.id}
                         data-testid={`button-approve-action-${action.id}`}
                       >
                         <Check size={16} /> APROBAR
@@ -79,7 +90,7 @@ export default function AccionesPage() {
                         className="button button-secondary w-full justify-center text-destructive hover:bg-destructive/10" 
                         style={{ color: 'hsl(var(--destructive))' }}
                         onClick={() => handleDecision(action.id, false)} 
-                        disabled={completeAction.isPending}
+                        disabled={completeAction.isPending || decidingId === action.id}
                         data-testid={`button-reject-action-${action.id}`}
                       >
                         <X size={16} /> RECHAZAR

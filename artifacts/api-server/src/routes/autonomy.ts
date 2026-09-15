@@ -54,7 +54,16 @@ const router: IRouter = Router();
 
 async function state() {
   const [existing] = await db.select().from(autonomyStateTable).limit(1);
-  if (existing) return existing;
+  if (existing) {
+    if (AUTONOMY_EXECUTION_LOCKED && existing.status !== "OFF") {
+      const [forcedOff] = await db.update(autonomyStateTable).set({
+        status: "OFF",
+        updatedAt: new Date(),
+      }).where(eq(autonomyStateTable.id, existing.id)).returning();
+      return forcedOff ?? { ...existing, status: "OFF" };
+    }
+    return existing;
+  }
   try {
     const [created] = await db.insert(autonomyStateTable).values({
       status: "OFF", timezone: "America/Los_Angeles", dailySlots: DEFAULT_SLOTS,

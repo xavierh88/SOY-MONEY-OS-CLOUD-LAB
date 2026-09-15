@@ -73,7 +73,9 @@ export async function processResumePending(limit = 50) {
       )).returning();
       if (!advanced) return false;
 
-      const nextActionKey = `cycle:${cycle.id}:human:${nextCheckpoint}`;
+      // Include the completed action so every later resume transition gets one
+      // fresh pending checkpoint while retries of the same transition converge.
+      const nextActionKey = `cycle:${cycle.id}:human:${nextCheckpoint}:after:${action.id}`;
       await tx.insert(humanActionsTable).values({
         idempotencyKey: nextActionKey,
         cycleId: cycle.id,

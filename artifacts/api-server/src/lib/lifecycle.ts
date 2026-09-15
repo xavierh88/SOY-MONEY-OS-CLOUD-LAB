@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, eq, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lte, ne, or, sql } from "drizzle-orm";
 import {
   db,
   lifecycleEventsTable,
@@ -140,7 +140,16 @@ export async function normalizeMarketCycleCandidates(
  */
 export async function finalizeExpiredOpportunities(limit = 100) {
   const due = await db.select().from(opportunitiesTable)
-    .where(lte(opportunitiesTable.expiresAt, new Date()))
+    .where(and(
+      lte(opportunitiesTable.expiresAt, new Date()),
+      or(
+        ne(opportunitiesTable.status, "EXPIRED"),
+        isNull(opportunitiesTable.expiredAt),
+        sql`${opportunitiesTable.expirationReason} IS NULL OR btrim(${opportunitiesTable.expirationReason}) = ''`,
+        sql`${opportunitiesTable.expirationOutcome} IS NULL OR btrim(${opportunitiesTable.expirationOutcome}) = ''`,
+      ),
+    ))
+    .orderBy(asc(opportunitiesTable.expiresAt), asc(opportunitiesTable.id))
     .limit(limit);
   const finalized = [];
   for (const opportunity of due) {
@@ -160,6 +169,7 @@ export async function finalizeExpiredOpportunities(limit = 100) {
         eq(opportunitiesTable.id, opportunity.id),
         or(
           ne(opportunitiesTable.status, "EXPIRED"),
+          isNull(opportunitiesTable.expiredAt),
           sql`${opportunitiesTable.expirationReason} IS NULL OR btrim(${opportunitiesTable.expirationReason}) = ''`,
           sql`${opportunitiesTable.expirationOutcome} IS NULL OR btrim(${opportunitiesTable.expirationOutcome}) = ''`,
         ),

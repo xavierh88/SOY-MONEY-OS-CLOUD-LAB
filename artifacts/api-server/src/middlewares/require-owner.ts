@@ -26,6 +26,7 @@ export async function requireOwner(
   const userId =
     (auth?.sessionClaims?.userId as string | undefined) ??
     auth?.userId;
+  const configuredOwnerId = process.env.SOY_OWNER_CLERK_USER_ID;
 
   if (!userId) {
     req.log.warn({
@@ -33,6 +34,16 @@ export async function requireOwner(
       hasSessionId: Boolean(auth?.sessionId),
     }, "Owner authorization rejected unauthenticated request");
     res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if (!configuredOwnerId) {
+    req.log.error("Trusted owner identity is not configured");
+    res.status(503).json({ error: "Owner provisioning is incomplete" });
+    return;
+  }
+  if (userId !== configuredOwnerId) {
+    req.log.warn("Owner authorization rejected non-owner identity");
+    res.status(403).json({ error: "Owner access required" });
     return;
   }
 
@@ -63,7 +74,7 @@ export async function requireOwner(
     )
     .limit(1);
 
-  if (!owner) {
+  if (!owner || owner.clerkUserId !== configuredOwnerId) {
     req.log.warn("Owner authorization rejected non-owner identity");
     res.status(403).json({ error: "Owner access required" });
     return;

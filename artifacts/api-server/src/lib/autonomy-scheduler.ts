@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db, autonomyStateTable, autonomousCyclesTable } from "@workspace/db";
 import { logger } from "./logger";
+import { AUTONOMY_EXECUTION_LOCKED } from "./autonomy-policy";
 import { runSafeAutonomousCycle } from "../routes/autonomy";
 
 const timer = 60_000;
@@ -19,6 +20,13 @@ function slotNow(timezone: string, slots: string[]) {
 
 async function tick() {
   const [current] = await db.select().from(autonomyStateTable).limit(1);
+  if (current && AUTONOMY_EXECUTION_LOCKED) {
+    if (current.status !== "OFF") {
+      await db.update(autonomyStateTable).set({ status: "OFF", updatedAt: new Date() })
+        .where(eq(autonomyStateTable.id, current.id));
+    }
+    return;
+  }
   if (!current || current.status !== "ON") return;
   const slotKey = slotNow(current.timezone, current.dailySlots);
   if (!slotKey || current.lastSlotKey === slotKey) return;
