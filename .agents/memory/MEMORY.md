@@ -1,6 +1,7 @@
 - [Evidence gates](soy-money-os.md) — keep hypotheses, simulations, and verified demand distinct; only REAL_VERIFIED can unlock later gates.
 - [Project cardinality](project-cardinality.md) — historical production data can contain multiple projects per opportunity; do not require uniqueness without reconciliation.
 - [Market Lab evidence boundary](market-lab-evidence.md) — GitHub quantitative cycles remain research simulation; PAPER_APPROVED must never become REAL_VERIFIED.
+- [GitHub run correlation](github-run-correlation.md) — manual Money Lab dispatches require exact dispatch_id matching in run title and artifact; never use time proximity.
 - [Autonomy safety boundary](autonomy-safety.md) — autonomy stays OFF by default; scoring, human checkpoints, and finance modes cannot imply external execution or verified revenue.
 - [Owner provisioning](owner-provisioning.md) — owner access must match a trusted configured Clerk identity; never let the first authenticated visitor claim ownership.
 - [Windmill callback boundary](windmill-callback-auth.md) — local HMAC callbacks exist, but external flows remain LEGACY_UNUSED until refactored and tested.

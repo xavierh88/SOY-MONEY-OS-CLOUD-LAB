@@ -46,12 +46,22 @@ const {
   isTerminalAutonomyCycle: (state: string) => boolean;
 };
 const moneyLabModulePath = "../../artifacts/api-server/src/routes/money-lab";
-const { validateArtifactSafetyContract } = await import(moneyLabModulePath) as {
+const { validateArtifactCorrelation, validateArtifactSafetyContract } = await import(moneyLabModulePath) as {
+  validateArtifactCorrelation: (
+    result: Record<string, unknown>,
+    expectedDispatchId: string,
+    expectedRunId: string,
+    persistedExternalRunId: string | null,
+  ) => { valid: boolean; code?: string };
   validateArtifactSafetyContract: (result: Record<string, unknown>) => {
     safe: boolean;
     invalidFlags?: string[];
     flags?: Record<string, boolean>;
   };
+};
+const githubActionsModulePath = "../../artifacts/api-server/src/lib/github-actions";
+const { expectedRunTitle } = await import(githubActionsModulePath) as {
+  expectedRunTitle: (dispatchId: string) => string;
 };
 
 const configuredSecret = process.env.WINDMILL_TOKEN;
@@ -417,6 +427,33 @@ async function verifyArtifactSafetyContract() {
     eq(marketCycleCandidatesTable.recordKey, `${fixturePrefix}:never-created`),
   );
   assert.equal(candidateCountAfter, candidateCountBefore, "unsafe artifacts created candidates");
+}
+
+function verifyExactGitHubCorrelationContract() {
+  const dispatchId = "github-market-cycle-123-controlled-paper";
+  const runId = "987654321";
+  assert.equal(
+    expectedRunTitle(dispatchId),
+    `SOY Market Cycle [${dispatchId}]`,
+    "GitHub run title is not deterministic",
+  );
+  assert.equal(validateArtifactCorrelation({
+    dispatch_id: dispatchId,
+    github_run_id: runId,
+  }, dispatchId, runId, runId).valid, true);
+  assert.equal(validateArtifactCorrelation({
+    dispatch_id: `${dispatchId}-other`,
+    github_run_id: runId,
+  }, dispatchId, runId, runId).valid, false);
+  assert.equal(validateArtifactCorrelation({
+    dispatch_id: dispatchId,
+    github_run_id: "123",
+  }, dispatchId, runId, runId).valid, false);
+  assert.equal(validateArtifactCorrelation({
+    dispatch_id: dispatchId,
+    github_run_id: runId,
+  }, dispatchId, runId, "different-persisted-run").valid, false);
+  assert.equal(validateArtifactCorrelation({}, dispatchId, runId, null).valid, false);
 }
 
 async function exerciseSignedCallback() {
@@ -786,6 +823,7 @@ try {
   verifySchedulerRetryEligibility();
   await verifyConcurrentClaimOwnership();
   await verifyArtifactSafetyContract();
+  verifyExactGitHubCorrelationContract();
   await createExpiredCandidateFixtures();
   await verifyNoValidOpportunityCompletion();
   await exerciseSignedCallback();

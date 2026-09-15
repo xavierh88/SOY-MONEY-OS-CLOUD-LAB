@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { db, marketCyclesTable, type MarketCycle } from "@workspace/db";
+import { db, externalDispatchesTable, marketCyclesTable, type MarketCycle } from "@workspace/db";
 import {
   GetMarketCycleParams,
   GetMarketCycleResponse,
@@ -75,6 +75,34 @@ export function validateArtifactSafetyContract(result: Record<string, unknown>):
       real_verified: result.real_verified as boolean,
     },
   };
+}
+
+export function validateArtifactCorrelation(
+  result: Record<string, unknown>,
+  expectedDispatchId: string,
+  expectedRunId: string,
+  persistedExternalRunId: string | null,
+) {
+  const dispatchId = typeof result.dispatch_id === "string" ? result.dispatch_id : "";
+  const runId = typeof result.github_run_id === "string" || typeof result.github_run_id === "number"
+    ? String(result.github_run_id)
+    : "";
+  if (
+    dispatchId !== expectedDispatchId
+    || runId !== expectedRunId
+    || persistedExternalRunId !== expectedRunId
+  ) {
+    return {
+      valid: false as const,
+      code: "ARTIFACT_CORRELATION_MISMATCH",
+      expectedDispatchId,
+      receivedDispatchId: dispatchId || null,
+      expectedRunId,
+      receivedRunId: runId || null,
+      persistedExternalRunId,
+    };
+  }
+  return { valid: true as const, dispatchId, runId };
 }
 
 async function failUnsafeArtifact(
@@ -185,6 +213,37 @@ export async function syncCycle(id: number) {
       return cycle;
     }
     const result = await getMarketCycleResult(cycle.githubRunId);
+    if (cycle.source === "MANUAL") {
+      const [dispatch] = await db.select().from(externalDispatchesTable).where(and(
+        eq(externalDispatchesTable.marketCycleId, cycle.id),
+        eq(externalDispatchesTable.provider, "GITHUB"),
+        eq(externalDispatchesTable.operation, "market_cycle.dispatch"),
+      )).limit(1);
+      const correlation = dispatch
+        ? validateArtifactCorrelation(
+            result,
+            dispatch.dispatchId,
+            cycle.githubRunId,
+            dispatch.externalRunId,
+          )
+        : {
+            valid: false as const,
+            code: "ARTIFACT_CORRELATION_DISPATCH_MISSING",
+            expectedDispatchId: null,
+            receivedDispatchId: typeof result.dispatch_id === "string" ? result.dispatch_id : null,
+            expectedRunId: cycle.githubRunId,
+            receivedRunId: result.github_run_id == null ? null : String(result.github_run_id),
+            persistedExternalRunId: null,
+          };
+      if (!correlation.valid) {
+        return await failUnsafeArtifact(cycle, {
+          safe: false,
+          code: correlation.code,
+          message: JSON.stringify(correlation),
+          invalidFlags: ["dispatch_id", "github_run_id"],
+        });
+      }
+    }
     const safety = validateArtifactSafetyContract(result);
     if (!safety.safe) return await failUnsafeArtifact(cycle, safety);
     const values = metrics(result);

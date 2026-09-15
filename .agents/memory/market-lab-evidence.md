@@ -7,4 +7,4 @@ GitHub Market Lab output is research simulation. `PAPER_APPROVED` means a simula
 
 **Why:** The external workflow analyzes historical public market data and explicitly produces a paper-research artifact with no real money or financial execution. Mixing that output into real evidence would violate SOY MONEY OS evidence gates.
 
-**How to apply:** Preserve the external result for traceability, but force `real_money_used`, `financial_execution`, and `real_verified` to false at ingestion. Deduplicate remote runs by GitHub run ID and keep this subsystem separate from Windmill approvals and projects.
+**How to apply:** Preserve the external result for traceability, but require `real_money_used`, `financial_execution`, and `real_verified` to be explicit boolean false. Missing, invalid, or true values must fail ingestion rather than being rewritten. Keep this subsystem separate from Windmill approvals and projects.

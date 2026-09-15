@@ -2,6 +2,7 @@ import { inflateRawSync } from "node:zlib";
 
 export type GitHubRun = {
   id: number;
+  display_title: string;
   status: "queued" | "in_progress" | "completed" | string;
   conclusion: string | null;
   event: string;
@@ -93,16 +94,12 @@ const workflowPath = () => {
   return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodeURIComponent(workflow)}`;
 };
 
-export async function dispatchMarketCycle(dispatchId?: string): Promise<Date> {
+export async function dispatchMarketCycle(dispatchId: string): Promise<Date> {
   const dispatchedAt = new Date();
-  const body: Record<string, unknown> = { ref: "main" };
-  // Existing workflows may reject input keys that are not declared in their
-  // workflow_dispatch schema.  Opt into the exact input only when the
-  // deployed workflow explicitly supports it; the legacy time fallback stays
-  // available for older compatible workflows.
-  if (dispatchId && process.env.GITHUB_WORKFLOW_ACCEPTS_DISPATCH_ID === "true") {
-    body.inputs = { dispatch_id: dispatchId };
-  }
+  const body: Record<string, unknown> = {
+    ref: "main",
+    inputs: { dispatch_id: dispatchId },
+  };
   const response = await githubRequest(`${workflowPath()}/dispatches`, {
     method: "POST",
     body: JSON.stringify(body),
@@ -118,24 +115,18 @@ export async function listWorkflowRuns(event?: "workflow_dispatch" | "schedule")
   return payload.workflow_runs;
 }
 
-export async function findDispatchedRun(dispatchedAt: Date, dispatchId?: string): Promise<GitHubRun | null> {
-  const threshold = dispatchedAt.getTime() - 10_000;
+export async function findDispatchedRun(dispatchId: string): Promise<GitHubRun | null> {
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const runs = await listWorkflowRuns("workflow_dispatch");
-    const exact = dispatchId
-      ? runs.find((item) => item.dispatch_id === dispatchId)
-      : undefined;
-    // Older workflows do not expose dispatch inputs in the run object.  Keep
-    // the historical time-based fallback solely for those compatible runs.
-    const run = exact ?? (runs.some((item) => item.dispatch_id)
-      ? undefined
-      : runs
-        .filter((item) => new Date(item.created_at).getTime() >= threshold)
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0]);
+    const run = runs.find((item) => item.display_title === expectedRunTitle(dispatchId));
     if (run) return run;
     if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 1_000 * attempt));
   }
   return null;
+}
+
+export function expectedRunTitle(dispatchId: string) {
+  return `SOY Market Cycle [${dispatchId}]`;
 }
 
 export async function getWorkflowRun(runId: string): Promise<GitHubRun> {

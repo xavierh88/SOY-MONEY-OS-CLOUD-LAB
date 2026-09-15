@@ -137,9 +137,9 @@ export async function processExternalOutbox(limit = 10) {
       continue;
     }
     try {
-      const dispatchedAt = await dispatchMarketCycle(dispatch.dispatchId);
+      await dispatchMarketCycle(dispatch.dispatchId);
       await markOutboxDelivered(item.id, dispatch.id);
-      const run = await findDispatchedRun(dispatchedAt, dispatch.dispatchId);
+      const run = await findDispatchedRun(dispatch.dispatchId);
       if (run) {
         await attachExternalRun(dispatch.dispatchId, String(run.id));
         if (dispatch.marketCycleId) {
@@ -177,7 +177,7 @@ export async function reconcileExternalDispatches(limit = 25) {
   for (const dispatch of rows) {
     if (dispatch.status !== "AMBIGUOUS" && dispatch.status !== "DISPATCHED") continue;
     try {
-      const run = await findDispatchedRun(dispatch.dispatchedAt ?? dispatch.createdAt, dispatch.dispatchId);
+      const run = await findDispatchedRun(dispatch.dispatchId);
       if (!run) continue;
       await attachExternalRun(dispatch.dispatchId, String(run.id));
       if (dispatch.marketCycleId) {
