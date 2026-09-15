@@ -1,6 +1,6 @@
 # Final Controlled Golden Path Audit
 
-Generated: 2026-09-15T06:36:54.379Z
+Generated: 2026-09-15T06:45:36.230Z
 
 ## Decision
 
@@ -24,8 +24,8 @@ This decision does not activate autonomy. `AUTONOMY_EXECUTION_LOCKED` is asserte
 - Same project through BUILD, QA, monetization preparation, result and learning: 20
 - Project final status: COMPLETED
 - QA: PASS, score 100
-- Artifact manifest hash: 92b42bb1cf056260297e3351afef129118dd267f4edb30852209761a041499d2
-- Artifact manifest App Storage path: /objects/generated/project-20/SITE_MVP/d7ed2dae0e830c1769d2bd6a31e7eac92366b21023d36f4f2f8261a70327b5c5-manifest.json
+- Artifact manifest hash: 4092f70e403b5ee22bee4cbf0727fa849a97025bd3421f63020f41455e4be06c
+- Artifact manifest App Storage path: /objects/generated/project-20/SITE_MVP/4ebee4e6789f7c356ca978083eae7e82eff38db3ecabf04e92d8ad37ca577c54-manifest.json
 - Artifact files persisted to App Storage: 3
 - Artifact validated after deleting its local QA cache: PASS
 - Owner approval action completed: 10
