@@ -13,6 +13,7 @@
     "test:controlled-golden-path-status": "tsx ./src/test-controlled-golden-path-status.ts",
     "test:master-repair-runtime": "tsx ./src/test-master-repair-runtime.ts",
     "test:prepare-controlled-money-lab": "tsx ./src/prepare-controlled-money-lab.ts",
+    "test:execute-controlled-money-lab": "tsx ./src/execute-controlled-money-lab.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
