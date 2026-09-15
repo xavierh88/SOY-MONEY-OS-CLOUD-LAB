@@ -1,0 +1,40 @@
+name: P1 wire configuration
+on:
+  push:
+    branches: [p1-completion]
+    paths: ['.github/workflows/p1-wire-config.yml']
+permissions:
+  contents: write
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: p1-completion
+      - name: Wire persisted configuration page
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('artifacts/soy-money-os/src/App.tsx')
+          s = p.read_text()
+          old_import = "import OperacionesPage from '@/pages/OperacionesPage';"
+          new_import = old_import + "\nimport ConfiguracionPage from '@/pages/ConfiguracionPage';"
+          old_route = '<Route path="/configuracion" component={SettingsPage} />'
+          new_route = '<Route path="/configuracion" component={ConfiguracionPage} />'
+          if old_import not in s:
+              raise SystemExit('Expected OperacionesPage import not found')
+          if old_route not in s:
+              raise SystemExit('Expected legacy configuration route not found')
+          s = s.replace(old_import, new_import, 1).replace(old_route, new_route, 1)
+          p.write_text(s)
+          PY
+          git diff --check
+          git diff -- artifacts/soy-money-os/src/App.tsx
+      - name: Commit wiring
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/soy-money-os/src/App.tsx
+          git commit -m 'Wire persisted owner configuration into application'
+          git push origin HEAD:p1-completion
