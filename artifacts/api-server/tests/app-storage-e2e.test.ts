@@ -5,7 +5,7 @@ import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 /** P1 App Storage E2E: disposable PostgreSQL + temporary filesystem only. */
 process.env.NODE_ENV = "test";
@@ -96,15 +96,19 @@ test("upload -> persist -> metadata -> download preserves bytes and SHA-256", as
   assert.equal(upload.body.sha256, expectedHash);
   assert.equal(upload.body.byteSize, bytes.length);
   assert.deepEqual(upload.body.metadata, { suite: "P1_APP_STORAGE_E2E", mode: "TEST_ONLY" });
-  assert.equal(upload.body.ownerClerkUserId, "storage-owner");
+  assert.equal(upload.body.ownerClerkUserId, undefined, "owner identity must not leak in storage API responses");
   assert(!path.isAbsolute(upload.body.objectPath));
   assert(!upload.body.objectPath.includes(".."));
+
+  const [persistedRow] = await db.select().from(storageObjectsTable).where(eq(storageObjectsTable.id, upload.body.id)).limit(1);
+  assert.equal(persistedRow.ownerClerkUserId, "storage-owner");
   assert.deepEqual(await readFile(path.resolve(storageRoot, upload.body.objectPath)), bytes);
 
   const metadata = await jsonRequest(`/api/storage/objects/${upload.body.id}`, { headers: ownerHeaders() });
   assert.equal(metadata.response.status, 200);
   assert.equal(metadata.body.sha256, expectedHash);
   assert.equal(metadata.body.fileName, "p1-integrity.txt");
+  assert.equal(metadata.body.ownerClerkUserId, undefined);
 
   const download = await fetch(`${baseUrl}/api/storage/objects/${upload.body.id}/download`, { headers: ownerHeaders() });
   assert.equal(download.status, 200);
