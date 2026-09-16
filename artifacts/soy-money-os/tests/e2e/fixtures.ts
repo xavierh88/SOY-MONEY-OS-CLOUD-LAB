@@ -153,6 +153,7 @@ export type FixtureState = {
   notificationRead: boolean;
   incidentAcknowledged: boolean;
   dlqRetried: boolean;
+  storageUploaded: boolean;
 };
 
 function json(route: Route, body: unknown, status = 200) {
@@ -173,6 +174,7 @@ export async function installFixtureApi(page: Page): Promise<FixtureState> {
     notificationRead: false,
     incidentAcknowledged: false,
     dlqRetried: false,
+    storageUploaded: false,
   };
   // Fonts, Clerk, analytics, and accidental links must never leave the
   // fixture origin. Fallback lets the API route below handle /api requests.
@@ -297,6 +299,77 @@ export async function installFixtureApi(page: Page): Promise<FixtureState> {
         createdAt: NOW,
         updatedAt: NOW,
       }]);
+    }
+
+    if (request.method() === 'POST' && path === '/api/storage/objects') {
+      const body = request.postDataJSON() as {
+        fileName?: string;
+        contentType?: string;
+        contentBase64?: string;
+        metadata?: Record<string, string>;
+      };
+
+      if (
+        !body.fileName ||
+        !body.contentType ||
+        !body.contentBase64
+      ) {
+        return json(route, { message: 'Invalid storage object' }, 400);
+      }
+
+      state.storageUploaded = true;
+
+      return json(route, {
+        id: 2,
+        fileName: body.fileName,
+        objectPath: `owner-e2e/${body.fileName}`,
+        contentType: body.contentType,
+        byteSize: 18,
+        sha256: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        metadata: body.metadata ?? {},
+        createdAt: NOW,
+      });
+    }
+
+    if (request.method() === 'GET' && path === '/api/storage/objects') {
+      const objects = [
+        {
+          id: 1,
+          fileName: 'fixture-storage.txt',
+          objectPath: 'owner-e2e/fixture-storage.txt',
+          contentType: 'text/plain',
+          byteSize: 23,
+          sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          metadata: { source: 'e2e-fixture' },
+          createdAt: NOW,
+        },
+      ];
+
+      if (state.storageUploaded) {
+        objects.push({
+          id: 2,
+          fileName: 'e2e-upload.txt',
+          objectPath: 'owner-e2e/e2e-upload.txt',
+          contentType: 'text/plain',
+          byteSize: 18,
+          sha256: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          metadata: { source: 'owner-settings' },
+          createdAt: NOW,
+        });
+      }
+
+      return json(route, objects);
+    }
+
+    if (
+      request.method() === 'GET' &&
+      /^\/api\/storage\/objects\/\d+\/download$/.test(path)
+    ) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'text/plain',
+        body: 'fixture storage download',
+      });
     }
 
     if (path === '/api/healthz') return json(route, { status: 'ok' });

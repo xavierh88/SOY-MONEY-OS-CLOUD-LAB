@@ -78,6 +78,10 @@ import {
   useGetOwnerConfiguration,
   useUpdateOwnerConfiguration,
   useReadinessCheck,
+  getListStorageObjectsQueryKey,
+  useListStorageObjects,
+  useUploadStorageObject,
+  downloadStorageObject,
 } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -550,6 +554,85 @@ function SettingsPage() {
     );
   };
 
+  const storageObjects = useListStorageObjects({
+    query: { queryKey: getListStorageObjectsQueryKey() },
+  });
+  const uploadStorageObject = useUploadStorageObject();
+  const [storageFile, setStorageFile] = useState<File | null>(null);
+  const [storageActionError, setStorageActionError] = useState<string | null>(null);
+  const [downloadingStorageId, setDownloadingStorageId] = useState<number | null>(null);
+
+  const uploadSelectedStorageFile = async () => {
+    if (!storageFile || uploadStorageObject.isPending) return;
+
+    setStorageActionError(null);
+
+    try {
+      const contentBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+        reader.onload = () => {
+          const result = reader.result;
+
+          if (typeof result !== 'string') {
+            reject(new Error('El archivo no produjo contenido válido.'));
+            return;
+          }
+
+          const commaIndex = result.indexOf(',');
+          resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+        };
+
+        reader.readAsDataURL(storageFile);
+      });
+
+      await uploadStorageObject.mutateAsync({
+        data: {
+          fileName: storageFile.name,
+          contentType: storageFile.type || 'application/octet-stream',
+          contentBase64,
+          metadata: {
+            source: 'owner-settings',
+          },
+        },
+      });
+
+      setStorageFile(null);
+      await queryClient.invalidateQueries({
+        queryKey: getListStorageObjectsQueryKey(),
+      });
+    } catch (error) {
+      setStorageActionError(
+        error instanceof Error ? error.message : 'No se pudo subir el archivo.',
+      );
+    }
+  };
+
+  const downloadStoredObject = async (id: number, fileName: string) => {
+    setStorageActionError(null);
+    setDownloadingStorageId(id);
+
+    try {
+      const blob = await downloadStorageObject(id);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setStorageActionError(
+        error instanceof Error ? error.message : 'No se pudo descargar el archivo.',
+      );
+    } finally {
+      setDownloadingStorageId(null);
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -716,6 +799,115 @@ function SettingsPage() {
                 >
                   <RefreshCw size={13} />
                   Actualizar estado
+                </button>
+              </div>
+
+              <div className="panel" data-testid="app-storage-panel">
+                <div className="panel-heading">
+                  <div>
+                    <div className="eyebrow">Almacenamiento operativo</div>
+                    <h3>App Storage</h3>
+                  </div>
+                  <Badge
+                    value={`${storageObjects.data?.length ?? 0} OBJETOS`}
+                    small
+                  />
+                </div>
+
+                <p className="section-intro">
+                  Objetos persistidos con alcance del propietario. Cada archivo
+                  conserva metadatos, tamaño e integridad SHA-256.
+                </p>
+
+                <div className="storage-upload">
+                  <input
+                    type="file"
+                    onChange={(event) =>
+                      setStorageFile(event.target.files?.[0] ?? null)
+                    }
+                    data-testid="input-storage-file"
+                  />
+
+                  <button
+                    className="button button-primary button-small"
+                    type="button"
+                    disabled={!storageFile || uploadStorageObject.isPending}
+                    onClick={() => void uploadSelectedStorageFile()}
+                    data-testid="button-upload-storage"
+                  >
+                    <Plus size={14} />
+                    {uploadStorageObject.isPending ? 'Subiendo…' : 'Subir archivo'}
+                  </button>
+                </div>
+
+                {storageFile && (
+                  <p className="muted-text" data-testid="storage-selected-file">
+                    Seleccionado: {storageFile.name}
+                  </p>
+                )}
+
+                {storageActionError && (
+                  <p className="cycle-error" data-testid="storage-action-error">
+                    {storageActionError}
+                  </p>
+                )}
+
+                <DataState
+                  loading={storageObjects.isLoading}
+                  error={!!storageObjects.error}
+                  empty={!storageObjects.isLoading && !storageObjects.data?.length}
+                  onRetry={() => void storageObjects.refetch()}
+                >
+                  <div data-testid="storage-object-list">
+                    {(storageObjects.data || []).map((object) => (
+                      <div
+                        className="integration-row"
+                        key={object.id}
+                        data-testid={`storage-object-${object.id}`}
+                      >
+                        <div className="integration-symbol">
+                          <Database size={16} />
+                        </div>
+
+                        <div>
+                          <strong>{object.fileName}</strong>
+                          <span>{object.contentType}</span>
+                          <small className="block text-muted-foreground">
+                            {object.byteSize.toLocaleString()} bytes · SHA-256{' '}
+                            {object.sha256}
+                          </small>
+                          <small className="block text-muted-foreground">
+                            {object.objectPath} · {formatDate(object.createdAt)}
+                          </small>
+                        </div>
+
+                        <button
+                          className="button button-secondary button-small"
+                          type="button"
+                          disabled={downloadingStorageId === object.id}
+                          onClick={() =>
+                            void downloadStoredObject(object.id, object.fileName)
+                          }
+                          data-testid={`button-download-storage-${object.id}`}
+                        >
+                          <ExternalLink size={13} />
+                          {downloadingStorageId === object.id
+                            ? 'Descargando…'
+                            : 'Descargar'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </DataState>
+
+                <button
+                  className="text-link"
+                  type="button"
+                  onClick={() => void storageObjects.refetch()}
+                  data-testid="button-refresh-storage"
+                >
+                  <RefreshCw size={13} />
+                  Actualizar almacenamiento
                 </button>
               </div>
 

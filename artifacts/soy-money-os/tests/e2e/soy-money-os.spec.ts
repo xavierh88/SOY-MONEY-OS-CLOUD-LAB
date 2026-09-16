@@ -44,6 +44,42 @@ test('dashboard, discovery fixture, evidence, and owner review', async ({ page }
   await expect(page.getByTestId('readiness-check-storage')).toContainText(/ready/i);
   await expect(page.getByTestId('readiness-check-workers')).toContainText(/ready/i);
 
+  // App Storage: list -> integrity metadata -> upload -> refreshed list -> download
+  await expect(page.getByTestId('app-storage-panel')).toBeVisible();
+  await expect(page.getByTestId('app-storage-panel')).toContainText('1 OBJETOS');
+  await expect(page.getByTestId('storage-object-1')).toContainText('fixture-storage.txt');
+  await expect(page.getByTestId('storage-object-1')).toContainText(
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  );
+
+  await page.getByTestId('input-storage-file').setInputFiles({
+    name: 'e2e-upload.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('storage e2e upload'),
+  });
+
+  await expect(page.getByTestId('storage-selected-file')).toContainText(
+    'e2e-upload.txt',
+  );
+
+  await page.getByTestId('button-upload-storage').click();
+
+  await expect(page.getByTestId('app-storage-panel')).toContainText('2 OBJETOS');
+  await expect(page.getByTestId('storage-object-2')).toContainText(
+    'e2e-upload.txt',
+  );
+  await expect(page.getByTestId('storage-object-2')).toContainText(
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  );
+
+  const storageDownload = page.waitForResponse(
+    (response) =>
+      response.url().includes('/api/storage/objects/1/download') &&
+      response.status() === 200,
+  );
+  await page.getByTestId('button-download-storage-1').click();
+  await storageDownload;
+
   await page.getByTestId('button-approve-setting-10').click();
   await expect(page.getByText('Sin señales todavía')).toBeVisible();
 
