@@ -70,9 +70,21 @@ async function request(path: string, options: RequestOptions = {}) {
   return { response, body };
 }
 
-function assertStableError(body: unknown): asserts body is { error: string } {
-  assert.deepEqual(Object.keys(body as object), ["error"]);
+function assertStableError(body: unknown): asserts body is {
+  error: string;
+  code: string;
+  correlationId: string;
+} {
+  assert.deepEqual(
+    Object.keys(body as object).sort(),
+    ["error", "code", "correlationId"].sort(),
+  );
   assert.equal(typeof (body as { error: unknown }).error, "string");
+  assert.equal(typeof (body as { code: unknown }).code, "string");
+  assert.equal(
+    typeof (body as { correlationId: unknown }).correlationId,
+    "string",
+  );
 }
 
 function ownerHeaders(userId = "test-owner") {

@@ -36,7 +36,15 @@ try {
     headers: { "x-test-clerk-user-id": "smoke-test-owner" },
   });
   assert.equal(missing.status, 404);
-  assert.deepEqual(await missing.json(), { error: "Not found" });
+  const missingBody = (await missing.json()) as {
+    error: string;
+    code: string;
+    correlationId: string;
+  };
+  assert.equal(missingBody.error, "Not found");
+  assert.equal(missingBody.code, "HTTP_404");
+  assert.equal(typeof missingBody.correlationId, "string");
+  assert.ok(missingBody.correlationId.length > 0);
 } finally {
   if (server) {
     await new Promise<void>((resolve, reject) =>
