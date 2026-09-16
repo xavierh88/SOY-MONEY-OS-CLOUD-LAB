@@ -1,6 +1,6 @@
 import { Link } from 'wouter';
 import { Radar, ArrowRight, ShieldAlert, Sparkles, Layers3, ActivityIcon, Search, RefreshCw, X, ExternalLink } from 'lucide-react';
-import { useGetControlTowerOverview, useGetControlTowerTimeline, useListDiscoveryResearch, useResearchDiscovery, useGetDiscoveryResearch, getListDiscoveryResearchQueryKey, getGetDiscoveryResearchQueryKey } from '@workspace/api-client-react';
+import { useGetControlTowerOverview, useGetControlTowerTimeline, useListDiscoveryResearch, useResearchDiscovery, useGetDiscoveryResearch, getListDiscoveryResearchQueryKey, getGetDiscoveryResearchQueryKey, useListNotifications, useMarkNotificationRead, getListNotificationsQueryKey } from '@workspace/api-client-react';
 import { PageHeader, DataState, MetricCard, cx, statusTone, formatTime, formatDate, Badge } from '@/App';
 import { useState, FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -211,6 +211,98 @@ function DiscoveryPanel() {
   );
 }
 
+
+function NotificationsPanel() {
+  const queryClient = useQueryClient();
+  const notifications = useListNotifications();
+  const markRead = useMarkNotificationRead({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
+      },
+    },
+  });
+
+  const items = notifications.data || [];
+  const unreadCount = items.filter((item) => !item.readAt).length;
+
+  return (
+    <section className="panel mb-6" data-testid="notifications-panel">
+      <div className="panel-heading">
+        <div>
+          <div className="eyebrow">Observabilidad</div>
+          <h3>Notificaciones</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge value={`${unreadCount} sin leer`} />
+          <button
+            className="icon-button"
+            onClick={() => void notifications.refetch()}
+            aria-label="Actualizar notificaciones"
+            data-testid="button-refresh-notifications"
+          >
+            <RefreshCw size={16} />
+          </button>
+        </div>
+      </div>
+
+      <DataState
+        loading={notifications.isLoading}
+        error={!!notifications.error}
+        empty={!notifications.isLoading && items.length === 0}
+        onRetry={() => void notifications.refetch()}
+      >
+        <div className="activity-list activity-compact">
+          {items.map((item) => (
+            <div
+              className="activity-row"
+              key={item.id}
+              data-testid={`notification-${item.id}`}
+            >
+              <div className={cx('activity-marker', item.readAt ? 'neutral' : 'blue')}>
+                <span />
+              </div>
+
+              <div className="activity-body">
+                <div className="activity-meta">
+                  <strong>{item.readAt ? 'LEÍDA' : 'NUEVA'}</strong>
+                  <span>{formatDate(item.createdAt)} {formatTime(item.createdAt)}</span>
+                </div>
+
+                <p className="font-semibold text-sm mb-1">{item.title}</p>
+                <p className="text-sm text-muted-foreground">{item.body}</p>
+
+                <div className="flex items-center gap-2 mt-3">
+                  {!item.readAt && (
+                    <button
+                      className="button button-secondary"
+                      disabled={markRead.isPending}
+                      onClick={() => markRead.mutate({ id: item.id })}
+                      data-testid={`button-read-notification-${item.id}`}
+                    >
+                      Marcar como leída
+                    </button>
+                  )}
+
+                  {item.targetPath && (
+                    <Link
+                      href={item.targetPath}
+                      className="button button-secondary"
+                      data-testid={`link-notification-${item.id}`}
+                    >
+                      Ver detalle <ArrowRight size={14} />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </DataState>
+    </section>
+  );
+}
+
 export default function TorreControlPage() {
   const overview = useGetControlTowerOverview();
   const timeline = useGetControlTowerTimeline();
@@ -286,6 +378,8 @@ export default function TorreControlPage() {
                 </div>
               </section>
             </div>
+
+            <NotificationsPanel />
             
             <section className="panel activity-panel">
               <div className="panel-heading">

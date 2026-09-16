@@ -49,6 +49,17 @@ test('dashboard, discovery fixture, evidence, and owner review', async ({ page }
 
   await page.reload();
   await expect(page.getByText('Sin señales todavía')).toBeVisible();
+
+  await page.goto('/torre-control');
+  await expect(page.getByRole('heading', { name: 'Torre de Control' })).toBeVisible();
+  await expect(page.getByTestId('notifications-panel')).toBeVisible();
+  await expect(page.getByTestId('notification-1')).toContainText('Acción operativa requerida');
+  await expect(page.getByTestId('notifications-panel')).toContainText('1 sin leer');
+
+  await page.getByTestId('button-read-notification-1').click();
+
+  await expect(page.getByTestId('notifications-panel')).toContainText('0 sin leer');
+  await expect(page.getByTestId('notification-1')).toContainText('LEÍDA');
 });
 
 test('owner can reject a pending review without external side effects', async ({ page }) => {

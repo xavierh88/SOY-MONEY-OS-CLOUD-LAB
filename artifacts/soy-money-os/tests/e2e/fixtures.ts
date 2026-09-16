@@ -150,6 +150,7 @@ const opportunityDetail = {
 
 export type FixtureState = {
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  notificationRead: boolean;
 };
 
 function json(route: Route, body: unknown, status = 200) {
@@ -165,7 +166,10 @@ function json(route: Route, body: unknown, status = 200) {
  * API server or an external service during browser E2E.
  */
 export async function installFixtureApi(page: Page): Promise<FixtureState> {
-  const state: FixtureState = { approvalStatus: 'PENDING' };
+  const state: FixtureState = {
+    approvalStatus: 'PENDING',
+    notificationRead: false,
+  };
   // Fonts, Clerk, analytics, and accidental links must never leave the
   // fixture origin. Fallback lets the API route below handle /api requests.
   await page.route('**/*', async (route) => {
@@ -186,6 +190,29 @@ export async function installFixtureApi(page: Page): Promise<FixtureState> {
       state.approvalStatus = body.decision === 'approved' ? 'APPROVED' : 'REJECTED';
       await json(route, { ...approval, status: state.approvalStatus, decidedAt: NOW });
       return;
+    }
+
+    if (request.method() === 'POST' && path === '/api/notifications/1/read') {
+      state.notificationRead = true;
+      return json(route, {
+        id: 1,
+        title: 'Acción operativa requerida',
+        body: 'Revisa el proyecto activo antes de continuar.',
+        targetPath: '/proyectos/1',
+        readAt: NOW,
+        createdAt: NOW,
+      });
+    }
+
+    if (request.method() === 'GET' && path === '/api/notifications') {
+      return json(route, [{
+        id: 1,
+        title: 'Acción operativa requerida',
+        body: 'Revisa el proyecto activo antes de continuar.',
+        targetPath: '/proyectos/1',
+        readAt: state.notificationRead ? NOW : null,
+        createdAt: NOW,
+      }]);
     }
 
     if (path === '/api/healthz') return json(route, { status: 'ok' });
@@ -216,6 +243,32 @@ export async function installFixtureApi(page: Page): Promise<FixtureState> {
     if (path === '/api/results') return json(route, [result]);
     if (path === '/api/demand-proof') return json(route, [{ id: 1, opportunityId: 1, proofType: 'SEARCH_EVIDENCE', status: 'REAL_UNVERIFIED', summary: evidence[0].claim, createdAt: NOW }]);
     if (path === '/api/activity') return json(route, activity);
+    if (path === '/api/control-tower/overview') return json(route, {
+      opportunities: { total: 1, active: 1 },
+      projects: { total: 1, active: 1 },
+      humanActions: {
+        total: state.approvalStatus === 'PENDING' ? 1 : 0,
+        pending: state.approvalStatus === 'PENDING' ? 1 : 0,
+      },
+      autonomousCycles: { total: 0, active: 0 },
+      moneyLab: {
+        totalCycles: 0,
+        activeCycles: 0,
+        completedCycles: 0,
+        failedCycles: 0,
+        latestCycle: null,
+        guardrails: {
+          realMoneyUsed: false,
+          financialExecution: false,
+          realVerified: false,
+        },
+      },
+      errors: { total: 0, active: 0 },
+      learning: { total: 0, active: 0 },
+      currentAction: null,
+      nextAction: 'Revisión humana',
+      generatedAt: NOW,
+    });
     if (path === '/api/control-tower/timeline') return json(route, [{
       sourceType: 'OPPORTUNITY',
       sourceId: '1',
