@@ -1,12 +1,64 @@
+import { useState } from 'react';
 import { useParams, Link } from 'wouter';
 import { ArrowLeft, CheckCircle2, CircleAlert, FileSearch, ActivityIcon, ShieldAlert } from 'lucide-react';
-import { useGetControlTowerProject } from '@workspace/api-client-react';
+import {
+  useGetControlTowerProject,
+  useStartProjectBuild,
+  useReviewProjectQa,
+  usePrepareProjectSellReady,
+  useRecordProjectResult,
+  useRecordProjectLearning,
+  useCompleteProject,
+  downloadProjectArtifact,
+} from '@workspace/api-client-react';
 import { PageHeader, DataState, Badge, formatDate, cx } from '@/App';
 
 export default function ProyectoDetailPage() {
   const params = useParams<{ id?: string }>();
   const id = Number(params.id || 0);
   const project = useGetControlTowerProject(id);
+
+  const startBuild = useStartProjectBuild();
+  const reviewQa = useReviewProjectQa();
+  const prepareSellReady = usePrepareProjectSellReady();
+  const recordResult = useRecordProjectResult();
+  const recordLearning = useRecordProjectLearning();
+  const completeProject = useCompleteProject();
+
+  type SafeDeliverableType =
+    | 'DIGITAL_PRODUCT'
+    | 'LANDING_PAGE'
+    | 'SITE_MVP'
+    | 'SERVICE_PACKAGE'
+    | 'AUTOMATION'
+    | 'PROTOTYPE';
+
+  const [deliverableType, setDeliverableType] = useState<SafeDeliverableType>('DIGITAL_PRODUCT');
+  const [buildNotes, setBuildNotes] = useState('');
+  const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleArtifactDownload = async (path: string) => {
+    try {
+      setDownloadingPath(path);
+      setDownloadError(null);
+
+      const blob = await downloadProjectArtifact(id, path);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      link.href = objectUrl;
+      link.download = path.split('/').pop() || 'artifact';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      setDownloadError('No se pudo descargar el artefacto. Verifica su disponibilidad e integridad.');
+    } finally {
+      setDownloadingPath(null);
+    }
+  };
   
   const d = project.data;
   const resultClass = d?.result?.realRevenue
@@ -30,6 +82,81 @@ export default function ProyectoDetailPage() {
                 </div>
               }
             />
+
+            <section className="panel mb-6">
+              <div className="panel-heading">
+                <div>
+                  <div className="eyebrow">Operación P1</div>
+                  <h3>Construcción del entregable</h3>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                <label className="grid gap-1">
+                  <span className="text-xs text-muted-foreground">Tipo de entregable</span>
+                  <select
+                    className="input"
+                    value={deliverableType}
+                    onChange={(e) => setDeliverableType(e.target.value as SafeDeliverableType)}
+                    disabled={!!d.execution && d.project.status !== 'NEEDS_FIX'}
+                  >
+                    <option value="DIGITAL_PRODUCT">Producto digital</option>
+                    <option value="LANDING_PAGE">Landing page</option>
+                    <option value="SITE_MVP">Sitio MVP</option>
+                    <option value="SERVICE_PACKAGE">Paquete de servicio</option>
+                    <option value="AUTOMATION">Automatización</option>
+                    <option value="PROTOTYPE">Prototipo</option>
+                  </select>
+                </label>
+
+                <label className="grid gap-1">
+                  <span className="text-xs text-muted-foreground">Notas de construcción</span>
+                  <textarea
+                    className="input min-h-24"
+                    value={buildNotes}
+                    onChange={(e) => setBuildNotes(e.target.value)}
+                    placeholder="Instrucciones opcionales para construir este entregable..."
+                    disabled={!!d.execution && d.project.status !== 'NEEDS_FIX'}
+                  />
+                </label>
+
+                {(!d.execution || d.project.status === 'NEEDS_FIX') ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={startBuild.isPending}
+                    onClick={() => {
+                      startBuild.mutate(
+                        {
+                          id,
+                          data: {
+                            deliverableType,
+                            ...(buildNotes.trim() ? { buildNotes: buildNotes.trim() } : {}),
+                          },
+                        },
+                        {
+                          onSuccess: () => void project.refetch(),
+                        },
+                      );
+                    }}
+                  >
+                    {startBuild.isPending
+                      ? (d.project.status === 'NEEDS_FIX' ? 'Regenerando...' : 'Construyendo...')
+                      : (d.project.status === 'NEEDS_FIX' ? 'Corregir y regenerar entregable' : 'Construir entregable')}
+                  </button>
+                ) : (
+                  <div className="text-xs text-muted-foreground">
+                    Build ya persistido · {d.execution.deliverableType || 'tipo no registrado'} · etapa {d.execution.currentStage}
+                  </div>
+                )}
+
+                {startBuild.error && (
+                  <div className="text-xs text-destructive">
+                    No se pudo iniciar Build. El backend rechazó la operación o el proyecto todavía no cumple sus gates.
+                  </div>
+                )}
+              </div>
+            </section>
 
             <div className="mb-8">
               <div className="flex justify-between items-end mb-2">
@@ -95,6 +222,43 @@ export default function ProyectoDetailPage() {
                   </div>
                 )}
 
+                {d.project.status === 'QA_REVIEW' && (
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={reviewQa.isPending}
+                      onClick={() => {
+                        reviewQa.mutate(
+                          { id },
+                          {
+                            onSuccess: () => void project.refetch(),
+                          },
+                        );
+                      }}
+                    >
+                      {reviewQa.isPending ? 'Ejecutando QA...' : 'Ejecutar QA'}
+                    </button>
+
+                    {reviewQa.error && (
+                      <div className="text-xs text-destructive mt-2">
+                        QA no pudo ejecutarse. Revisa el estado persistido del proyecto.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {d.project.status === 'NEEDS_FIX' && (
+                  <div className="mb-4 p-3 border border-amber-500/50 rounded bg-amber-500/5">
+                    <strong className="text-xs text-amber-500">
+                      QA requiere correcciones
+                    </strong>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      El backend devolvió el proyecto a BUILD. No puede avanzar a monetización hasta corregir o regenerar el entregable y aprobar QA.
+                    </p>
+                  </div>
+                )}
+
                 {d.project.qaRecommendations && d.project.qaRecommendations.length > 0 && (
                   <div>
                     <strong className="text-xs mb-2 block text-accent">Recomendaciones</strong>
@@ -151,6 +315,43 @@ export default function ProyectoDetailPage() {
                               <span className="text-[10px] bg-secondary px-2 py-1 rounded font-mono text-muted-foreground" title="Referencia / Hash">REF: {a.sourceId.substring(0, 16)}</span>
                             </div>
                           </div>
+                          {a.kind === 'DELIVERABLE' &&
+                            Array.isArray((a.data as any).artifactFiles) &&
+                            (a.data as any).artifactFiles.length > 0 && (
+                              <div className="mb-3 flex flex-col gap-2">
+                                {(a.data as any).artifactFiles.map(
+                                  (file: { path: string; sha256?: string }) => (
+                                    <div
+                                      key={file.path}
+                                      className="flex items-center justify-between gap-3 border border-border rounded p-2"
+                                    >
+                                      <div className="min-w-0">
+                                        <div className="text-xs font-mono break-all">
+                                          {file.path.split('/').pop() || file.path}
+                                        </div>
+                                        {file.sha256 && (
+                                          <div className="text-[10px] text-muted-foreground font-mono truncate">
+                                            SHA256: {file.sha256}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="btn btn-secondary shrink-0"
+                                        disabled={downloadingPath === file.path}
+                                        onClick={() => void handleArtifactDownload(file.path)}
+                                      >
+                                        {downloadingPath === file.path ? 'Descargando...' : 'Descargar'}
+                                      </button>
+                                    </div>
+                                  ),
+                                )}
+                                {downloadError && (
+                                  <p className="text-xs text-destructive">{downloadError}</p>
+                                )}
+                              </div>
+                            )}
+
                           <div className="bg-secondary/50 rounded p-3 overflow-x-auto">
                             {Object.entries(a.data as any).map(([k, v]) => (
                               <div key={k} className="mb-2 last:mb-0">
@@ -173,6 +374,174 @@ export default function ProyectoDetailPage() {
               </div>
 
               <div className="detail-aside">
+                {d.project.status === 'QA_PASS' && (
+                  <section className="panel mb-6">
+                    <div className="panel-heading">
+                      <div>
+                        <div className="eyebrow">Monetización</div>
+                        <h3>Preparar paquete comercial</h3>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Prepara borradores y materiales comerciales.
+                      No publica, no vende, no realiza pagos y no aprueba la revisión humana.
+                    </p>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={prepareSellReady.isPending}
+                      onClick={() => {
+                        prepareSellReady.mutate(
+                          { id },
+                          {
+                            onSuccess: () => void project.refetch(),
+                          },
+                        );
+                      }}
+                    >
+                      {prepareSellReady.isPending
+                        ? 'Preparando...'
+                        : 'Preparar monetización'}
+                    </button>
+
+                    {prepareSellReady.error && (
+                      <div className="text-xs text-destructive mt-2">
+                        No se pudo preparar el paquete comercial.
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {d.project.status === 'WAITING_HUMAN' && (
+                  <section className="panel mb-6">
+                    <div className="panel-heading">
+                      <div>
+                        <div className="eyebrow">Checkpoint humano</div>
+                        <h3>Revisión de monetización pendiente</h3>
+                      </div>
+                      <Badge value="WAITING_HUMAN" />
+                    </div>
+
+                    <p className="text-sm text-muted-foreground">
+                      El paquete comercial está preparado y el proyecto permanece bloqueado
+                      en MONETIZATION_REVIEW. Esta pantalla no aprueba automáticamente
+                      publicación, venta, pago ni ejecución financiera.
+                    </p>
+                  </section>
+                )}
+
+                {d.project.status === 'WAITING_HUMAN' && (
+                  <section className="panel mb-6">
+                    <div className="panel-heading">
+                      <div>
+                        <div className="eyebrow">Continuación segura</div>
+                        <h3>Registrar resultado</h3>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Esta operación solo funcionará cuando MONETIZATION_REVIEW haya sido
+                      completado explícitamente. El backend rechazará cualquier intento
+                      mientras el checkpoint humano siga pendiente.
+                    </p>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={recordResult.isPending}
+                      onClick={() => {
+                        recordResult.mutate(
+                          { id },
+                          {
+                            onSuccess: () => void project.refetch(),
+                          },
+                        );
+                      }}
+                    >
+                      {recordResult.isPending ? 'Registrando...' : 'Registrar resultado'}
+                    </button>
+
+                    {recordResult.error && (
+                      <div className="text-xs text-destructive mt-2">
+                        No se puede continuar. Verifica que MONETIZATION_REVIEW esté completado.
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {d.project.status === 'RESULT_RECORDED' && (
+                  <section className="panel mb-6">
+                    <div className="panel-heading">
+                      <div>
+                        <div className="eyebrow">Learning</div>
+                        <h3>Registrar aprendizaje</h3>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={recordLearning.isPending}
+                      onClick={() => {
+                        recordLearning.mutate(
+                          { id },
+                          {
+                            onSuccess: () => void project.refetch(),
+                          },
+                        );
+                      }}
+                    >
+                      {recordLearning.isPending ? 'Registrando...' : 'Registrar aprendizaje'}
+                    </button>
+
+                    {recordLearning.error && (
+                      <div className="text-xs text-destructive mt-2">
+                        No se pudo registrar el aprendizaje.
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {d.project.status === 'LEARNING_RECORDED' && (
+                  <section className="panel mb-6">
+                    <div className="panel-heading">
+                      <div>
+                        <div className="eyebrow">Cierre</div>
+                        <h3>Completar proyecto</h3>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Cierra el ciclo V1 en STOP_SAFE sin ejecutar publicación,
+                      venta ni operaciones financieras.
+                    </p>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={completeProject.isPending}
+                      onClick={() => {
+                        completeProject.mutate(
+                          { id },
+                          {
+                            onSuccess: () => void project.refetch(),
+                          },
+                        );
+                      }}
+                    >
+                      {completeProject.isPending ? 'Completando...' : 'Completar proyecto'}
+                    </button>
+
+                    {completeProject.error && (
+                      <div className="text-xs text-destructive mt-2">
+                        No se pudo completar el proyecto.
+                      </div>
+                    )}
+                  </section>
+                )}
+
                 <section className="panel">
                   <div className="panel-heading">
                     <div>
