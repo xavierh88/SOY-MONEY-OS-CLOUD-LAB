@@ -74,6 +74,9 @@ import {
   useGetFinanceSummary,
   getGetControlTowerOverviewQueryKey,
   getGetControlTowerTimelineQueryKey,
+  getGetOwnerConfigurationQueryKey,
+  useGetOwnerConfiguration,
+  useUpdateOwnerConfiguration,
 } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -473,9 +476,238 @@ function ApprovalsPanel() {
 }
 
 function SettingsPage() {
-  const health = useHealthCheck({ query: { queryKey: getHealthCheckQueryKey() } });
-  const [saved, setSaved] = useState(false);
-  return <div><PageHeader eyebrow="Sistema / 08" title="Configuración" description="Conexiones, gobernanza y límites que mantienen el sistema serio." action={<button className="button button-primary" onClick={() => setSaved(true)} data-testid="button-save-settings"><Check size={15} /> {saved ? 'Cambios guardados' : 'Guardar cambios'}</button>} /><div className="settings-layout"><section className="panel integrations"><div className="panel-heading"><div><div className="eyebrow">Dependencias externas</div><h3>Integraciones</h3></div><Badge value="NOT_CONFIGURED" small /></div><p className="section-intro">Estas conexiones son explícitas. Nada entra al pipeline sin una fuente identificable.</p>{['Search intelligence', 'Signals warehouse', 'Revenue attribution'].map((name, index) => <div className="integration-row" key={name} data-testid={`row-integration-${index}`}><div className="integration-symbol">{index === 0 ? <Search size={16} /> : index === 1 ? <Database size={16} /> : <BarChart3 size={16} />}</div><div><strong>{name}</strong><span>{index === 0 ? 'Búsqueda y captura de evidencia' : index === 1 ? 'Persistencia de fuentes verificadas' : 'Medición de resultados'}</span></div><Badge value="NOT_CONFIGURED" small /><button className="button button-quiet button-small" onClick={() => setSaved(false)} data-testid={`button-configure-integration-${index}`}><Settings2 size={13} /> Configurar</button></div>)}</section><aside className="settings-side"><div className="panel system-health"><div className="eyebrow">Health check</div><div className="health-value"><span className={cx('pulse-dot', health.data?.status === 'ok' && 'health-ok')} />{health.data?.status ? statusLabel(health.data.status) : health.isLoading ? 'consultando' : 'no disponible'}</div><p>Última comprobación contra el servicio de API.</p><button className="text-link" onClick={() => void health.refetch()} data-testid="button-refresh-health"><RefreshCw size={13} /> Actualizar</button></div><div className="panel"><div className="eyebrow">Política operativa</div><div className="policy-row"><ShieldCheck size={16} /><span>Revisión humana obligatoria</span><strong>ON</strong></div><div className="policy-row"><Clock3 size={16} /><span>Retención de evidencia</span><strong>90 días</strong></div></div></aside></div><ApprovalsPanel /></div>;
+  const health = useHealthCheck({
+    query: { queryKey: getHealthCheckQueryKey() },
+  });
+
+  const configuration = useGetOwnerConfiguration({
+    query: { queryKey: getGetOwnerConfigurationQueryKey() },
+  });
+
+  const updateConfiguration = useUpdateOwnerConfiguration();
+  const queryClient = useQueryClient();
+
+  const config = configuration.data;
+  const integrations = Object.entries(config?.integrationStatuses ?? {});
+
+  const updateIntegration = (
+    name: string,
+    status: 'NOT_CONFIGURED' | 'AVAILABLE' | 'DEGRADED' | 'DISABLED',
+  ) => {
+    if (!config) return;
+
+    updateConfiguration.mutate(
+      {
+        data: {
+          integrationStatuses: {
+            ...config.integrationStatuses,
+            [name]: status,
+          },
+        },
+      },
+      {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({
+            queryKey: getGetOwnerConfigurationQueryKey(),
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow="Sistema / 08"
+        title="Configuración"
+        description="Configuración persistida, integraciones y límites operativos del sistema."
+        action={
+          <button
+            className="button button-secondary"
+            onClick={() => {
+              void configuration.refetch();
+              void health.refetch();
+            }}
+            data-testid="button-refresh-settings"
+          >
+            <RefreshCw size={15} />
+            Actualizar
+          </button>
+        }
+      />
+
+      <DataState
+        loading={configuration.isLoading}
+        error={!!configuration.error}
+        empty={!configuration.isLoading && !config}
+        onRetry={() => void configuration.refetch()}
+      >
+        {config && (
+          <div className="settings-layout">
+            <section className="panel integrations">
+              <div className="panel-heading">
+                <div>
+                  <div className="eyebrow">Dependencias externas</div>
+                  <h3>Integraciones</h3>
+                </div>
+                <Badge
+                  value={
+                    integrations.some(([, status]) => status === 'DEGRADED')
+                      ? 'DEGRADED'
+                      : integrations.some(([, status]) => status === 'AVAILABLE')
+                        ? 'AVAILABLE'
+                        : 'NOT_CONFIGURED'
+                  }
+                  small
+                />
+              </div>
+
+              <p className="section-intro">
+                Estados persistidos por el backend. Los secretos y credenciales
+                nunca se muestran en esta pantalla.
+              </p>
+
+              {integrations.length === 0 ? (
+                <div className="inline-empty">
+                  No hay integraciones registradas.
+                </div>
+              ) : (
+                integrations.map(([name, status], index) => (
+                  <div
+                    className="integration-row"
+                    key={name}
+                    data-testid={`row-integration-${index}`}
+                  >
+                    <div className="integration-symbol">
+                      <Database size={16} />
+                    </div>
+
+                    <div>
+                      <strong>{name.replaceAll('_', ' ')}</strong>
+                      <span>Estado operativo persistido</span>
+                    </div>
+
+                    <Badge value={status} small />
+
+                    <select
+                      value={status}
+                      disabled={updateConfiguration.isPending}
+                      onChange={(event) =>
+                        updateIntegration(
+                          name,
+                          event.target.value as
+                            | 'NOT_CONFIGURED'
+                            | 'AVAILABLE'
+                            | 'DEGRADED'
+                            | 'DISABLED',
+                        )
+                      }
+                      data-testid={`select-integration-${index}`}
+                    >
+                      <option value="NOT_CONFIGURED">NOT CONFIGURED</option>
+                      <option value="AVAILABLE">AVAILABLE</option>
+                      <option value="DEGRADED">DEGRADED</option>
+                      <option value="DISABLED">DISABLED</option>
+                    </select>
+                  </div>
+                ))
+              )}
+            </section>
+
+            <aside className="settings-side">
+              <div className="panel system-health">
+                <div className="eyebrow">Health check</div>
+
+                <div className="health-value">
+                  <span
+                    className={cx(
+                      'pulse-dot',
+                      health.data?.status === 'ok' && 'health-ok',
+                    )}
+                  />
+
+                  {health.data?.status
+                    ? statusLabel(health.data.status)
+                    : health.isLoading
+                      ? 'consultando'
+                      : 'no disponible'}
+                </div>
+
+                <p>Estado actual del servicio API.</p>
+
+                <button
+                  className="text-link"
+                  onClick={() => void health.refetch()}
+                  data-testid="button-refresh-health"
+                >
+                  <RefreshCw size={13} />
+                  Actualizar
+                </button>
+              </div>
+
+              <div className="panel">
+                <div className="eyebrow">Gobernanza real</div>
+
+                <div className="policy-row">
+                  <ShieldCheck size={16} />
+                  <span>Autonomía</span>
+                  <strong>{config.autonomyEnabled ? 'ON' : 'OFF'}</strong>
+                </div>
+
+                <div className="policy-row">
+                  <ShieldCheck size={16} />
+                  <span>Bloqueo autónomo</span>
+                  <strong>
+                    {config.autonomyExecutionLocked ? 'LOCKED' : 'OFF'}
+                  </strong>
+                </div>
+
+                <div className="policy-row">
+                  <Database size={16} />
+                  <span>Finanzas</span>
+                  <strong>{config.financeMode}</strong>
+                </div>
+
+                <div className="policy-row">
+                  <ShieldCheck size={16} />
+                  <span>APIs externas</span>
+                  <strong>{config.externalApisAllowed ? 'ON' : 'OFF'}</strong>
+                </div>
+
+                <div className="policy-row">
+                  <ShieldCheck size={16} />
+                  <span>Publicación</span>
+                  <strong>{config.publishingAllowed ? 'ON' : 'OFF'}</strong>
+                </div>
+
+                <div className="policy-row">
+                  <ShieldCheck size={16} />
+                  <span>Pagos</span>
+                  <strong>{config.paymentsAllowed ? 'ON' : 'OFF'}</strong>
+                </div>
+
+                <div className="policy-row">
+                  <TerminalSquare size={16} />
+                  <span>Windmill</span>
+                  <strong>
+                    {config.windmillLegacyUnused ? 'LEGACY_UNUSED' : 'ACTIVE'}
+                  </strong>
+                </div>
+              </div>
+            </aside>
+          </div>
+        )}
+      </DataState>
+
+      {updateConfiguration.isError && (
+        <div className="cycle-error" data-testid="settings-save-error">
+          No se pudo persistir el cambio de configuración.
+        </div>
+      )}
+
+      <ApprovalsPanel />
+    </div>
+  );
 }
 
 function ExistingAppRouter() {
