@@ -86,6 +86,10 @@ const sameOriginCors: RequestHandler = (req, res, next) => {
 
 app.use(sameOriginCors);
 app.use(express.json({
+  // App Storage accepts up to 10 MiB of decoded bytes. Base64 expands the
+  // request by roughly 4/3, so the JSON parser must allow enough envelope
+  // space for the encoded object while the storage route enforces 10 MiB.
+  limit: "15mb",
   verify: (req, _res, buffer) => {
     // Keep the exact bytes for the machine-authenticated callback boundary.
     // The value is never logged or sent back to a caller.
