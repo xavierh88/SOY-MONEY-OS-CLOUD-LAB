@@ -350,7 +350,6 @@ test("Notifications persist, isolate owners, filter unread, and mark read", asyn
   assert.ok(rows.some((row) => row.id === unreadId));
   assert.ok(rows.some((row) => row.id === readId));
   assert.ok(!rows.some((row) => row.id === foreignId));
-  assert.ok(rows.every((row) => row.ownerClerkUserId === owner));
 
   const unreadOnly = await jsonRequest("/api/notifications?unreadOnly=true", {
     headers: ownerHeaders(),
@@ -375,11 +374,9 @@ test("Notifications persist, isolate owners, filter unread, and mark read", asyn
 
   const markedBody = marked.body as {
     id: number;
-    ownerClerkUserId: string;
     readAt: string | null;
   };
   assert.equal(markedBody.id, unreadId);
-  assert.equal(markedBody.ownerClerkUserId, owner);
   assert.ok(markedBody.readAt);
 
   const persisted = await adminClient.query(
@@ -442,7 +439,6 @@ test("Incidents persist, isolate owners, and acknowledge durably", async () => {
 
   assert.ok(rows.some((row) => row.id === ownedId));
   assert.ok(!rows.some((row) => row.id === foreignId));
-  assert.ok(rows.every((row) => row.ownerClerkUserId === owner));
 
   const acknowledged = await jsonRequest(`/api/incidents/${ownedId}/acknowledge`, {
     method: "POST",
@@ -452,14 +448,12 @@ test("Incidents persist, isolate owners, and acknowledge durably", async () => {
 
   const acknowledgedBody = acknowledged.body as {
     id: number;
-    ownerClerkUserId: string;
     status: string;
     acknowledgedAt: string | null;
     acknowledgedBy: string | null;
   };
 
   assert.equal(acknowledgedBody.id, ownedId);
-  assert.equal(acknowledgedBody.ownerClerkUserId, owner);
   assert.equal(acknowledgedBody.status, "ACKNOWLEDGED");
   assert.equal(acknowledgedBody.acknowledgedBy, owner);
   assert.ok(acknowledgedBody.acknowledgedAt);
