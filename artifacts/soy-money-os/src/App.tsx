@@ -171,6 +171,21 @@ export function Badge({ value, small = false }: { value?: string; small?: boolea
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const clerk = useClerk();
+  const ownerName =
+    clerk.user?.fullName ||
+    clerk.user?.primaryEmailAddress?.emailAddress ||
+    'Propietario';
+  const ownerInitials = ownerName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'SO';
+
+  const handleSignOut = async () => {
+    await clerk.signOut();
+  };
   const pageName = location === '/user-portal' ? 'Vista ejecutiva' : navGroups.flatMap((group) => group.items).find((item) => location.startsWith(item.href) && item.href !== '/')?.label || (location === '/configuracion' ? 'Configuración' : 'SOY MONEY OS');
   return (
     <div className="app-frame paper-noise">
@@ -191,7 +206,21 @@ function Shell({ children }: { children: ReactNode }) {
         </nav>
         <div className="sidebar-bottom">
           <div className="system-chip"><span className="pulse-signal" /><div><strong>SISTEMA OPERATIVO</strong><small>Servicios supervisados</small></div></div>
-          <div className="operator"><div className="avatar">AM</div><div><strong>Analista principal</strong><small>Control de oportunidades</small></div><ChevronDown size={14} /></div>
+          <div className="operator">
+            <div className="avatar">{ownerInitials}</div>
+            <div className="min-w-0 flex-1">
+              <strong className="block truncate">{ownerName}</strong>
+              <small>Propietario · sesión activa</small>
+            </div>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => void handleSignOut()}
+              data-testid="button-sign-out"
+            >
+              Cerrar sesión
+            </button>
+          </div>
         </div>
       </aside>
       <div className="main-wrap">
