@@ -151,6 +151,8 @@ const opportunityDetail = {
 export type FixtureState = {
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   notificationRead: boolean;
+  incidentAcknowledged: boolean;
+  dlqRetried: boolean;
 };
 
 function json(route: Route, body: unknown, status = 200) {
@@ -169,6 +171,8 @@ export async function installFixtureApi(page: Page): Promise<FixtureState> {
   const state: FixtureState = {
     approvalStatus: 'PENDING',
     notificationRead: false,
+    incidentAcknowledged: false,
+    dlqRetried: false,
   };
   // Fonts, Clerk, analytics, and accidental links must never leave the
   // fixture origin. Fallback lets the API route below handle /api requests.
@@ -212,6 +216,86 @@ export async function installFixtureApi(page: Page): Promise<FixtureState> {
         targetPath: '/proyectos/1',
         readAt: state.notificationRead ? NOW : null,
         createdAt: NOW,
+      }]);
+    }
+
+    if (request.method() === 'POST' && path === '/api/incidents/1/acknowledge') {
+      state.incidentAcknowledged = true;
+      return json(route, {
+        id: 1,
+        severity: 'HIGH',
+        status: 'ACKNOWLEDGED',
+        title: 'Worker detenido',
+        summary: 'Un worker requiere revisión operativa.',
+        correlationId: 'corr-e2e-incident-1',
+        acknowledgedAt: NOW,
+        acknowledgedBy: 'owner-e2e',
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+    }
+
+    if (request.method() === 'GET' && path === '/api/incidents') {
+      return json(route, [{
+        id: 1,
+        severity: 'HIGH',
+        status: state.incidentAcknowledged ? 'ACKNOWLEDGED' : 'OPEN',
+        title: 'Worker detenido',
+        summary: 'Un worker requiere revisión operativa.',
+        correlationId: 'corr-e2e-incident-1',
+        acknowledgedAt: state.incidentAcknowledged ? NOW : null,
+        acknowledgedBy: state.incidentAcknowledged ? 'owner-e2e' : null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      }]);
+    }
+
+    if (request.method() === 'POST' && path === '/api/operations/dlq/1/retry') {
+      const body = request.postDataJSON() as {
+        idempotencyKey?: string;
+        humanCheckpoint?: boolean;
+      };
+
+      if (
+        body.humanCheckpoint !== true ||
+        !body.idempotencyKey ||
+        body.idempotencyKey.length < 8
+      ) {
+        return json(route, {
+          error: 'Human checkpoint and valid idempotency key required',
+        }, 400);
+      }
+
+      state.dlqRetried = true;
+
+      return json(route, {
+        id: 1,
+        eventKey: 'project.build.failed',
+        eventType: 'PROJECT_BUILD_FAILED',
+        aggregateType: 'PROJECT',
+        aggregateId: '1',
+        status: 'RETRY_SCHEDULED',
+        attemptCount: 2,
+        availableAt: NOW,
+        lastError: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+    }
+
+    if (request.method() === 'GET' && path === '/api/operations/dlq') {
+      return json(route, [{
+        id: 1,
+        eventKey: 'project.build.failed',
+        eventType: 'PROJECT_BUILD_FAILED',
+        aggregateType: 'PROJECT',
+        aggregateId: '1',
+        status: state.dlqRetried ? 'RETRY_SCHEDULED' : 'FAILED',
+        attemptCount: state.dlqRetried ? 2 : 1,
+        availableAt: NOW,
+        lastError: state.dlqRetried ? null : 'Fixture worker failure',
+        createdAt: NOW,
+        updatedAt: NOW,
       }]);
     }
 

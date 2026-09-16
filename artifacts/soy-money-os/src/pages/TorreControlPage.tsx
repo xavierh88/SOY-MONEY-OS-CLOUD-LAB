@@ -1,6 +1,6 @@
 import { Link } from 'wouter';
 import { Radar, ArrowRight, ShieldAlert, Sparkles, Layers3, ActivityIcon, Search, RefreshCw, X, ExternalLink } from 'lucide-react';
-import { useGetControlTowerOverview, useGetControlTowerTimeline, useListDiscoveryResearch, useResearchDiscovery, useGetDiscoveryResearch, getListDiscoveryResearchQueryKey, getGetDiscoveryResearchQueryKey, useListNotifications, useMarkNotificationRead, getListNotificationsQueryKey } from '@workspace/api-client-react';
+import { useGetControlTowerOverview, useGetControlTowerTimeline, useListDiscoveryResearch, useResearchDiscovery, useGetDiscoveryResearch, getListDiscoveryResearchQueryKey, getGetDiscoveryResearchQueryKey, useListNotifications, useMarkNotificationRead, getListNotificationsQueryKey, useListIncidents, useAcknowledgeIncident, getListIncidentsQueryKey, useListDeadLetterEvents, useRetryDeadLetterEvent, getListDeadLetterEventsQueryKey } from '@workspace/api-client-react';
 import { PageHeader, DataState, MetricCard, cx, statusTone, formatTime, formatDate, Badge } from '@/App';
 import { useState, FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -212,6 +212,246 @@ function DiscoveryPanel() {
 }
 
 
+
+
+function DeadLetterQueuePanel() {
+  const queryClient = useQueryClient();
+  const dlq = useListDeadLetterEvents();
+  const retry = useRetryDeadLetterEvent({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: getListDeadLetterEventsQueryKey() });
+      },
+    },
+  });
+
+  const items = dlq.data || [];
+
+  const retryEvent = (id: number) => {
+    const idempotencyKey = crypto.randomUUID
+      ? crypto.randomUUID()
+      : `dlq-retry-${id}-${Date.now()}`;
+
+    retry.mutate({
+      id,
+      data: {
+        idempotencyKey,
+        humanCheckpoint: true,
+      },
+    });
+  };
+
+  return (
+    <section className="panel mb-6" data-testid="dlq-panel">
+      <div className="panel-heading">
+        <div>
+          <div className="eyebrow">Observabilidad / Recuperación Controlada</div>
+          <h3>Dead Letter Queue</h3>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Badge value={`${items.length} pendientes`} />
+          <button
+            className="icon-button"
+            onClick={() => void dlq.refetch()}
+            aria-label="Actualizar Dead Letter Queue"
+            data-testid="button-refresh-dlq"
+          >
+            <RefreshCw size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="px-4 py-3 border-b border-border bg-secondary/30">
+        <p className="text-xs text-muted-foreground">
+          Los eventos fallidos no se reintentan automáticamente desde esta vista.
+          Cada reintento requiere una acción humana explícita y se ejecuta con una
+          clave de idempotencia independiente.
+        </p>
+      </div>
+
+      <DataState
+        loading={dlq.isLoading}
+        error={!!dlq.error}
+        empty={!dlq.isLoading && items.length === 0}
+        onRetry={() => void dlq.refetch()}
+      >
+        <div className="activity-list activity-compact">
+          {items.map((item) => (
+            <div
+              className="activity-row"
+              key={item.id}
+              data-testid={`dlq-event-${item.id}`}
+            >
+              <div className="activity-marker red">
+                <span />
+              </div>
+
+              <div className="activity-body">
+                <div className="activity-meta">
+                  <div className="flex items-center gap-2">
+                    <Badge value={item.status} small />
+                    <span className="font-mono text-[10px]">
+                      Intentos: {item.attemptCount}
+                    </span>
+                  </div>
+
+                  <span>
+                    {formatDate(item.createdAt)} {formatTime(item.createdAt)}
+                  </span>
+                </div>
+
+                <p className="font-semibold text-sm mb-1">{item.eventType}</p>
+
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>
+                    Evento: <span className="font-mono">{item.eventKey}</span>
+                  </p>
+                  <p>
+                    Agregado: <span className="font-mono">
+                      {item.aggregateType}/{item.aggregateId}
+                    </span>
+                  </p>
+                  <p>
+                    Disponible: {formatDate(item.availableAt)} {formatTime(item.availableAt)}
+                  </p>
+                </div>
+
+                {item.lastError && (
+                  <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded text-sm">
+                    <strong className="block mb-1">Último error</strong>
+                    <span className="text-muted-foreground">{item.lastError}</span>
+                  </div>
+                )}
+
+                <div className="mt-3">
+                  <button
+                    className="button button-secondary"
+                    disabled={retry.isPending}
+                    onClick={() => retryEvent(item.id)}
+                    data-testid={`button-retry-dlq-${item.id}`}
+                  >
+                    {retry.isPending ? (
+                      <RefreshCw size={14} className="spin" />
+                    ) : (
+                      <RefreshCw size={14} />
+                    )}
+                    Reintentar con aprobación humana
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </DataState>
+    </section>
+  );
+}
+
+function IncidentsPanel() {
+  const queryClient = useQueryClient();
+  const incidents = useListIncidents();
+  const acknowledge = useAcknowledgeIncident({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: getListIncidentsQueryKey() });
+      },
+    },
+  });
+
+  const items = incidents.data || [];
+  const openCount = items.filter((item) => item.status === 'OPEN').length;
+
+  return (
+    <section className="panel mb-6" data-testid="incidents-panel">
+      <div className="panel-heading">
+        <div>
+          <div className="eyebrow">Observabilidad / Operaciones</div>
+          <h3>Incidentes</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge value={`${openCount} abiertos`} />
+          <button
+            className="icon-button"
+            onClick={() => void incidents.refetch()}
+            aria-label="Actualizar incidentes"
+            data-testid="button-refresh-incidents"
+          >
+            <RefreshCw size={16} />
+          </button>
+        </div>
+      </div>
+
+      <DataState
+        loading={incidents.isLoading}
+        error={!!incidents.error}
+        empty={!incidents.isLoading && items.length === 0}
+        onRetry={() => void incidents.refetch()}
+      >
+        <div className="activity-list activity-compact">
+          {items.map((item) => (
+            <div
+              className="activity-row"
+              key={item.id}
+              data-testid={`incident-${item.id}`}
+            >
+              <div className={cx(
+                'activity-marker',
+                item.severity === 'CRITICAL' || item.severity === 'HIGH'
+                  ? 'red'
+                  : item.severity === 'MEDIUM'
+                    ? 'amber'
+                    : 'neutral'
+              )}>
+                <span />
+              </div>
+
+              <div className="activity-body">
+                <div className="activity-meta">
+                  <div className="flex items-center gap-2">
+                    <Badge value={item.severity} small />
+                    <Badge value={item.status} small />
+                  </div>
+                  <span>{formatDate(item.createdAt)} {formatTime(item.createdAt)}</span>
+                </div>
+
+                <p className="font-semibold text-sm mb-1">{item.title}</p>
+                <p className="text-sm text-muted-foreground">{item.summary}</p>
+
+                {item.correlationId && (
+                  <p className="text-[10px] font-mono text-muted-foreground mt-2">
+                    Correlation ID: {item.correlationId}
+                  </p>
+                )}
+
+                {item.acknowledgedAt && (
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    Reconocido {formatDate(item.acknowledgedAt)} {formatTime(item.acknowledgedAt)}
+                    {item.acknowledgedBy ? ` por ${item.acknowledgedBy}` : ''}
+                  </p>
+                )}
+
+                {item.status === 'OPEN' && (
+                  <div className="mt-3">
+                    <button
+                      className="button button-secondary"
+                      disabled={acknowledge.isPending}
+                      onClick={() => acknowledge.mutate({ id: item.id })}
+                      data-testid={`button-acknowledge-incident-${item.id}`}
+                    >
+                      Reconocer incidente
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </DataState>
+    </section>
+  );
+}
+
 function NotificationsPanel() {
   const queryClient = useQueryClient();
   const notifications = useListNotifications();
@@ -380,6 +620,8 @@ export default function TorreControlPage() {
             </div>
 
             <NotificationsPanel />
+            <IncidentsPanel />
+            <DeadLetterQueuePanel />
             
             <section className="panel activity-panel">
               <div className="panel-heading">

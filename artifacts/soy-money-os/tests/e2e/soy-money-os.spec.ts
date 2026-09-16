@@ -60,6 +60,30 @@ test('dashboard, discovery fixture, evidence, and owner review', async ({ page }
 
   await expect(page.getByTestId('notifications-panel')).toContainText('0 sin leer');
   await expect(page.getByTestId('notification-1')).toContainText('LEÍDA');
+
+  // Incidents: OPEN -> explicit human acknowledgement -> ACKNOWLEDGED
+  await expect(page.getByTestId('incidents-panel')).toBeVisible();
+  await expect(page.getByTestId('incidents-panel')).toContainText('1 abiertos');
+  await expect(page.getByTestId('incident-1')).toContainText('Worker detenido');
+  await expect(page.getByTestId('incident-1')).toContainText('OPEN');
+
+  await page.getByTestId('button-acknowledge-incident-1').click();
+
+  await expect(page.getByTestId('incidents-panel')).toContainText('0 abiertos');
+  await expect(page.getByTestId('incident-1')).toContainText('ACKNOWLEDGED');
+  await expect(page.getByTestId('incident-1')).toContainText('owner-e2e');
+
+  // DLQ: FAILED -> explicit human checkpoint + idempotency -> RETRY_SCHEDULED
+  await expect(page.getByTestId('dlq-panel')).toBeVisible();
+  await expect(page.getByTestId('dlq-event-1')).toContainText('PROJECT_BUILD_FAILED');
+  await expect(page.getByTestId('dlq-event-1')).toContainText('FAILED');
+  await expect(page.getByTestId('dlq-event-1')).toContainText('Fixture worker failure');
+
+  await page.getByTestId('button-retry-dlq-1').click();
+
+  await expect(page.getByTestId('dlq-event-1')).toContainText('RETRY SCHEDULED');
+  await expect(page.getByTestId('dlq-event-1')).toContainText('Intentos: 2');
+  await expect(page.getByTestId('dlq-event-1')).not.toContainText('Fixture worker failure');
 });
 
 test('owner can reject a pending review without external side effects', async ({ page }) => {
