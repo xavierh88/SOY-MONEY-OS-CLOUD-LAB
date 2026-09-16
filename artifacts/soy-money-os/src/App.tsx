@@ -77,6 +77,7 @@ import {
   getGetOwnerConfigurationQueryKey,
   useGetOwnerConfiguration,
   useUpdateOwnerConfiguration,
+  useReadinessCheck,
 } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -512,6 +513,8 @@ function SettingsPage() {
     query: { queryKey: getHealthCheckQueryKey() },
   });
 
+  const readiness = useReadinessCheck();
+
   const configuration = useGetOwnerConfiguration({
     query: { queryKey: getGetOwnerConfigurationQueryKey() },
   });
@@ -559,6 +562,7 @@ function SettingsPage() {
             onClick={() => {
               void configuration.refetch();
               void health.refetch();
+              void readiness.refetch();
             }}
             data-testid="button-refresh-settings"
           >
@@ -648,32 +652,70 @@ function SettingsPage() {
 
             <aside className="settings-side">
               <div className="panel system-health">
-                <div className="eyebrow">Health check</div>
+                <div className="eyebrow">Estado operativo</div>
 
-                <div className="health-value">
-                  <span
-                    className={cx(
-                      'pulse-dot',
-                      health.data?.status === 'ok' && 'health-ok',
-                    )}
-                  />
-
-                  {health.data?.status
-                    ? statusLabel(health.data.status)
-                    : health.isLoading
-                      ? 'consultando'
-                      : 'no disponible'}
+                <div className="policy-row">
+                  <ActivityIcon size={16} />
+                  <span>API Health</span>
+                  <strong data-testid="status-api-health">
+                    {health.data?.status
+                      ? statusLabel(health.data.status)
+                      : health.isLoading
+                        ? 'CONSULTANDO'
+                        : 'NO DISPONIBLE'}
+                  </strong>
                 </div>
 
-                <p>Estado actual del servicio API.</p>
+                <div className="policy-row">
+                  <ShieldCheck size={16} />
+                  <span>Readiness</span>
+                  <strong data-testid="status-readiness">
+                    {readiness.data?.status
+                      ? statusLabel(readiness.data.status)
+                      : readiness.isLoading
+                        ? 'CONSULTANDO'
+                        : 'NO DISPONIBLE'}
+                  </strong>
+                </div>
+
+                {Object.entries(readiness.data?.checks ?? {}).map(
+                  ([name, check]) => (
+                    <div
+                      className="policy-row"
+                      key={name}
+                      data-testid={`readiness-check-${name}`}
+                    >
+                      <Database size={16} />
+                      <span>
+                        {name.replaceAll('_', ' ')}
+                        {check.diagnostic && (
+                          <small className="block text-muted-foreground">
+                            {check.diagnostic}
+                          </small>
+                        )}
+                      </span>
+                      <strong>{statusLabel(check.status)}</strong>
+                    </div>
+                  ),
+                )}
+
+                {readiness.error && (
+                  <p data-testid="readiness-error">
+                    Readiness no disponible. El servicio puede estar respondiendo
+                    aunque alguna dependencia operativa no pueda verificarse.
+                  </p>
+                )}
 
                 <button
                   className="text-link"
-                  onClick={() => void health.refetch()}
+                  onClick={() => {
+                    void health.refetch();
+                    void readiness.refetch();
+                  }}
                   data-testid="button-refresh-health"
                 >
                   <RefreshCw size={13} />
-                  Actualizar
+                  Actualizar estado
                 </button>
               </div>
 

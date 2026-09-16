@@ -188,7 +188,15 @@ export async function installFixtureApi(page: Page): Promise<FixtureState> {
       return;
     }
 
-    if (path === '/api/health') return json(route, { status: 'ok' });
+    if (path === '/api/healthz') return json(route, { status: 'ok' });
+    if (path === '/api/readyz') return json(route, {
+      status: 'ready',
+      checks: {
+        database: { status: 'ready' },
+        storage: { status: 'ready' },
+        workers: { status: 'ready' },
+      },
+    });
     if (path === '/api/dashboard') return json(route, {
       opportunitiesFound: 1,
       opportunitiesVerified: 0,

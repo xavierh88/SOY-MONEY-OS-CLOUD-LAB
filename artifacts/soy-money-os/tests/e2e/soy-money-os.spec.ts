@@ -37,6 +37,13 @@ test('dashboard, discovery fixture, evidence, and owner review', async ({ page }
 
   await page.goto('/configuracion');
   await expect(page.getByText('Decisiones pendientes')).toBeVisible();
+
+  await expect(page.getByTestId('status-api-health')).toContainText(/ok/i);
+  await expect(page.getByTestId('status-readiness')).toContainText(/ready/i);
+  await expect(page.getByTestId('readiness-check-database')).toContainText(/ready/i);
+  await expect(page.getByTestId('readiness-check-storage')).toContainText(/ready/i);
+  await expect(page.getByTestId('readiness-check-workers')).toContainText(/ready/i);
+
   await page.getByTestId('button-approve-setting-10').click();
   await expect(page.getByText('Sin señales todavía')).toBeVisible();
 
