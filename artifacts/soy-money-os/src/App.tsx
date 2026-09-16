@@ -168,14 +168,15 @@ export function Badge({ value, small = false }: { value?: string; small?: boolea
   return <span className={cx('status-badge', statusTone(value), small && 'text-[10px]')} data-testid={`status-${(value || 'sin-datos').toLowerCase()}`}>{statusLabel(value)}</span>;
 }
 
-function Shell({ children }: { children: ReactNode }) {
+type ShellProps = {
+  children: ReactNode;
+  ownerName?: string;
+  onSignOut?: () => void | Promise<void>;
+};
+
+function Shell({ children, ownerName = 'Propietario', onSignOut }: ShellProps) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const clerk = useClerk();
-  const ownerName =
-    clerk.user?.fullName ||
-    clerk.user?.primaryEmailAddress?.emailAddress ||
-    'Propietario';
   const ownerInitials = ownerName
     .split(/\s+/)
     .filter(Boolean)
@@ -184,7 +185,7 @@ function Shell({ children }: { children: ReactNode }) {
     .join('') || 'SO';
 
   const handleSignOut = async () => {
-    await clerk.signOut();
+    await onSignOut?.();
   };
   const pageName = location === '/user-portal' ? 'Vista ejecutiva' : navGroups.flatMap((group) => group.items).find((item) => location.startsWith(item.href) && item.href !== '/')?.label || (location === '/configuracion' ? 'Configuración' : 'SOY MONEY OS');
   return (
@@ -741,8 +742,8 @@ function SettingsPage() {
   );
 }
 
-function ExistingAppRouter() {
-  return <Shell><ErrorBoundary resetKey={window.location.pathname}><Switch><Route path="/user-portal" component={DashboardPage} /><Route path="/torre-control" component={TorreControlPage} /><Route path="/oportunidades" component={OpportunitiesPage} /><Route path="/oportunidades/:id" component={OportunidadDetailPage} /><Route path="/evidencia" component={EvidenciaPage} /><Route path="/demand-proof" component={DemandProofPage} /><Route path="/proyectos" component={ProyectosPage} /><Route path="/proyectos/:id" component={ProyectoDetailPage} /><Route path="/ejecucion" component={EjecucionPage} /><Route path="/resultados" component={ResultsPage} /><Route path="/aprendizaje" component={LearningPage} /><Route path="/money-lab" component={MoneyLabPage} /><Route path="/autonomia" component={AutonomiaPage} /><Route path="/acciones" component={AccionesPage} /><Route path="/finanzas" component={FinanzasPage} /><Route path="/configuracion" component={SettingsPage} /><Route component={NotFound} /></Switch></ErrorBoundary></Shell>;
+function ExistingAppRouter({ ownerName, onSignOut }: { ownerName?: string; onSignOut?: () => void | Promise<void> }) {
+  return <Shell ownerName={ownerName} onSignOut={onSignOut}><ErrorBoundary resetKey={window.location.pathname}><Switch><Route path="/user-portal" component={DashboardPage} /><Route path="/torre-control" component={TorreControlPage} /><Route path="/oportunidades" component={OpportunitiesPage} /><Route path="/oportunidades/:id" component={OportunidadDetailPage} /><Route path="/evidencia" component={EvidenciaPage} /><Route path="/demand-proof" component={DemandProofPage} /><Route path="/proyectos" component={ProyectosPage} /><Route path="/proyectos/:id" component={ProyectoDetailPage} /><Route path="/ejecucion" component={EjecucionPage} /><Route path="/resultados" component={ResultsPage} /><Route path="/aprendizaje" component={LearningPage} /><Route path="/money-lab" component={MoneyLabPage} /><Route path="/autonomia" component={AutonomiaPage} /><Route path="/acciones" component={AccionesPage} /><Route path="/finanzas" component={FinanzasPage} /><Route path="/configuracion" component={SettingsPage} /><Route component={NotFound} /></Switch></ErrorBoundary></Shell>;
 }
 
 const clerkPubKey = publishableKeyFromHost(
@@ -851,8 +852,18 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function ClerkSignedInApp() {
+  const clerk = useClerk();
+  const ownerName =
+    clerk.user?.fullName ||
+    clerk.user?.primaryEmailAddress?.emailAddress ||
+    'Propietario';
+
+  return <ExistingAppRouter ownerName={ownerName} onSignOut={() => clerk.signOut()} />;
+}
+
 function SignedInRoutes() {
-  return <><Show when="signed-in"><ExistingAppRouter /></Show><Show when="signed-out"><Redirect to="/" /></Show></>;
+  return <><Show when="signed-in"><ClerkSignedInApp /></Show><Show when="signed-out"><Redirect to="/" /></Show></>;
 }
 
 function ClerkProviderWithRoutes() {
@@ -874,7 +885,7 @@ function E2EFixtureRoutes() {
     window.sessionStorage.removeItem('soy-money-e2e-auth');
     setSignedIn(false);
   };
-  return <QueryClientProvider client={queryClient}><Switch><Route path="/" component={() => signedIn ? <Redirect to="/user-portal" /> : <HomePage />} /><Route path="/sign-in/*?" component={() => signedIn ? <Redirect to="/user-portal" /> : <E2EFixtureSignIn onSignIn={signIn} />} /><Route path="/sign-up/*?" component={() => signedIn ? <Redirect to="/user-portal" /> : <E2EFixtureSignIn onSignIn={signIn} signUp />} /><Route component={() => signedIn ? <ExistingAppRouter /> : <Redirect to="/" />} /></Switch><button type="button" className="sr-only" onClick={signOut} data-testid="button-e2e-sign-out">Sign out fixture</button><TooltipProvider><Toaster /></TooltipProvider></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><Switch><Route path="/" component={() => signedIn ? <Redirect to="/user-portal" /> : <HomePage />} /><Route path="/sign-in/*?" component={() => signedIn ? <Redirect to="/user-portal" /> : <E2EFixtureSignIn onSignIn={signIn} />} /><Route path="/sign-up/*?" component={() => signedIn ? <Redirect to="/user-portal" /> : <E2EFixtureSignIn onSignIn={signIn} signUp />} /><Route component={() => signedIn ? <ExistingAppRouter ownerName="Propietario E2E" onSignOut={signOut} /> : <Redirect to="/" />} /></Switch><button type="button" className="sr-only" onClick={signOut} data-testid="button-e2e-sign-out">Sign out fixture</button><TooltipProvider><Toaster /></TooltipProvider></QueryClientProvider>;
 }
 
 function App() {
