@@ -8,7 +8,8 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "release:gate": "node ./scripts/release-gate.mjs"
+    "release:gate": "node ./scripts/release-gate.mjs",
+    "repair:auto": "node ./scripts/auto-repair/supervisor.mjs"
   },
   "private": true,
   "dependencies": {
