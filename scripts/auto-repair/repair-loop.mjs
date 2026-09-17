@@ -8,6 +8,16 @@ const MAX_ATTEMPTS = 3;
 
 async function repairLoop({ filePath, testCommand, testArgs = [] }) {
   const baselineContent = await fs.readFile(filePath, "utf8");
+  let patchApplied = false;
+
+  async function safeExit(result) {
+    if (patchApplied) {
+      console.log("ACTION=ROLLBACK");
+      await fs.writeFile(filePath, baselineContent);
+      console.log("STATUS=ROLLBACK_COMPLETE");
+    }
+    return result;
+  }
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     console.log(`REPAIR_ATTEMPT=${attempt}`);
 
@@ -28,13 +38,13 @@ async function repairLoop({ filePath, testCommand, testArgs = [] }) {
     } catch {
       console.log("STATUS=WAITING_HUMAN");
       console.log("REASON=INVALID_DIAGNOSIS_JSON");
-      return { status: "WAITING_HUMAN" };
+      return safeExit({ status: "WAITING_HUMAN" });
     }
 
     if (diagnosis.needsHuman) {
       console.log("STATUS=WAITING_HUMAN");
       console.log("REASON=DIAGNOSIS_REQUIRES_HUMAN");
-      return { status: "WAITING_HUMAN" };
+      return safeExit({ status: "WAITING_HUMAN" });
     }
 
     const gate = evaluateRepair(filePath, diagnosis.risk);
@@ -42,7 +52,7 @@ async function repairLoop({ filePath, testCommand, testArgs = [] }) {
     if (!gate.allowed) {
       console.log(`STATUS=${gate.status}`);
       console.log(`REASON=${gate.reason}`);
-      return { status: gate.status };
+      return safeExit({ status: gate.status });
     }
 
     const originalContent = await fs.readFile(filePath, "utf8");
@@ -58,13 +68,13 @@ async function repairLoop({ filePath, testCommand, testArgs = [] }) {
     } catch {
       console.log("STATUS=WAITING_HUMAN");
       console.log("REASON=INVALID_PATCH_JSON");
-      return { status: "WAITING_HUMAN" };
+      return safeExit({ status: "WAITING_HUMAN" });
     }
 
     if (proposal.filePath !== filePath) {
       console.log("STATUS=WAITING_HUMAN");
       console.log("REASON=TARGET_FILE_CHANGED");
-      return { status: "WAITING_HUMAN" };
+      return safeExit({ status: "WAITING_HUMAN" });
     }
 
     const patchGate = evaluateRepair(proposal.filePath, proposal.risk);
@@ -72,10 +82,11 @@ async function repairLoop({ filePath, testCommand, testArgs = [] }) {
     if (!patchGate.allowed) {
       console.log(`STATUS=${patchGate.status}`);
       console.log(`REASON=${patchGate.reason}`);
-      return { status: patchGate.status };
+      return safeExit({ status: patchGate.status });
     }
 
     await fs.writeFile(filePath, proposal.replacementContent + "\n");
+    patchApplied = true;
     console.log(`PATCH_APPLIED=${filePath}`);
   }
 
