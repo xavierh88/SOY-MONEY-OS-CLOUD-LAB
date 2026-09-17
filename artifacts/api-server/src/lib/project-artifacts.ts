@@ -51,8 +51,20 @@ const artifactRoot = () =>
 
 const safeSegment = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, "_");
 const hash = (content: string | Buffer) => createHash("sha256").update(content).digest("hex");
+const canonicalizeJson = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(canonicalizeJson);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, canonicalizeJson(item)]),
+    );
+  }
+  return value;
+};
+
 const canonicalManifest = (manifest: Omit<ProjectArtifactManifest, "manifestHash">) =>
-  JSON.stringify(manifest, null, 2) + "\n";
+  JSON.stringify(canonicalizeJson(manifest), null, 2) + "\n";
 const localTestStorage = () => process.env.PROJECT_ARTIFACT_STORAGE_MODE === "local-test";
 const sidecarEndpoint = "http://127.0.0.1:1106";
 

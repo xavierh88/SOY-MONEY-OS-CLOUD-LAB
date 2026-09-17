@@ -3,10 +3,13 @@ import assert from "node:assert/strict";
 type JsonObject = Record<string, unknown>;
 
 const baseUrl = process.env.TEST_API_BASE_URL ?? "http://localhost:80/api";
+const testOwnerId = process.env.TEST_OWNER_CLERK_USER_ID ?? "test-owner";
 const testName = `Windmill evidence endpoint test ${Date.now()}`;
 
 async function request<T>(path: string, init?: RequestInit): Promise<{ response: Response; body: T }> {
-  const response = await fetch(`${baseUrl}${path}`, init);
+  const headers = new Headers(init?.headers);
+  headers.set("x-test-clerk-user-id", testOwnerId);
+  const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
   const body = (await response.json()) as T;
   return { response, body };
 }

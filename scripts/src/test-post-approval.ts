@@ -3,10 +3,13 @@ import assert from "node:assert/strict";
 type JsonObject = Record<string, unknown>;
 
 const baseUrl = process.env.TEST_API_BASE_URL ?? "http://localhost:80/api";
+const testOwnerId = process.env.TEST_OWNER_CLERK_USER_ID ?? "test-owner";
 const testQuery = `POST APPROVAL E2E TEST ${Date.now()}`;
 
 async function request<T>(path: string, init?: RequestInit): Promise<{ status: number; body: T }> {
-  const response = await fetch(`${baseUrl}${path}`, init);
+  const headers = new Headers(init?.headers);
+  headers.set("x-test-clerk-user-id", testOwnerId);
+  const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
   const body = (await response.json()) as T;
   return { status: response.status, body };
 }
@@ -80,14 +83,35 @@ assert.equal(qa.body.nextStage, "SELL_READY");
 
 const sellReady = await post<JsonObject>(`/projects/${String(projectId)}/sell-ready`);
 assert.equal(sellReady.status, 200);
-assert.equal(sellReady.body.status, "SELL_READY");
+assert.equal(sellReady.body.status, "HUMAN_ACTION_REQUIRED");
+assert.equal(sellReady.body.nextStage, "MONETIZATION_REVIEW");
 const sellPackage = sellReady.body.sellPackage as JsonObject;
 assert.equal(sellPackage.publicationExecuted, false);
 assert.equal(sellPackage.marketingExecuted, false);
 assert.equal(sellPackage.saleExecuted, false);
 assert.equal(sellPackage.financialExecution, false);
 
+const humanActions = await request<JsonObject[]>("/human-actions");
+assert.equal(humanActions.status, 200);
+const monetizationAction = humanActions.body.find((action) =>
+  Number(action.projectId) === projectId
+  && action.checkpoint === "MONETIZATION_REVIEW"
+  && action.status === "PENDING"
+);
+assert.ok(monetizationAction, "Expected pending MONETIZATION_REVIEW human action");
+
+const completedAction = await post<JsonObject>(
+  `/human-actions/${String(monetizationAction.id)}/complete`,
+  { payload: { approved: true, mode: "TEST_SIMULATION" } },
+);
+assert.equal(completedAction.status, 200);
+assert.equal(completedAction.body.status, "COMPLETED");
+assert.equal(completedAction.body.checkpoint, "MONETIZATION_REVIEW");
+
 const result = await post<JsonObject>(`/projects/${String(projectId)}/result`);
+if (result.status !== 200) {
+  console.error("RESULT_ENDPOINT_FAILURE", JSON.stringify(result.body, null, 2));
+}
 assert.equal(result.status, 200);
 const resultRecord = result.body.result as JsonObject;
 assert.equal(resultRecord.resultType, "MVP_PREPARED");
