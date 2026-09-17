@@ -1,3 +1,5 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { ReadinessCheckResponse } from "@workspace/api-zod";
@@ -6,6 +8,12 @@ import { sql } from "drizzle-orm";
 import { readOperationalMetrics } from "../lib/operational-metrics";
 
 const router: IRouter = Router();
+
+const appStorageRoot = () =>
+  path.resolve(
+    process.env.APP_STORAGE_ROOT ??
+      path.join(process.cwd(), "workspace", "app-storage"),
+  );
 
 router.get("/healthz", (_req, res) => {
   const data = HealthCheckResponse.parse({ status: "ok" });
@@ -20,9 +28,28 @@ router.get("/readyz", async (_req, res): Promise<void> => {
   } catch {
     checks.database = { status: "unavailable", diagnostic: "Database probe failed" };
   }
-  checks.storage = process.env.APP_STORAGE_ROOT || process.env.PROJECT_ARTIFACT_STORAGE_MODE === "local-test"
-    ? { status: "ready" }
-    : { status: "degraded", diagnostic: "Offline storage root is not configured" };
+  const storageRoot = appStorageRoot();
+  const probePath = path.join(
+    storageRoot,
+    `.readiness-${process.pid}-${Date.now()}.probe`,
+  );
+
+  try {
+    await fs.mkdir(storageRoot, { recursive: true });
+    await fs.writeFile(probePath, "ready", { flag: "wx" });
+    const probe = await fs.readFile(probePath, "utf8");
+    if (probe !== "ready") {
+      throw new Error("Storage probe content mismatch");
+    }
+    checks.storage = { status: "ready" };
+  } catch {
+    checks.storage = {
+      status: "unavailable",
+      diagnostic: "App Storage read/write probe failed",
+    };
+  } finally {
+    await fs.rm(probePath, { force: true }).catch(() => undefined);
+  }
   checks.workers = process.env.WORKERS_DISABLED === "true"
     ? { status: "degraded", diagnostic: "Workers are disabled by configuration" }
     : { status: "ready" };
