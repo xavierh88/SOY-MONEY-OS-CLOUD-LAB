@@ -23,7 +23,8 @@
     "test:p0-safety-invariants": "tsx ./src/test-p0-safety-invariants.ts",
     "smoke:readiness": "tsx ./src/smoke-readiness.ts",
     "audit:final-controlled-golden-path": "tsx ./src/execute-final-controlled-golden-path.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:runtime-integration": "tsx ./src/runtime-integration-gate.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

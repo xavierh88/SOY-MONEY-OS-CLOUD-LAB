@@ -7,12 +7,13 @@ import { repairLoop } from "./repair-loop.mjs";
 const MAX_CYCLES = 20;
 
 process.env.TEST_API_BASE_URL = "http://127.0.0.1:18082/api";
+process.env.TEST_DATABASE_URL ||= "postgresql://postgres@helium:5432/soy_money_ci_test";
 delete process.env.DATABASE_URL;
 process.env.NODE_ENV = "test";
 process.env.SOY_OWNER_CLERK_USER_ID = "test-owner";
 process.env.TEST_OWNER_CLERK_USER_ID = "test-owner";
 const NIGHT_QUEUE = [
-  ["P0_RELEASE_GATE", "pnpm", ["run","release:gate"]],
+  ["P0_RELEASE_GATE", "pnpm", ["-w","run","release:gate"]],
   ["P1_BACKEND", "pnpm", ["--filter","@workspace/api-server","exec","tsx","--test","tests/app-storage.integration.test.ts","tests/p1-operations.integration.test.ts","tests/readiness.integration.test.ts"]],
   ["EVIDENCE", "pnpm", ["--filter","@workspace/scripts","run","test:evidence"]],
   ["DISCOVERY", "pnpm", ["--filter","@workspace/scripts","run","test:discovery-research"]],
@@ -25,7 +26,8 @@ const NIGHT_QUEUE = [
   ["SAFETY", "pnpm", ["--filter","@workspace/scripts","run","test:p0-safety-invariants"]],
   ["PUBLIC_DISCOVERY_P2P3", "pnpm", ["--filter","@workspace/scripts","run","run:final-gap-public-discovery"]],
   ["FINAL_CONTROLLED_GOLDEN_PATH", "pnpm", ["--filter","@workspace/scripts","run","audit:final-controlled-golden-path"]],
-  ["FINAL_RELEASE_GATE", "pnpm", ["run","release:gate"]],
+  ["RUNTIME_INTEGRATION", "pnpm", ["--filter","@workspace/scripts","run","test:runtime-integration"]],
+  ["FINAL_RELEASE_GATE", "pnpm", ["-w","run","release:gate"]],
 ];
 const protectedPatterns = [/\.env/i,/secret/i,/credential/i,/\.soy_money_github_key/i,/require-owner/i,/owner_binding/i,/auth/i,/security/i,/migrations/i,/finance/i,/autonomy/i,/external.dispatch/i,/\.github/i];
 

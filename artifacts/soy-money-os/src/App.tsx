@@ -82,6 +82,7 @@ import {
   useListStorageObjects,
   useUploadStorageObject,
   downloadStorageObject,
+  setAuthTokenGetter,
 } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -1088,6 +1089,12 @@ function ClerkQueryClientCacheInvalidator() {
 
 function ClerkSignedInApp() {
   const clerk = useClerk();
+
+  useEffect(() => {
+    setAuthTokenGetter(() => clerk.session?.getToken() ?? Promise.resolve(null));
+    return () => setAuthTokenGetter(null);
+  }, [clerk.session]);
+
   const ownerName =
     clerk.user?.fullName ||
     clerk.user?.primaryEmailAddress?.emailAddress ||

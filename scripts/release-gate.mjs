@@ -40,6 +40,7 @@ for (const name of Object.keys(childEnvironment)) {
 childEnvironment.PORT = "4173";
 childEnvironment.BASE_PATH = "/";
 childEnvironment.NODE_ENV = "test";
+childEnvironment.CI = "true";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL?.trim();
 if (!testDatabaseUrl) {
