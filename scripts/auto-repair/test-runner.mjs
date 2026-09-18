@@ -23,10 +23,34 @@ function runCommand(command, args = [], options = {}) {
       process.stderr.write(text);
     });
 
-    child.on("close", (code) => {
+    let timedOut = false;
+    let settled = false;
+
+    const timeout =
+      Number.isFinite(options.timeoutMs) && options.timeoutMs > 0
+        ? setTimeout(() => {
+            timedOut = true;
+            stderr += `\nCOMMAND_TIMEOUT=${options.timeoutMs}ms\n`;
+            child.kill("SIGTERM");
+
+            setTimeout(() => {
+              if (!settled) child.kill("SIGKILL");
+            }, 5000).unref();
+          }, options.timeoutMs)
+        : null;
+
+    timeout?.unref();
+
+    child.on("close", (code, signal) => {
+      if (settled) return;
+      settled = true;
+      if (timeout) clearTimeout(timeout);
+
       resolve({
-        ok: code === 0,
+        ok: !timedOut && code === 0,
         code,
+        signal,
+        timedOut,
         stdout,
         stderr,
       });

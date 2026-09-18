@@ -1,6 +1,6 @@
 # Final Controlled Golden Path Audit
 
-Generated: 2026-09-15T06:45:36.230Z
+Generated: 2026-09-18T10:20:10.124Z
 
 ## Decision
 
@@ -15,21 +15,21 @@ This decision does not activate autonomy. `AUTONOMY_EXECUTION_LOCKED` is asserte
 - Discovery run: 1
 - Discovery status: REJECTED
 - Explicit discovery outcome: NO_CORROBORATED_EVIDENCE
-- Public source adapters completed: 3
-- Independent public sources: 3
-- Findings persisted: 20
+- Public source adapters completed: 4
+- Independent public sources: 33
+- Findings persisted: 174
 - Accepted research opportunities: 0
-- Controlled cycle: 65
-- Controlled opportunity: 128 (`TEST_SIMULATION`, not `REAL_VERIFIED`)
-- Same project through BUILD, QA, monetization preparation, result and learning: 20
+- Controlled cycle: 2
+- Controlled opportunity: 54 (`TEST_SIMULATION`, not `REAL_VERIFIED`)
+- Same project through BUILD, QA, monetization preparation, result and learning: 47
 - Project final status: COMPLETED
 - QA: PASS, score 100
-- Artifact manifest hash: 4092f70e403b5ee22bee4cbf0727fa849a97025bd3421f63020f41455e4be06c
-- Artifact manifest App Storage path: /objects/generated/project-20/SITE_MVP/4ebee4e6789f7c356ca978083eae7e82eff38db3ecabf04e92d8ad37ca577c54-manifest.json
+- Artifact manifest hash: 77be359acb4912717fce3f8070f81123cc7937eb6e20330657356a6a41646ffb
+- Artifact manifest App Storage path: /objects/generated/project-47/SITE_MVP/9ed80db920c7450d672b4bdaaf1cd84a06bdef93700506a66c3f64a4124612a0-manifest.json
 - Artifact files persisted to App Storage: 3
 - Artifact validated after deleting its local QA cache: PASS
-- Owner approval action completed: 10
-- Monetization `HUMAN_ACTION_REQUIRED` left pending: 11
+- Owner approval action completed: 12
+- Monetization `HUMAN_ACTION_REQUIRED` left pending: 13
 - Lifecycle events for the controlled cycle: 11
 - Idempotent retry preserved project and event counts: PASS
 - Publication executed: false
@@ -39,7 +39,7 @@ This decision does not activate autonomy. `AUTONOMY_EXECUTION_LOCKED` is asserte
 - Autonomy states: OFF
 - Production Money Lab exact correlation contract, including mismatch cases: PASS
 - Production Money Lab safety contract, including missing/unsafe flags: PASS
-- GitHub dispatch records observed (no dispatch performed by this audit): 1
+- GitHub dispatch records observed (no dispatch performed by this audit): 0
 
 ## Safety conclusion
 

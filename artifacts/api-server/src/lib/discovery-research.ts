@@ -94,6 +94,9 @@ export type DiscoveryFindingInput = {
   source: string;
   sourceUrl: string;
   detectedAt: Date;
+  publicationAt?: Date | null;
+  publicationDateStatus?: "UNKNOWN" | "VERIFIED";
+  collectedAt?: Date;
   titleClaim: string;
   excerpt: string;
   independenceKey: string;
@@ -259,6 +262,34 @@ export function freshnessScore(detectedAt: Date, now = new Date()) {
   if (!Number.isFinite(detectedAt.getTime())) return 0;
   const ageDays = Math.max(0, (now.getTime() - detectedAt.getTime()) / 86_400_000);
   return Math.max(0, Math.min(1, 1 - ageDays / 90));
+}
+
+function verifiedPublicationAt(finding: DiscoveryFindingInput): Date | null {
+  if (finding.publicationDateStatus === "UNKNOWN") return null;
+
+  if (
+    finding.publicationDateStatus === "VERIFIED"
+    && finding.publicationAt
+    && Number.isFinite(finding.publicationAt.getTime())
+  ) {
+    return finding.publicationAt;
+  }
+
+  // Compatibility for legacy findings created before the temporal model.
+  if (
+    finding.publicationDateStatus === undefined
+    && Number.isFinite(finding.detectedAt.getTime())
+    && finding.detectedAt.getTime() > UNKNOWN_PUBLICATION_DATE.getTime()
+  ) {
+    return finding.detectedAt;
+  }
+
+  return null;
+}
+
+function findingFreshnessScore(finding: DiscoveryFindingInput, now = new Date()) {
+  const publicationAt = verifiedPublicationAt(finding);
+  return publicationAt ? freshnessScore(publicationAt, now) : 0;
 }
 
 // Keep discovery eligibility inside the stricter owner-checkpoint freshness
@@ -428,6 +459,9 @@ function findingFromBraveResult(normalized: NormalizedBraveResult): Finding {
     // underlying result origin, never the aggregator.
     independenceKey: normalized.domain,
     detectedAt: normalized.publicationDate ?? UNKNOWN_PUBLICATION_DATE,
+    publicationAt: normalized.publicationDate,
+    publicationDateStatus: normalized.publicationDateStatus,
+    collectedAt: normalized.retrievedAt,
     titleClaim: normalized.title,
     excerpt: normalized.description,
     raw: {
@@ -732,10 +766,28 @@ function findingFromPersistedAttempt(value: Record<string, unknown>): Finding | 
   const validDetectedAt = Number.isFinite(detectedAt.getTime()) ? detectedAt : UNKNOWN_PUBLICATION_DATE;
   const independenceKey = typeof value.independenceKey === "string"
     ? value.independenceKey : canonicalResultDomain(sourceUrl);
+  const publicationDateStatus = value.publication_date_status === "VERIFIED"
+    ? "VERIFIED" as const
+    : "UNKNOWN" as const;
+  const publicationAt = publicationDateStatus === "VERIFIED" && Number.isFinite(publishedAt.getTime())
+    ? publishedAt
+    : null;
+  const collectedAtCandidate = typeof value.retrievedAt === "string"
+    ? new Date(value.retrievedAt)
+    : typeof value.collectedAt === "string"
+      ? new Date(value.collectedAt)
+      : null;
+  const collectedAt = collectedAtCandidate && Number.isFinite(collectedAtCandidate.getTime())
+    ? collectedAtCandidate
+    : undefined;
+
   return {
     source,
     sourceUrl,
     detectedAt: validDetectedAt,
+    publicationAt,
+    publicationDateStatus,
+    collectedAt,
     titleClaim: title,
     excerpt,
     independenceKey,
@@ -745,7 +797,9 @@ function findingFromPersistedAttempt(value: Record<string, unknown>): Finding | 
       title,
       description: excerpt,
       detectedAt: validDetectedAt.toISOString(),
-      publication_date_status: value.publication_date_status === "VERIFIED" ? "VERIFIED" : "UNKNOWN",
+      publicationDate: publicationAt?.toISOString() ?? "UNKNOWN",
+      publication_date_status: publicationDateStatus,
+      ...(collectedAt ? { collectedAt: collectedAt.toISOString() } : {}),
     },
   };
 }
@@ -862,11 +916,17 @@ async function hackerNews(
     const title = typeof record.title === "string" ? record.title.trim() : "";
     if (!title) return [];
     const objectId = String(record.objectID ?? "");
-    const detectedAt = typeof record.created_at === "string" ? new Date(record.created_at) : new Date();
+    const parsedPublicationAt = typeof record.created_at === "string"
+      ? parseVerifiablePublicationDate(record.created_at)
+      : null;
+    const collectedAt = new Date();
     return [{
       source: "HACKER_NEWS",
       sourceUrl: urlFor(record.url, `https://news.ycombinator.com/item?id=${objectId}`),
-      detectedAt: Number.isNaN(detectedAt.getTime()) ? new Date() : detectedAt,
+      detectedAt: parsedPublicationAt ?? UNKNOWN_PUBLICATION_DATE,
+      publicationAt: parsedPublicationAt,
+      publicationDateStatus: parsedPublicationAt ? "VERIFIED" as const : "UNKNOWN" as const,
+      collectedAt,
       titleClaim: title,
       excerpt: typeof record.story_text === "string" ? record.story_text.slice(0, 2_000) : "",
       independenceKey: "news.ycombinator.com",
@@ -901,10 +961,17 @@ async function stackExchange(
     const title = typeof record.title === "string" ? record.title.trim() : "";
     if (!title) return [];
     const epoch = Number(record.creation_date);
+    const parsedPublicationAt = Number.isFinite(epoch) && epoch > 0
+      ? new Date(epoch * 1_000)
+      : null;
+    const collectedAt = new Date();
     return [{
       source: "STACK_EXCHANGE",
       sourceUrl: urlFor(record.link, endpoint.toString()),
-      detectedAt: Number.isFinite(epoch) ? new Date(epoch * 1_000) : new Date(),
+      detectedAt: parsedPublicationAt ?? UNKNOWN_PUBLICATION_DATE,
+      publicationAt: parsedPublicationAt,
+      publicationDateStatus: parsedPublicationAt ? "VERIFIED" as const : "UNKNOWN" as const,
+      collectedAt,
       titleClaim: title.replace(/<[^>]+>/g, ""),
       excerpt: typeof record.tags === "object" && Array.isArray(record.tags)
         ? record.tags.map(String).join(", ").slice(0, 2_000) : "",
@@ -936,11 +1003,17 @@ async function github(
     const record = item as Record<string, unknown>;
     const title = typeof record.title === "string" ? record.title.trim() : "";
     if (!title) return [];
-    const created = typeof record.created_at === "string" ? new Date(record.created_at) : new Date();
+    const parsedPublicationAt = typeof record.created_at === "string"
+      ? parseVerifiablePublicationDate(record.created_at)
+      : null;
+    const collectedAt = new Date();
     return [{
       source: "GITHUB_PUBLIC",
       sourceUrl: urlFor(record.html_url, endpoint.toString()),
-      detectedAt: Number.isNaN(created.getTime()) ? new Date() : created,
+      detectedAt: parsedPublicationAt ?? UNKNOWN_PUBLICATION_DATE,
+      publicationAt: parsedPublicationAt,
+      publicationDateStatus: parsedPublicationAt ? "VERIFIED" as const : "UNKNOWN" as const,
+      collectedAt,
       titleClaim: title,
       excerpt: typeof record.body === "string" ? record.body.slice(0, 2_000) : "",
       independenceKey: "github.com",
@@ -1352,8 +1425,9 @@ function queryVariants(category: DiscoveryCategory, query: string) {
 }
 
 function findingPassesFreshness(finding: DiscoveryFindingInput, now: Date) {
-  if (!Number.isFinite(finding.detectedAt.getTime())) return false;
-  const ageDays = (now.getTime() - finding.detectedAt.getTime()) / 86_400_000;
+  const publicationAt = verifiedPublicationAt(finding);
+  if (!publicationAt) return false;
+  const ageDays = (now.getTime() - publicationAt.getTime()) / 86_400_000;
   return ageDays <= MAX_FINDING_AGE_DAYS && ageDays >= -2;
 }
 
@@ -1370,7 +1444,7 @@ export function evaluateFinding(
   return {
     eligible: rejectionReasons.length === 0,
     relevanceScore: score,
-    freshnessScore: freshnessScore(finding.detectedAt, now),
+    freshnessScore: findingFreshnessScore(finding, now),
     rejectionReasons,
   };
 }
@@ -1780,7 +1854,7 @@ export async function researchCategory(input: {
       searchQueries,
       providerAttempts,
       relevanceScore: Number((finding.relevanceScore ?? 0).toFixed(4)),
-      freshnessScore: Number(freshnessScore(finding.detectedAt, now).toFixed(4)),
+      freshnessScore: Number(findingFreshnessScore(finding, now).toFixed(4)),
       candidateStatus: !reasons.length && Boolean(group && acceptedGroups.includes(group))
         ? "PASS" : "FAIL",
       rejectionReasons: reasons.length ? reasons : (group && acceptedGroups.includes(group)
@@ -1813,11 +1887,14 @@ export async function researchCategory(input: {
         source: finding.source,
         sourceUrl: finding.sourceUrl,
         detectedAt: finding.detectedAt,
+        publicationAt: finding.publicationAt ?? null,
+        publicationDateStatus: finding.publicationDateStatus ?? "UNKNOWN",
+        collectedAt: finding.collectedAt ?? new Date(),
         titleClaim: finding.titleClaim,
         excerpt: finding.excerpt,
         evidenceType: "SEARCH_EVIDENCE",
         independenceKey: finding.independenceKey,
-        freshnessScore: freshnessScore(finding.detectedAt, now),
+        freshnessScore: findingFreshnessScore(finding, now),
         fingerprint: foundFingerprint,
         raw: diagnosticRaw(finding, finding.diagnostic ?? {
           candidateFingerprint: foundFingerprint,
@@ -1825,7 +1902,7 @@ export async function researchCategory(input: {
           searchQueries,
           providerAttempts,
           relevanceScore: 0,
-          freshnessScore: freshnessScore(finding.detectedAt, now),
+          freshnessScore: findingFreshnessScore(finding, now),
           candidateStatus: "FAIL",
           rejectionReasons: ["NO_CORROBORATED_EVIDENCE"],
           independentSourceCount: 0,
@@ -1954,7 +2031,7 @@ export async function researchCategory(input: {
             opportunityId: opportunity.id,
             source: finding.source,
             url: finding.sourceUrl,
-            collectedAt: finding.detectedAt,
+            collectedAt: finding.collectedAt ?? new Date(),
             claim: finding.titleClaim,
             verificationStatus: "OBSERVED",
             contradictions: [],
@@ -1962,7 +2039,7 @@ export async function researchCategory(input: {
             proofType: "SEARCH_EVIDENCE",
             evidenceRef,
             independenceKey: finding.independenceKey,
-            freshnessScore: freshnessScore(finding.detectedAt, now),
+            freshnessScore: findingFreshnessScore(finding, now),
           }).onConflictDoNothing();
           void savedFinding;
         }
