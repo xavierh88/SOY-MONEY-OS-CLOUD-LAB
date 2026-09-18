@@ -164,7 +164,9 @@ for (const [stage, command, args] of NIGHT_QUEUE) {
     const blocker =
       output.match(/"readinessBlocker"\s*:\s*"([^"]+)"/)?.[1] || null;
 
-    if (!ready || blocker) {
+    if (blocker === "NO_CORROBORATED_RESEARCH_OPPORTUNITY_IN_SAME_LIFECYCLE") {
+      console.log("SAFE_OUTCOME=NO_VALID_OPPORTUNITY");
+    } else if (!ready || blocker) {
       result = {
         ...result,
         ok: false,
