@@ -202,7 +202,7 @@
 
 /* Console composition */
 .app-frame { min-height: 100dvh; display: flex; background: hsl(var(--background)); color: hsl(var(--foreground)); }
-.sidebar { width: 248px; min-height: 100dvh; flex: 0 0 248px; background: hsl(var(--sidebar)); color: hsl(var(--sidebar-foreground)); padding: 27px 17px 18px; display: flex; flex-direction: column; position: sticky; top: 0; align-self: flex-start; z-index: 20; }
+.sidebar { width: 248px; height: 100dvh; min-height: 100dvh; overflow-y: auto; flex: 0 0 248px; background: hsl(var(--sidebar)); color: hsl(var(--sidebar-foreground)); padding: 27px 17px 18px; display: flex; flex-direction: column; position: sticky; top: 0; align-self: flex-start; z-index: 20; }
 .brand-block { display: flex; align-items: center; gap: 11px; padding: 0 10px; }
 .brand-mark { width: 31px; height: 31px; position: relative; display: grid; place-items: center; color: hsl(var(--sidebar-primary-foreground)); background: hsl(var(--sidebar-primary)); font: 700 10px/1 var(--app-font-mono); letter-spacing: -.05em; }
 .brand-mark i { position: absolute; width: 7px; height: 7px; border: 2px solid hsl(var(--sidebar)); background: hsl(var(--sidebar-primary)); right: -4px; bottom: -4px; }
