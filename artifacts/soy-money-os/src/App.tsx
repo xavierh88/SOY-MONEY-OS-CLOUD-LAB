@@ -496,13 +496,124 @@ function DemandProofPage() {
 function ResultsPage() {
   const results = useListResults();
   const projects = useListProjects();
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const names = useMemo(() => new Map((projects.data || []).map((project) => [project.id, project.name])), [projects.data]);
-  return <div><PageHeader eyebrow="Retorno / 06" title="Resultados" description="Lo que ocurrió después de la hipótesis. El aprendizaje empieza cuando medimos el resultado." /><DataState loading={results.isLoading} error={!!results.error} empty={!results.isLoading && !results.data?.length} onRetry={() => void results.refetch()}><div className="results-list">{(results.data || []).map((result) => <div className="result-row" key={result.id} data-testid={`row-result-${result.id}`}><div className="result-status"><BarChart3 size={17} /></div><div className="result-main"><div><span className="record-id">RES-{String(result.id).padStart(3, '0')}</span><Badge value={result.status} small /></div><h3>{result.outcome}</h3><span>Proyecto: {names.get(result.projectId) || `#${result.projectId}`}</span></div><time>{formatDate(result.createdAt)}</time><ArrowRight size={16} /></div>)}</div></DataState></div>;
+
+  return <div>
+    <PageHeader eyebrow="Retorno / 06" title="Resultados" description="Lo que ocurrió después de la hipótesis. El aprendizaje empieza cuando medimos el resultado." />
+    <DataState loading={results.isLoading} error={!!results.error} empty={!results.isLoading && !results.data?.length} onRetry={() => void results.refetch()}>
+      <div className="results-list">
+        {(results.data || []).map((result) => {
+          const expanded = expandedId === result.id;
+          return <div
+            className="result-row"
+            key={result.id}
+            data-testid={`row-result-${result.id}`}
+            role="button"
+            tabIndex={0}
+            aria-expanded={expanded}
+            onClick={() => setExpandedId(expanded ? null : result.id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setExpandedId(expanded ? null : result.id);
+              }
+            }}
+          >
+            <div className="result-status"><BarChart3 size={17} /></div>
+            <div className="result-main">
+              <div><span className="record-id">RES-{String(result.id).padStart(3, '0')}</span><Badge value={result.status} small /></div>
+              <h3>{result.outcome}</h3>
+              <span>Proyecto: {names.get(result.projectId) || `#${result.projectId}`}</span>
+              {expanded && <div className="insight-expanded" data-testid={`detail-result-${result.id}`}>
+                <strong>Detalle del resultado</strong>
+                <p><b>Tipo:</b> {result.resultType}</p>
+                <p><b>Modo financiero:</b> {result.mode}</p>
+                <p><b>Ingresos:</b> {result.revenue}</p>
+                <p><b>Costo:</b> {result.cost ?? 0}</p>
+                <p><b>Beneficio:</b> {result.profit ?? 0}</p>
+                <p><b>Ingreso real verificado:</b> {result.realRevenue ? 'SÍ' : 'NO'}</p>
+                <p className="muted-text">Visualizar este registro no ejecuta acciones ni modifica evidencia o finanzas.</p>
+              </div>}
+            </div>
+            <time>{formatDate(result.createdAt)}</time>
+            <ArrowRight size={16} />
+          </div>;
+        })}
+      </div>
+    </DataState>
+  </div>;
 }
 
 function LearningPage() {
   const learning = useListLearning();
-  return <div><PageHeader eyebrow="Memoria del sistema / 07" title="Aprendizaje" description="Patrones que la operación devuelve al sistema para que la próxima decisión sea más precisa." action={<div className="header-stamp"><BookOpen size={15} /> Base de conocimiento</div>} /><DataState loading={learning.isLoading} error={!!learning.error} empty={!learning.isLoading && !learning.data?.length} onRetry={() => void learning.refetch()}><div className="insight-grid">{(learning.data || []).map((insight) => <article className="insight-card" key={insight.id} data-testid={`card-insight-${insight.id}`}><div className="insight-top"><span className="insight-index">0{insight.id}</span><Badge value={insight.status} small /></div><Sparkles size={19} className="insight-icon" /><h3>{insight.title}</h3><p>{insight.summary}</p><div className="insight-date">{formatDate(insight.createdAt)} <ArrowRight size={13} /></div></article>)}</div></DataState></div>;
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  return <div>
+    <PageHeader
+      eyebrow="Memoria del sistema / 07"
+      title="Aprendizaje"
+      description="Patrones que la operación devuelve al sistema para que la próxima decisión sea más precisa."
+      action={<div className="header-stamp"><BookOpen size={15} /> Base de conocimiento</div>}
+    />
+    <DataState
+      loading={learning.isLoading}
+      error={!!learning.error}
+      empty={!learning.isLoading && !learning.data?.length}
+      onRetry={() => void learning.refetch()}
+    >
+      <div className="insight-grid">
+        {(learning.data || []).map((insight) => {
+          const expanded = expandedId === insight.id;
+
+          return (
+            <article
+              className="insight-card"
+              key={insight.id}
+              data-testid={`card-insight-${insight.id}`}
+              role="button"
+              tabIndex={0}
+              aria-expanded={expanded}
+              onClick={() => setExpandedId(expanded ? null : insight.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setExpandedId(expanded ? null : insight.id);
+                }
+              }}
+            >
+              <div className="insight-top">
+                <span className="insight-index">0{insight.id}</span>
+                <Badge value={insight.status} small />
+              </div>
+              <Sparkles size={19} className="insight-icon" />
+              <h3>{insight.title}</h3>
+              <p>{insight.summary}</p>
+
+              {expanded && (
+                <div className="insight-expanded" data-testid={`detail-insight-${insight.id}`}>
+                  <strong>Detalle del aprendizaje</strong>
+                  <p><b>Registro:</b> #{insight.id}</p>
+                  <p><b>Proyecto relacionado:</b> {insight.projectId ? `#${insight.projectId}` : 'No asociado'}</p>
+                  <p><b>Estado:</b> {insight.status}</p>
+                  <p><b>Fecha:</b> {formatDate(insight.createdAt)}</p>
+                  <p className="muted-text">Este registro conserva su clasificación original; visualizarlo no ejecuta acciones ni modifica evidencia o finanzas.</p>
+                </div>
+              )}
+
+              <div className="insight-date">
+                {formatDate(insight.createdAt)}
+                <ArrowRight
+                  size={13}
+                  style={{ transform: expanded ? 'rotate(90deg)' : undefined }}
+                />
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </DataState>
+  </div>;
 }
 
 function ApprovalsPanel() {
