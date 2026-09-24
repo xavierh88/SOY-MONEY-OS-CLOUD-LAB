@@ -5,6 +5,7 @@ import {
   lifecycleEventsTable,
   marketCycleCandidatesTable,
   marketCyclesTable,
+  marketForwardPredictionsTable,
   outboxTable,
   opportunitiesTable,
 } from "@workspace/db";
@@ -132,6 +133,7 @@ export async function normalizeMarketCycleCandidates(
       marketCycleId: cycleId,
       recordKey: candidateKey(cycleId, sourceIndex),
       sourceIndex,
+      githubRunId: cycle.githubRunId ? String(cycle.githubRunId) : null,
       raw,
       symbol: stringValue(raw.symbol),
       gate: stringValue(raw.v2_gate) ?? stringValue(raw.gate),
@@ -153,6 +155,142 @@ export async function normalizeMarketCycleCandidates(
       .onConflictDoNothing({ target: marketCycleCandidatesTable.recordKey });
   }
   return rows;
+}
+
+/**
+ * Persist prospective PAPER predictions from safety-validated Market Lab
+ * candidates. Historical candidates without forward_snapshot are ignored.
+ *
+ * This function never evaluates outcomes and never executes real money.
+ */
+export async function persistMarketForwardPredictions(
+  cycleId: number,
+  executor: any = db,
+) {
+  const candidates = await executor
+    .select()
+    .from(marketCycleCandidatesTable)
+    .where(eq(marketCycleCandidatesTable.marketCycleId, cycleId));
+
+  const created = [];
+
+  for (const candidate of candidates) {
+    const raw = objectValue(candidate.raw);
+
+    const validation =
+      objectValue(candidate.validation)
+      ?? objectValue(raw?.validation);
+
+    const snapshot =
+      objectValue(raw?.forward_snapshot)
+      ?? objectValue(raw?.forwardSnapshot);
+
+    if (stringValue(validation?.gate) !== "PAPER_APPROVED") continue;
+    if (!snapshot) continue;
+
+    // Defense in depth: Forward Learning is PAPER-only.
+    if (
+      snapshot.financial_execution !== false
+      || snapshot.real_money_used !== false
+      || snapshot.real_verified !== false
+    ) continue;
+
+    const symbol =
+      stringValue(candidate.symbol)
+      ?? stringValue(raw?.symbol);
+
+    const direction =
+      stringValue(snapshot.signal_for_next_session)
+      ?? stringValue(snapshot.signalForNextSession);
+
+    const strategyKind =
+      stringValue(snapshot.strategy_kind)
+      ?? stringValue(snapshot.strategyKind)
+      ?? candidate.strategyKind;
+
+    const horizon =
+      stringValue(snapshot.horizon) ?? "NEXT_SESSION";
+
+    const dataAsOf =
+      dateValue(snapshot.data_as_of ?? snapshot.dataAsOf);
+
+    const referenceClose = Number(
+      snapshot.reference_close ?? snapshot.referenceClose,
+    );
+
+    const githubRunId = candidate.githubRunId
+      ? String(candidate.githubRunId)
+      : null;
+
+    if (!githubRunId) continue;
+    if (!symbol || !strategyKind || !dataAsOf) continue;
+    if (direction !== "LONG" && direction !== "FLAT") continue;
+    if (horizon !== "NEXT_SESSION") continue;
+    if (!Number.isFinite(referenceClose) || referenceClose <= 0) continue;
+
+    const params =
+      objectValue(candidate.bestParams)
+      ?? objectValue(raw?.best_params)
+      ?? objectValue(raw?.bestParams)
+      ?? {};
+
+    // One official prospective observation per symbol + market-data
+    // observation + horizon. Repeated intraday workflow runs must not inflate
+    // the forward-learning sample even if optimization chooses new parameters.
+    const predictionKey = createHash("sha256")
+      .update([
+        "PAPER_FORWARD_V1",
+        symbol,
+        dataAsOf.toISOString(),
+        horizon,
+      ].join("|"))
+      .digest("hex");
+
+    const [row] = await executor
+      .insert(marketForwardPredictionsTable)
+      .values({
+        marketCycleId: cycleId,
+        candidateId: candidate.id,
+        githubRunId,
+        symbol,
+        strategyKind,
+
+        predictionStatus: "PENDING",
+        predictionDirection: direction,
+        horizon,
+
+        predictedAt: new Date(),
+        dataAsOf,
+        predictionKey,
+
+        entryPrice: String(referenceClose),
+        strategyParams: params,
+
+        predictionMetadata: {
+          source: "MARKET_CYCLE_FORWARD_SNAPSHOT",
+          mode: "PAPER",
+          dataAsOf: dataAsOf.toISOString(),
+          signalValue:
+            snapshot.signal_value
+            ?? snapshot.signalValue
+            ?? null,
+          evidenceStatus:
+            "RESEARCH_SIMULATION_NOT_REAL_VERIFIED",
+        },
+
+        evaluationMetadata: {},
+
+        realMoneyUsed: false,
+        financialExecution: false,
+        realVerified: false,
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (row) created.push(row);
+  }
+
+  return created;
 }
 
 /**

@@ -21,7 +21,7 @@ import {
   listWorkflowRuns,
   type GitHubRun,
 } from "../lib/github-actions";
-import { appendLifecycleEvent, lifecycleKey, normalizeMarketCycleCandidates } from "../lib/lifecycle";
+import { appendLifecycleEvent, lifecycleKey, normalizeMarketCycleCandidates, persistMarketForwardPredictions } from "../lib/lifecycle";
 import { createDurableDispatch } from "../lib/durable-dispatch";
 import {
   type ArtifactSafetyValidation,
@@ -214,6 +214,11 @@ export async function syncCycle(id: number) {
       completedAt: new Date(run.updated_at),
     }).where(eq(marketCyclesTable.id, id)).returning();
     await normalizeMarketCycleCandidates(id);
+
+    // Only newly completed and safety-validated GitHub artifacts enter
+    // prospective PAPER Forward Learning. Historical normalization above
+    // intentionally does not call this function.
+    await persistMarketForwardPredictions(id);
     if (manualDispatch) {
       const completedRunId = String(cycle.githubRunId);
       const [completedDispatch] = await db.update(externalDispatchesTable).set({
