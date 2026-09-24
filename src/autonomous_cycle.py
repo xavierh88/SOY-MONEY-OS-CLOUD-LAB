@@ -38,6 +38,57 @@ def strat_returns(close,kind,fast,slow,cost_bps=0.0):
     return ret*sig.shift(1).fillna(0.0)-turnover*(cost_bps/10000.0)
 
 
+def forward_snapshot(close, p):
+    """Immutable PAPER snapshot for prospective next-session evaluation.
+
+    This does not evaluate the future outcome and does not execute money.
+    Signal semantics in V1 are LONG (1) or FLAT (0).
+    """
+    if close is None or len(close) == 0:
+        raise RuntimeError("FORWARD_SNAPSHOT_NO_DATA")
+
+    kind = p['kind']
+    fast = int(p['fast'])
+    slow = int(p['slow'])
+
+    if kind == 'momentum':
+        sig = (close.pct_change(fast) > 0).astype(float)
+    elif kind == 'mean_reversion':
+        ma = close.rolling(slow).mean()
+        sd = close.rolling(slow).std().replace(0, np.nan)
+        z = (close - ma) / sd
+        sig = (z < (-0.8 - fast / 120.0)).astype(float)
+    else:
+        sig = (
+            close.rolling(fast).mean()
+            > close.rolling(slow).mean()
+        ).astype(float)
+
+    last_signal = float(sig.iloc[-1])
+    last_price = float(close.iloc[-1])
+    last_index = close.index[-1]
+
+    if hasattr(last_index, 'isoformat'):
+        data_as_of = last_index.isoformat()
+    else:
+        data_as_of = str(last_index)
+
+    return {
+        'data_as_of': data_as_of,
+        'reference_close': last_price,
+        'signal_for_next_session': 'LONG' if last_signal > 0 else 'FLAT',
+        'signal_value': last_signal,
+        'strategy_kind': kind,
+        'fast': fast,
+        'slow': slow,
+        'horizon': 'NEXT_SESSION',
+        'mode': 'PAPER',
+        'financial_execution': False,
+        'real_money_used': False,
+        'real_verified': False,
+    }
+
+
 def metrics(r):
     eq=(1+r).cumprod(); peak=eq.cummax(); sd=float(r.std())
     return {
@@ -96,6 +147,7 @@ for symbol in SYMBOLS:
         close=load_prices(symbol)
         p,ins,oos,candidate=research(close)
         item={'symbol':symbol,'best_params':p,'in_sample':ins,'out_of_sample':oos,'v2_gate':'PAPER_CANDIDATE' if candidate else 'NO_VALID_OPPORTUNITY'}
+        item['forward_snapshot']=forward_snapshot(close,p)
         if candidate:
             item['validation']=validate(close,p)
         else:
