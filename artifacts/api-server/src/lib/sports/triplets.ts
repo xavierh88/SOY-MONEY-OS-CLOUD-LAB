@@ -1,10 +1,11 @@
 import { getSportsEvents } from "./provider";
+import { saveSportsTriplet } from "./storage";
 import type { SportsTriplet } from "./types";
 
 export async function generateSportsTriplet(): Promise<SportsTriplet> {
   const events = await getSportsEvents();
 
-  return {
+  const triplet = {
     createdAt: new Date().toISOString(),
     selections: events.slice(0, 3).map((event) => ({
       eventId: event.id,
@@ -12,4 +13,8 @@ export async function generateSportsTriplet(): Promise<SportsTriplet> {
       pick: event.homeTeam,
     })),
   };
+
+  await saveSportsTriplet(triplet);
+
+  return triplet;
 }

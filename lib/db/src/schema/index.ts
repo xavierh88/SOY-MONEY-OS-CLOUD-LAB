@@ -32,3 +32,5 @@ export * from "./discovery";
 export * from "./p1-operations";
 
 export * from "./market-forward-learning";
+
+export * from "./sports-predictions";
