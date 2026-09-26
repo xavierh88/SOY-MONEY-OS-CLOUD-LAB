@@ -1,0 +1,26 @@
+name: Sports PAPER Triplets
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 * * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  sports-paper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate PAPER sports triplets
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          node scripts/sports-paper-triplets.mjs | tee sports-paper-triplets.json
+      - name: Upload PAPER results
+        uses: actions/upload-artifact@v4
+        with:
+          name: sports-paper-triplets
+          path: sports-paper-triplets.json
+          retention-days: 7
