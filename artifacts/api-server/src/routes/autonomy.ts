@@ -49,6 +49,7 @@ import {
   DISCOVERY_CATEGORIES,
   MONEY_LAB_CATEGORIES,
   RESEARCH_ONLY_CATEGORIES,
+  researchCategory as runDiscoveryResearch,
 } from "../lib/discovery-research";
 import { lifecycleKey } from "../lib/lifecycle";
 import {
@@ -270,11 +271,40 @@ export async function runSafeAutonomousCycleWithClaim(
       }
     }
   }
-  const selected = laneBlocked ? undefined : corroborated[0];
-  if (!selected) {
-    const completed = await db.transaction((tx) => completeNoValidOpportunity(tx, cycle.id));
-    return { cycle: completed, claimed: true };
-  }
+    let selected = laneBlocked ? undefined : corroborated[0];
+
+    if (!selected && researchCategory && !laneBlocked) {
+      await runDiscoveryResearch({
+        category,
+        query: `Find fresh, legal, evidence-backed ${category} opportunities suitable for autonomous evaluation`,
+        idempotencyKey: `autonomy-discovery:${cycle.id}:${category}`,
+      });
+
+      const refreshed = (await db.select().from(opportunitiesTable)
+        .orderBy(desc(opportunitiesTable.updatedAt)).limit(100))
+        .filter((opportunity) =>
+          activeOpportunity(opportunity, new Date())
+          && opportunity.category === category
+          && opportunity.proofStatus !== "TEST_SIMULATION"
+          && opportunity.researchStatus === "CORROBORATED"
+        );
+
+      for (const opportunity of deduplicateOpportunities(refreshed)) {
+        const sources = await db.select({ source: evidenceTable.independenceKey })
+          .from(evidenceTable)
+          .where(eq(evidenceTable.opportunityId, opportunity.id));
+
+        if (new Set(sources.map((row) => row.source).filter(Boolean)).size >= 2) {
+          selected = opportunity;
+          break;
+        }
+      }
+    }
+
+    if (!selected) {
+      const completed = await db.transaction((tx) => completeNoValidOpportunity(tx, cycle.id));
+      return { cycle: completed, claimed: true };
+    }
   const scored = await candidate(selected);
   const recorded = await db.transaction(async (tx) => {
     const project = await ensureCycleProject(tx, {
