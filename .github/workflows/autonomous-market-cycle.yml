@@ -23,6 +23,10 @@ on:
         description: 'Trading cost/slippage assumption in bps'
         required: false
         default: '10'
+      pending_predictions:
+        description: 'JSON PAPER forward predictions awaiting next-session evaluation'
+        required: false
+        default: '[]'
   schedule:
     - cron: '0 13 * * *'
     - cron: '0 17 * * *'
@@ -59,6 +63,7 @@ jobs:
           SOY_SYMBOLS: ${{ inputs.symbols || 'SPY,QQQ,IWM,DIA,TLT,GLD,BTC-USD,ETH-USD,SOL-USD,EURUSD=X,GBPUSD=X' }}
           SOY_MC_RUNS: ${{ inputs.monte_carlo_runs || '500' }}
           SOY_COST_BPS: ${{ inputs.cost_bps || '10' }}
+          SOY_PENDING_PREDICTIONS: ${{ inputs.pending_predictions || '[]' }}
           SOY_SEED: '42'
         run: python src/autonomous_cycle.py
       - name: Stamp exact run correlation
