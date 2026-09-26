@@ -118,7 +118,10 @@ async function persistRemoteRun(run: GitHubRun, source: "MANUAL" | "SCHEDULED") 
   return concurrent;
 }
 
-export async function syncCycle(id: number) {
+export async function syncCycle(
+  id: number,
+  options: { allowRecovery?: boolean } = {},
+) {
   let [cycle] = await db.select().from(marketCyclesTable).where(eq(marketCyclesTable.id, id));
   let manualDispatch: typeof externalDispatchesTable.$inferSelect | undefined;
   const needsCompletedArtifact = cycle?.status === "COMPLETED" && cycle.result === null;
@@ -131,7 +134,16 @@ export async function syncCycle(id: number) {
     }
     return cycle;
   }
-  if (!activeStatuses.includes(cycle.status as typeof activeStatuses[number]) && !needsCompletedArtifact) {
+  const recoverableFailedArtifact =
+    options.allowRecovery === true &&
+    cycle.status === "FAILED" &&
+    cycle.result === null;
+
+  if (
+    !activeStatuses.includes(cycle.status as typeof activeStatuses[number]) &&
+    !needsCompletedArtifact &&
+    !recoverableFailedArtifact
+  ) {
     return cycle;
   }
   try {
@@ -307,9 +319,19 @@ export async function syncCycle(id: number) {
 
 export async function registerScheduledRuns() {
   if (!isGitHubConfigured()) return;
-  const scheduled = await listWorkflowRuns("schedule");
+
+  const [scheduled, manual] = await Promise.all([
+    listWorkflowRuns("schedule"),
+    listWorkflowRuns("workflow_dispatch"),
+  ]);
+
   for (const run of scheduled.slice(0, 10)) {
     const cycle = await persistRemoteRun(run, "SCHEDULED");
+    if (cycle?.status === "COMPLETED" && cycle.result === null) await syncCycle(cycle.id);
+  }
+
+  for (const run of manual.slice(0, 10)) {
+    const cycle = await persistRemoteRun(run, "MANUAL");
     if (cycle?.status === "COMPLETED" && cycle.result === null) await syncCycle(cycle.id);
   }
 }
