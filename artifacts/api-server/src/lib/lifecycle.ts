@@ -361,3 +361,143 @@ export async function finalizeExpiredOpportunities(limit = 100) {
 export function deterministicHash(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
+
+/**
+ * Persist PAPER next-session evaluations produced by Cloud Lab.
+ *
+ * Original prediction fields are immutable here. Only rows still PENDING
+ * can transition to EVALUATED, making ingestion idempotent.
+ */
+export async function persistMarketForwardEvaluations(
+  result: unknown,
+  executor: any = db,
+) {
+  const root = objectValue(result);
+  const evaluations = Array.isArray(root?.forward_evaluations)
+    ? root.forward_evaluations
+    : [];
+
+  const updated = [];
+
+  for (const value of evaluations) {
+    const evaluation = objectValue(value);
+    if (!evaluation) continue;
+
+    // Defense in depth: never ingest a result that claims real execution.
+    if (
+      evaluation.real_money_used !== false
+      || evaluation.financial_execution !== false
+      || evaluation.real_verified !== false
+    ) {
+      continue;
+    }
+
+    const predictionId = Number(evaluation.prediction_id);
+    const symbol =
+      typeof evaluation.symbol === "string"
+        ? evaluation.symbol.trim()
+        : "";
+
+    const horizon =
+      typeof evaluation.horizon === "string"
+        ? evaluation.horizon.trim().toUpperCase()
+        : "";
+
+    const direction =
+      typeof evaluation.prediction_direction === "string"
+        ? evaluation.prediction_direction.trim().toUpperCase()
+        : "";
+
+    const outcome =
+      typeof evaluation.outcome === "string"
+        ? evaluation.outcome.trim().toUpperCase()
+        : "";
+
+    const evaluationPrice = Number(evaluation.evaluation_price);
+    const paperReturn = Number(evaluation.paper_return);
+    const marketReturn = Number(evaluation.market_return);
+
+    const evaluationDataAsOf =
+      typeof evaluation.evaluation_data_as_of === "string"
+        ? new Date(evaluation.evaluation_data_as_of)
+        : null;
+
+    if (
+      !Number.isInteger(predictionId)
+      || predictionId <= 0
+      || !symbol
+      || horizon !== "NEXT_SESSION"
+      || !["LONG", "FLAT"].includes(direction)
+      || !["HIT", "MISS", "NEUTRAL", "INVALID"].includes(outcome)
+      || !Number.isFinite(evaluationPrice)
+      || evaluationPrice <= 0
+      || !Number.isFinite(paperReturn)
+      || !Number.isFinite(marketReturn)
+      || !evaluationDataAsOf
+      || Number.isNaN(evaluationDataAsOf.getTime())
+    ) {
+      continue;
+    }
+
+    const [prediction] = await executor
+      .select()
+      .from(marketForwardPredictionsTable)
+      .where(and(
+        eq(marketForwardPredictionsTable.id, predictionId),
+        eq(marketForwardPredictionsTable.predictionStatus, "PENDING"),
+      ))
+      .limit(1);
+
+    if (!prediction) continue;
+
+    // Correlation guard: artifact must describe the exact immutable record.
+    if (
+      prediction.symbol !== symbol
+      || prediction.horizon !== horizon
+      || prediction.predictionDirection !== direction
+      || prediction.realMoneyUsed
+      || prediction.financialExecution
+      || prediction.realVerified
+      || evaluationDataAsOf.getTime() <= prediction.dataAsOf.getTime()
+    ) {
+      continue;
+    }
+
+    // FLAT represents no PAPER exposure and cannot manufacture a HIT/MISS.
+    if (direction === "FLAT" && (outcome !== "NEUTRAL" || paperReturn !== 0)) {
+      continue;
+    }
+
+    const now = new Date();
+
+    const [row] = await executor
+      .update(marketForwardPredictionsTable)
+      .set({
+        predictionStatus: "EVALUATED",
+        evaluationPrice: String(evaluationPrice),
+        evaluatedAt: now,
+        outcome,
+        paperReturn: String(paperReturn),
+        evaluationMetadata: {
+          source: "CLOUD_LAB_NEXT_SESSION",
+          mode: "PAPER",
+          evaluationDataAsOf: evaluationDataAsOf.toISOString(),
+          marketReturn,
+          evidenceStatus: "RESEARCH_SIMULATION_NOT_REAL_VERIFIED",
+        },
+        realMoneyUsed: false,
+        financialExecution: false,
+        realVerified: false,
+        updatedAt: now,
+      })
+      .where(and(
+        eq(marketForwardPredictionsTable.id, prediction.id),
+        eq(marketForwardPredictionsTable.predictionStatus, "PENDING"),
+      ))
+      .returning();
+
+    if (row) updated.push(row);
+  }
+
+  return updated;
+}

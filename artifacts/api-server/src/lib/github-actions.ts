@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+import { db, marketForwardPredictionsTable } from "@workspace/db";
 import { inflateRawSync } from "node:zlib";
 
 export type GitHubRun = {
@@ -95,9 +97,43 @@ const workflowPath = () => {
 
 export async function dispatchMarketCycle(dispatchId: string): Promise<Date> {
   const dispatchedAt = new Date();
+
+  // Send only immutable PAPER predictions that are still awaiting
+  // next-session evaluation. Cloud Lab uses the same yfinance source
+  // that created the original forward snapshot.
+  const pendingRows = await db
+    .select()
+    .from(marketForwardPredictionsTable)
+    .where(eq(marketForwardPredictionsTable.predictionStatus, "PENDING"));
+
+  const pendingPredictions = pendingRows
+    .filter((row) =>
+      row.dataAsOf !== null
+      && row.entryPrice !== null
+      && row.predictionDirection !== null
+      && row.realMoneyUsed === false
+      && row.financialExecution === false
+      && row.realVerified === false
+    )
+    .map((row) => ({
+      id: row.id,
+      prediction_key: row.predictionKey,
+      symbol: row.symbol,
+      data_as_of: row.dataAsOf!.toISOString(),
+      entry_price: row.entryPrice!,
+      prediction_direction: row.predictionDirection!,
+      horizon: row.horizon,
+      real_money_used: false,
+      financial_execution: false,
+      real_verified: false,
+    }));
+
   const body: Record<string, unknown> = {
     ref: "main",
-    inputs: { dispatch_id: dispatchId },
+    inputs: {
+      dispatch_id: dispatchId,
+      pending_predictions: JSON.stringify(pendingPredictions),
+    },
   };
   const response = await githubRequest(`${workflowPath()}/dispatches`, {
     method: "POST",
