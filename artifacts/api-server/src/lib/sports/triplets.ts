@@ -1,3 +1,4 @@
+import { getSportsLearning } from "./learning";
 import { fetchSportsOdds } from "./odds";
 import { db } from "@workspace/db";
 import { sportsPredictionsTable } from "@workspace/db/schema";
@@ -45,7 +46,23 @@ export async function generateSportsTriplet(): Promise<SportsTriplet> {
 
   // Baseline PAPER: preferir menor cuota no equivale
   // a demostrar que una estrategia es rentable.
-  unique.sort((a, b) => a.decimalOdds - b.decimalOdds);
+  const learning = await getSportsLearning();
+  const learnedRates = new Map(
+    learning
+      .filter(x => x.enoughEvidence && x.hitRate !== null)
+      .map(x => [x.sport, x.hitRate!])
+  );
+
+  unique.sort((a, b) => {
+    const aRate = learnedRates.get(a.sport);
+    const bRate = learnedRates.get(b.sport);
+
+    if (aRate !== undefined && bRate !== undefined) {
+      if (aRate !== bRate) return bRate - aRate;
+    }
+
+    return a.decimalOdds - b.decimalOdds;
+  });
 
   if (unique.length < 3) {
     throw new Error("Not enough eligible events with real odds");
