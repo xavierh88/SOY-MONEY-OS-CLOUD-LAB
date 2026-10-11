@@ -1,3 +1,4 @@
+import { startSportsScheduler } from "./lib/sports/scheduler";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startAutonomyScheduler } from "./lib/autonomy-scheduler";
@@ -29,6 +30,7 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   startAutonomyScheduler();
+  startSportsScheduler();
   launchExpirationFinalizer();
   launchResumePendingWorker();
   launchExternalDurabilityWorkers();

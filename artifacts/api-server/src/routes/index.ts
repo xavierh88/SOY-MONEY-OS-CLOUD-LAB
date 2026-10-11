@@ -7,6 +7,7 @@ import moneyLabRouter from "./money-lab";
 import autonomyRouter from "./autonomy";
 import controlTowerRouter from "./control-tower";
 import { requireOwner } from "../middlewares/require-owner";
+import sportsHistoryRouter from "./sports-history";
 import serviceCallbacksRouter from "./service-callbacks";
 import discoveryRouter from "./discovery";
 import p1OperationsRouter from "./p1-operations";
@@ -19,6 +20,7 @@ router.use(healthRouter);
 // timestamp, dispatch and replay validation.
 router.use(serviceCallbacksRouter);
 router.use(requireOwner);
+router.use(sportsHistoryRouter);
 router.use(p1OperationsRouter);
 router.use(projectExecutionRouter);
 router.use(soyMoneyRouter);

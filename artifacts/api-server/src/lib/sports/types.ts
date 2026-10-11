@@ -11,6 +11,12 @@ export type SportsTriplet = {
   selections: {
     eventId: string;
     sport: string;
+    homeTeam: string;
+    awayTeam: string;
+    commenceTime: string;
     pick: string;
+    decimalOdds?: number;
+    bookmaker?: string;
+    capturedAt?: string;
   }[];
 };
