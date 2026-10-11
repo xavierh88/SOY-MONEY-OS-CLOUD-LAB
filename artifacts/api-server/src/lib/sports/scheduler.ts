@@ -7,82 +7,79 @@ import { evaluateSportsResults } from "./results";
 let started = false;
 let running = false;
 
-const INTERVAL = 60 * 60 * 1000;
-const GENERATION_HOUR_UTC = 12;
-
-async function sportsCycle() {
+async function runSportsCycle() {
   if (running) return;
   running = true;
 
-  const client = await pool.connect();
-  let locked = false;
+  let client;
 
   try {
-    const response = await client.query(
-      "SELECT pg_try_advisory_lock($1, $2) AS locked",
+    client = await pool.connect();
+
+    const lock = await client.query(
+      "SELECT pg_try_advisory_lock($1,$2) AS locked",
       [2026, 1011]
     );
 
-    locked = response.rows[0]?.locked === true;
+    if (lock.rows[0]?.locked !== true) return;
 
-    if (!locked) return;
+    try {
+      const results = await evaluateSportsResults();
+      console.log("[SPORTS] Results:", results);
 
-    const evaluation = await evaluateSportsResults();
-    console.log("[SPORTS] Evaluation:", evaluation);
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
 
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-
-    const existing = await db.select({
-      id: sportsPredictionsTable.id,
-    })
+      const existing = await db.select({
+        id: sportsPredictionsTable.id
+      })
       .from(sportsPredictionsTable)
       .where(gte(sportsPredictionsTable.createdAt, today))
       .limit(1);
 
-    if (existing.length) {
-      console.log("[SPORTS] Daily triplet exists");
-      return;
-    }
+      if (existing.length) {
+        console.log("[SPORTS] Daily triplet exists");
+        return;
+      }
 
-    if (new Date().getUTCHours() < GENERATION_HOUR_UTC) return;
-    const triplet = await generateSportsTriplet();
+      if (new Date().getUTCHours() < 12) return;
 
-    console.log(
-      "[SPORTS] Triplet generated:",
-      triplet.selections.length
-    );
-  } catch (error) {
-    console.error("[SPORTS] Cycle error:", error);
-  } finally {
-    if (locked) {
+      const triplet = await generateSportsTriplet();
+
+      console.log(
+        "[SPORTS] Generated:",
+        triplet.selections.length
+      );
+    } finally {
       await client.query(
-        "SELECT pg_advisory_unlock($1, $2)",
+        "SELECT pg_advisory_unlock($1,$2)",
         [2026, 1011]
       );
     }
-    client.release();
+  } catch (error) {
+    console.error("[SPORTS] Error:", error);
+  } finally {
+    client?.release();
     running = false;
   }
 }
 
 export function startSportsScheduler() {
   if (process.env.SPORTS_PAPER_AUTOMATION !== "true") {
-    console.log("[SPORTS] PAPER automation disabled");
+    console.log("[SPORTS] Automation disabled");
     return;
   }
 
   if (started) return;
   started = true;
 
+  void runSportsCycle();
+
   const timer = setInterval(() => {
-    void sportsCycle();
-  }, INTERVAL);
+    void runSportsCycle();
+  }, 60 * 60 * 1000);
 
   timer.unref();
 
-  // Primera revisión al arrancar.
-  void sportsCycle();
-
-  console.log("[SPORTS] PAPER automation enabled");
+  console.log("[SPORTS] PAPER scheduler active");
 }
