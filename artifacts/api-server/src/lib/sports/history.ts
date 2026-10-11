@@ -75,9 +75,32 @@ export async function getSportsHistory() {
     };
   });
 
+  const completed = triplets.filter(t =>
+    t.complete && t.status !== "PENDING"
+  );
+
+  const winning = completed.filter(t => t.status === "HIT");
+  const losing = completed.filter(t => t.status === "MISS");
+  const pushed = completed.filter(t => t.status === "PUSH");
+
+  const decided = winning.length + losing.length;
+
+  const tripletMetrics = {
+    total: triplets.length,
+    completed: completed.length,
+    pending: triplets.length - completed.length,
+    hits: winning.length,
+    misses: losing.length,
+    pushes: pushed.length,
+    hitRate: decided > 0
+      ? Number((winning.length * 100 / decided).toFixed(2))
+      : null,
+  };
+
   return {
     mode: "PAPER",
     metrics: await getSportsMetrics(),
+    tripletMetrics,
     triplets,
   };
 }
