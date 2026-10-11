@@ -1,3 +1,4 @@
+import SportsPaperPage from "./pages/SportsPaperPage";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ClerkProvider, Show, SignIn, SignUp, useClerk } from '@clerk/react';
@@ -106,6 +107,7 @@ const navGroups = [
     label: 'Operación',
     items: [
       { href: '/user-portal', label: 'Vista ejecutiva', icon: LayoutDashboard },
+      { href: '/sports-paper', label: 'SOY Sports', icon: LayoutDashboard },
       { href: '/torre-control', label: 'Torre de control', icon: Radar },
       { href: '/autonomia', label: 'Motor Autónomo', icon: Sparkles },
       { href: '/acciones', label: 'Cola Humana', icon: ShieldCheck },
@@ -1089,7 +1091,7 @@ function SettingsPage() {
 }
 
 function ExistingAppRouter({ ownerName, onSignOut }: { ownerName?: string; onSignOut?: () => void | Promise<void> }) {
-  return <Shell ownerName={ownerName} onSignOut={onSignOut}><ErrorBoundary resetKey={window.location.pathname}><Switch><Route path="/user-portal" component={DashboardPage} /><Route path="/torre-control" component={TorreControlPage} /><Route path="/oportunidades" component={OpportunitiesPage} /><Route path="/oportunidades/:id" component={OportunidadDetailPage} /><Route path="/evidencia" component={EvidenciaPage} /><Route path="/demand-proof" component={DemandProofPage} /><Route path="/proyectos" component={ProyectosPage} /><Route path="/proyectos/:id" component={ProyectoDetailPage} /><Route path="/ejecucion" component={EjecucionPage} /><Route path="/resultados" component={ResultsPage} /><Route path="/aprendizaje" component={LearningPage} /><Route path="/money-lab" component={MoneyLabPage} /><Route path="/autonomia" component={AutonomiaPage} /><Route path="/acciones" component={AccionesPage} /><Route path="/finanzas" component={FinanzasPage} /><Route path="/configuracion" component={SettingsPage} /><Route component={NotFound} /></Switch></ErrorBoundary></Shell>;
+  return <Shell ownerName={ownerName} onSignOut={onSignOut}><ErrorBoundary resetKey={window.location.pathname}><Switch><Route path="/user-portal" component={DashboardPage} /><Route path="/torre-control" component={TorreControlPage} /><Route path="/oportunidades" component={OpportunitiesPage} /><Route path="/oportunidades/:id" component={OportunidadDetailPage} /><Route path="/evidencia" component={EvidenciaPage} /><Route path="/demand-proof" component={DemandProofPage} /><Route path="/proyectos" component={ProyectosPage} /><Route path="/proyectos/:id" component={ProyectoDetailPage} /><Route path="/ejecucion" component={EjecucionPage} /><Route path="/resultados" component={ResultsPage} /><Route path="/aprendizaje" component={LearningPage} /><Route path="/money-lab" component={MoneyLabPage} /><Route path="/sports-paper" component={SportsPaperPage} /><Route path="/autonomia" component={AutonomiaPage} /><Route path="/acciones" component={AccionesPage} /><Route path="/finanzas" component={FinanzasPage} /><Route path="/configuracion" component={SettingsPage} /><Route component={NotFound} /></Switch></ErrorBoundary></Shell>;
 }
 
 const clerkPubKey = publishableKeyFromHost(
