@@ -64,7 +64,9 @@ export async function getSportsHistory() {
       createdAt: items[0].createdAt,
       complete,
       combinedOdds,
-      status: selections.some(s => s.status === "PENDING")
+      status: selections.some(s => s.status === "INCOMPLETE")
+        ? "INCOMPLETE"
+        : selections.some(s => s.status === "PENDING")
         ? "PENDING"
         : selections.every(s => s.status === "HIT")
           ? "HIT"
@@ -76,7 +78,7 @@ export async function getSportsHistory() {
   });
 
   const completed = triplets.filter(t =>
-    t.complete && t.status !== "PENDING"
+    t.complete && !["PENDING", "INCOMPLETE"].includes(t.status)
   );
 
   const winning = completed.filter(t => t.status === "HIT");
