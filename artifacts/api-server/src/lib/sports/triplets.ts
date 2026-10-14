@@ -68,7 +68,34 @@ export async function generateSportsTriplet(): Promise<SportsTriplet> {
     throw new Error("Not enough eligible events with real odds");
   }
 
-  const selected = unique.slice(0, 3);
+  // PAPER: priorizar partidos cercanos para evaluar resultados pronto.
+  // No seleccionar encuentros a más de 72 horas.
+  const windows = [24, 48, 72];
+  let selected = unique.filter(event => {
+    const kickoff = Date.parse(event.commenceTime);
+    return Number.isFinite(kickoff) &&
+      kickoff > now &&
+      kickoff <= now + 24 * 60 * 60 * 1000;
+  });
+
+  for (const hours of windows.slice(1)) {
+    if (selected.length >= 3) break;
+
+    selected = unique.filter(event => {
+      const kickoff = Date.parse(event.commenceTime);
+      return Number.isFinite(kickoff) &&
+        kickoff > now &&
+        kickoff <= now + hours * 60 * 60 * 1000;
+    });
+  }
+
+  if (selected.length < 3) {
+    throw new Error(
+      "Not enough real sporting events within the next 72 hours"
+    );
+  }
+
+  selected = selected.slice(0, 3);
 
   const triplet: SportsTriplet = {
     createdAt: new Date().toISOString(),
